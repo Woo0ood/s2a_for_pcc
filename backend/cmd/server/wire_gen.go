@@ -241,7 +241,17 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)
 	userMessageQueueService := service.ProvideUserMessageQueueService(userMsgQueueCache, rpmCache, configConfig)
 	gatewayHandler := handler.NewGatewayHandler(gatewayService, geminiMessagesCompatService, antigravityGatewayService, userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool, errorPassthroughService, contentModerationService, userMessageQueueService, configConfig, settingService)
-	openAIGatewayHandler := handler.NewOpenAIGatewayHandler(openAIGatewayService, concurrencyService, billingCacheService, apiKeyService, usageRecordWorkerPool, errorPassthroughService, contentModerationService, configConfig)
+	payloadAuditRepo := repository.NewPayloadAuditRepo(db)
+	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditRepo)
+	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient)
+	if err != nil {
+		return nil, err
+	}
+	payloadAuditRedisBuffer := service.NewPayloadAuditRedisBuffer(redisClient)
+	payloadAuditPartitionMaintainerAdapter := repository.NewPayloadAuditPartitionMaintainerAdapter(payloadAuditRepo)
+	payloadAuditPartitionMaintainer := service.NewPayloadAuditPartitionMaintainer(payloadAuditPartitionMaintainerAdapter)
+	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, payloadAuditPartitionMaintainer)
+	openAIGatewayHandler := handler.NewOpenAIGatewayHandler(openAIGatewayService, concurrencyService, billingCacheService, apiKeyService, usageRecordWorkerPool, errorPassthroughService, contentModerationService, payloadAuditService, payloadAuditSink, configConfig)
 	handlerSettingHandler := handler.ProvideSettingHandler(settingService, buildInfo)
 	totpHandler := handler.NewTotpHandler(totpService)
 	handlerPaymentHandler := handler.NewPaymentHandler(paymentService, paymentConfigService, channelService)
@@ -266,16 +276,6 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	payloadAuditRepo := repository.NewPayloadAuditRepo(db)
-	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditRepo)
-	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient)
-	if err != nil {
-		return nil, err
-	}
-	payloadAuditRedisBuffer := service.NewPayloadAuditRedisBuffer(redisClient)
-	payloadAuditPartitionMaintainerAdapter := repository.NewPayloadAuditPartitionMaintainerAdapter(payloadAuditRepo)
-	payloadAuditPartitionMaintainer := service.NewPayloadAuditPartitionMaintainer(payloadAuditPartitionMaintainerAdapter)
-	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, payloadAuditPartitionMaintainer)
 	payloadAuditCleanupAdapter := repository.NewPayloadAuditCleanupAdapter(payloadAuditRepo)
 	payloadAuditCleanup := service.NewPayloadAuditCleanup(payloadAuditCleanupAdapter, payloadAuditService)
 	payloadAuditCronService := service.ProvidePayloadAuditCronService(payloadAuditPartitionMaintainer, payloadAuditCleanup)

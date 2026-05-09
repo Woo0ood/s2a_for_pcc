@@ -383,6 +383,15 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 
 	chatResp := apicompat.ResponsesToChatCompletions(finalResponse, originalModel)
 
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if respJSON, jerr := json.Marshal(chatResp); jerr == nil {
+			if text := extractChatCompletionsOutputText(respJSON); text != "" {
+				auditColl.AppendOutput(text)
+			}
+		}
+	}
+
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}
@@ -429,6 +438,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 	var firstTokenMs *int
 	firstChunk := true
 	clientDisconnected := false
+	auditColl := GetPayloadAuditCollector(c)
 
 	scanner := bufio.NewScanner(resp.Body)
 	maxLineSize := defaultMaxLineSize
@@ -478,6 +488,13 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 				zap.String("request_id", requestID),
 			)
 			return false
+		}
+
+		// Payload audit: extract output text from each Responses event
+		if auditColl != nil {
+			if delta := ExtractOpenAIResponsesEventText(event.Type, []byte(payload)); delta != "" {
+				auditColl.AppendOutput(delta)
+			}
 		}
 
 		// 仅按兼容转换器支持的终止事件提取 usage，避免无意扩大事件语义。
@@ -681,6 +698,27 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 			c.Writer.Flush()
 		}
 	}
+}
+
+// extractChatCompletionsOutputText extracts assistant content text from a
+// marshaled Chat Completions response JSON. Used for non-stream audit capture.
+func extractChatCompletionsOutputText(respJSON []byte) string {
+	var b strings.Builder
+	choices := gjson.GetBytes(respJSON, "choices")
+	if !choices.Exists() || !choices.IsArray() {
+		return ""
+	}
+	for _, choice := range choices.Array() {
+		if content := choice.Get("message.content"); content.Exists() && content.Type == gjson.String {
+			b.WriteString(content.String())
+		}
+		if reasoning := choice.Get("message.reasoning_content"); reasoning.Exists() && reasoning.Type == gjson.String {
+			if reasoning.String() != "" {
+				b.WriteString(fmt.Sprintf("[reasoning: %s]", reasoning.String()))
+			}
+		}
+	}
+	return b.String()
 }
 
 // writeChatCompletionsError writes an error response in OpenAI Chat Completions format.

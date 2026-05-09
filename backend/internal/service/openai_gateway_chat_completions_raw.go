@@ -262,6 +262,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	var usage OpenAIUsage
 	var firstTokenMs *int
 	clientDisconnected := false
+	auditColl := GetPayloadAuditCollector(c)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -275,6 +276,12 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 				if firstTokenMs == nil && !usageOnlyChunk {
 					elapsed := int(time.Since(startTime).Milliseconds())
 					firstTokenMs = &elapsed
+				}
+				// Payload audit: extract delta text from CC stream chunk
+				if auditColl != nil {
+					if delta := ExtractOpenAIChatDeltaText([]byte(payload)); delta != "" {
+						auditColl.AppendOutput(delta)
+					}
 				}
 			}
 		}
@@ -391,6 +398,13 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 		}
 		if ccResp.Usage.PromptTokensDetails != nil {
 			usage.CacheReadInputTokens = ccResp.Usage.PromptTokensDetails.CachedTokens
+		}
+	}
+
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractChatCompletionsOutputText(respBody); text != "" {
+			auditColl.AppendOutput(text)
 		}
 	}
 

@@ -6,6 +6,25 @@ import (
 	"time"
 )
 
+// PayloadAuditCollectorCtxKey is the gin context key used to pass the
+// collector from the handler layer to the service layer without changing
+// function signatures.
+const PayloadAuditCollectorCtxKey = "payload_audit_collector"
+
+// GetPayloadAuditCollector retrieves the collector from gin.Context.
+// Returns nil if absent or disabled.
+func GetPayloadAuditCollector(c interface{ Get(string) (any, bool) }) *PayloadAuditCollector {
+	v, ok := c.Get(PayloadAuditCollectorCtxKey)
+	if !ok {
+		return nil
+	}
+	coll, _ := v.(*PayloadAuditCollector)
+	if coll == nil || !coll.Enabled() {
+		return nil
+	}
+	return coll
+}
+
 // PayloadAuditEvent is the service-layer representation of an audit event.
 // It mirrors repository.PayloadAuditEvent; the sink layer converts between the two.
 type PayloadAuditEvent struct {

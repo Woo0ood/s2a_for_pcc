@@ -54,3 +54,11 @@ func FinalizePayloadAudit(coll *service.PayloadAuditCollector, sink *service.Pay
 		sink.TryEnqueue(evt)
 	}
 }
+
+// int64PtrIfPositive returns a pointer to v if v > 0, otherwise nil.
+func int64PtrIfPositive(v int64) *int64 {
+	if v > 0 {
+		return &v
+	}
+	return nil
+}
