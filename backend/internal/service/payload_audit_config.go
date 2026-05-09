@@ -1,11 +1,15 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/util/audittoken"
 )
+
+// ErrInvalidPayloadAuditConfig is returned when payload audit config fails validation.
+var ErrInvalidPayloadAuditConfig = errors.New("invalid payload audit config")
 
 // PayloadAuditExportKey represents an API key for the payload audit export endpoint.
 type PayloadAuditExportKey struct {
@@ -81,19 +85,19 @@ func (s *ConfigSnapshot) FindExportKey(token string) *PayloadAuditExportKey {
 // Some fields are silently defaulted instead of rejected.
 func validatePayloadAuditConfig(cfg *PayloadAuditConfig) error {
 	if cfg.ExcerptBytes != 0 && (cfg.ExcerptBytes < 64 || cfg.ExcerptBytes > 2048) {
-		return fmt.Errorf("excerpt_bytes must be in [64,2048] or 0 (disabled)")
+		return fmt.Errorf("%w: excerpt_bytes must be in [64,2048] or 0 (disabled)", ErrInvalidPayloadAuditConfig)
 	}
 	if cfg.RetentionDays < 1 {
 		cfg.RetentionDays = 180
 	}
 	if cfg.WorkerCount < 0 || cfg.WorkerCount > 32 {
-		return fmt.Errorf("worker_count must be in [0,32]")
+		return fmt.Errorf("%w: worker_count must be in [0,32]", ErrInvalidPayloadAuditConfig)
 	}
 	if cfg.QueueSize < 0 {
-		return fmt.Errorf("queue_size negative")
+		return fmt.Errorf("%w: queue_size negative", ErrInvalidPayloadAuditConfig)
 	}
 	if cfg.QueueMaxBytes < 0 {
-		return fmt.Errorf("queue_max_bytes negative")
+		return fmt.Errorf("%w: queue_max_bytes negative", ErrInvalidPayloadAuditConfig)
 	}
 	if cfg.BatchSize < 1 {
 		cfg.BatchSize = 100

@@ -97,6 +97,9 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
+
+		// Payload 审计
+		registerPayloadAuditRoutes(admin, h)
 	}
 }
 
@@ -617,6 +620,21 @@ func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		templates.DELETE("/:id", h.Admin.ChannelMonitorTemplate.Delete)
 		templates.GET("/:id/monitors", h.Admin.ChannelMonitorTemplate.AssociatedMonitors)
 		templates.POST("/:id/apply", h.Admin.ChannelMonitorTemplate.Apply)
+	}
+}
+
+func registerPayloadAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	audit := admin.Group("/payload-audit")
+	{
+		audit.GET("/config", h.Admin.PayloadAudit.GetConfig)
+		audit.PUT("/config", h.Admin.PayloadAudit.UpdateConfig)
+		audit.GET("/status", h.Admin.PayloadAudit.GetStatus)
+		audit.GET("/payloads", h.Admin.PayloadAudit.ListPayloads)
+		audit.GET("/payloads/:id", h.Admin.PayloadAudit.GetPayload)
+		audit.GET("/export-keys", h.Admin.PayloadAudit.ListExportKeys)
+		audit.POST("/export-keys", h.Admin.PayloadAudit.CreateExportKey)
+		audit.DELETE("/export-keys/:id", h.Admin.PayloadAudit.DeleteExportKey)
+		audit.POST("/cleanup", h.Admin.PayloadAudit.RunCleanup)
 	}
 }
 
