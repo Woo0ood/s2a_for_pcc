@@ -18,6 +18,10 @@
 3. 向第三方扫描程序暴露受 token 鉴权的导出 API，支持按时间区间 + 用户筛选。
 4. 在管理后台提供查询页，参考现有"使用记录"页的体验。
 
+**明确排除（本期不实现）**：
+
+- **OpenAI Realtime / WebSocket 协议**（`openai_ws_*` 系列）：双向流帧 + 音频二进制 + 实时打断语义与本设计的"请求-响应聚合"模型差异大，单独立项。spec 不假设其行为，也不在网关 hook 列表内。WebSocket 路径请求**不会**被本期 audit 模块捕获。
+
 ---
 
 ## 2. 需求澄清结果（共识基线）
@@ -92,11 +96,16 @@
                     └───────────────────────────────────────────────┘
 
 关停时 (SIGTERM):
-   sink.Stop() →
-     1. 关闭新入队
-     2. 把内存里残余事件 + 当前 batch buffer 一次性 LPUSH
-        到 Redis list "payload_audit:shutdown_buffer"
-     3. 5 秒超时，Redis 不可用就记 slog warn 放弃
+   sink.Stop(ctx, deadline=10s) →
+     1. 关闭新入队（TryEnqueue 立即返回 false）
+     2. 优先尝试**直接 flush 到 PG**（最理想，零 Redis 依赖）：
+        - 把 in-flight batch + queue 残余事件按 batch_size 切成多个 batch
+        - 每个 batch 走正常 INSERT 路径，sub-deadline = max(剩余时间/N, 500ms)
+     3. PG 也写不动时（如 DB 故障），fallback 到 Redis：
+        - **分块 pipeline LPUSH**（每批最多 50 条 / 4 MB），不是一次 LPUSH 数千条
+        - 每批失败：记未 drain 数量到 metric，继续下一批
+        - 整体超过 deadline 直接放弃，slog warn + 记残余条数
+     4. 任意路径都失败：slog error，丢失计数到 metric `dropped_on_shutdown`
 
 启动时:
    sink.Start() →
@@ -110,6 +119,17 @@
 - **不复用 content_moderation 的 sink**：负载特征差异大（moderation 平均 < 1KB，payload audit 可能数 MB），独立 channel/worker 避免相互拖慢。但结构对称，便于后续合并。
 - **不进 `RecordUsage` 路径**：handler 在 `defer` 里独立 `collector.Finalize()`，与 `RecordUsage` 并列调用，互不耦合。
 - **错误降级原则**：audit 任何失败绝不回滚或阻塞用户请求，最多丢这一条审计 + 计数。
+
+### Handler 接入规范（必守）
+
+为避免漏埋点和 finalize 时机错误，所有接入 audit 的 handler 必须遵守：
+
+1. **`attachPayloadAuditCollector` 必须在 handler 函数体的最前面调用**，紧跟 `body, _ := io.ReadAll(req.Body)` 之后、任何可能 early return 的逻辑之前
+2. **`defer collector.Finalize(...)` 必须紧随 attach 之后注册**，确保 panic / early return / context cancel 路径下都会触发
+3. **客户端中途断开（`ClientDisconnect`）**：collector 仍 emit，`status_code` 写实际已发送的 status（流式通常是 200），`output_truncated=true` 标记，`error_message="client disconnect at <bytes/duration>"`
+4. **上游 5xx / 网络错误**：collector 仍 emit，`status_code` 写返给客户端的 status，`error_message` 写错误摘要；上游错误响应 body **写入 `output_body`**（合规扫描可能关心）
+5. **handler panic**：上层 `recover()` 包裹，确保 `defer Finalize` 仍能跑
+6. **被内容审核拦截**：collector 在 audit 拦截之**前**已 attach，记录的是用户实际尝试输入的内容（合规留底关键场景）。`status_code=403`、`error_message="content_policy_violation"`、`output_body=""`、`output_omitted=true`
 
 ---
 
@@ -180,11 +200,20 @@ CREATE TABLE payload_audit_logs (
 
 - 月度分区，沿用 `usage_logs` 已有的分区管理函数（参见 `035_usage_logs_partitioning.sql`）。
 - 预创建未来 2 个月的分区（独立 cron 每天 02:00 跑）。
-- 清理 cron 每天 03:00 跑，按 `retention_days` 删过期月，单分区生命周期：
-  1. `ALTER TABLE payload_audit_logs DETACH PARTITION <p> CONCURRENTLY` —— PG ≥ 14 支持，不阻塞 SELECT/INSERT
-  2. **轮询 `pg_partitioned_table` / `pg_inherits` 直到该分区已脱离主表**（CONCURRENTLY 是异步的，最多等 30s）
-  3. `DROP TABLE <p>` 真正释放空间
-  4. 单步失败：记 slog error，回滚到 step 1（DETACH 可重入），等下次 cron 再试，**不在同一次 cron 内无限重试**
+- 清理 cron 每天 03:00 跑，按 `retention_days` 删过期月。PG ≥ 14 的 `DETACH CONCURRENTLY` **不能放在事务里**，且失败可能留下 pending detach 状态，必须按状态机处理：
+
+  ```
+  状态：ATTACHED → DETACH_PENDING → DETACHED → DROPPED
+  ```
+
+  | 当前状态（查 `pg_inherits` + `relpartbound`） | 动作 | 失败处理 |
+  |---|---|---|
+  | ATTACHED | 在独立连接上、无事务执行 `DETACH PARTITION <p> CONCURRENTLY` | lock_timeout 超时 / 死锁 → 记 error，等下次 cron。**不重试** |
+  | DETACH_PENDING（前次 CONCURRENTLY 中断） | `ALTER TABLE ... DETACH PARTITION <p> FINALIZE` | 失败记 error，等下次 cron |
+  | DETACHED（已脱离主表，但表仍存在） | `DROP TABLE <p>` | 普通失败可重试 1 次 |
+  | DROPPED | skip | — |
+
+  **会话隔离**：每个分区的 cleanup 用独立 PG 连接，不共用事务、不与 INSERT worker 共连接池。每分区操作前先 `SET lock_timeout = '5s'` + `SET statement_timeout = '60s'`，避免被慢查询卡死。
 
 ### 4.4 配置项（settings 表）
 
@@ -235,16 +264,28 @@ CREATE TABLE payload_audit_logs (
 ### 5.1 头尾截取
 
 ```go
+const minExcerpt = 32  // 摘要最低有效长度，低于此值直接返回头部截断
+
 func excerpt(text string, total int) string {
     if total <= 0 || text == "" {
         return ""
     }
     if len(text) <= total {
-        return text                      // 短文本原样返
+        return text                          // 短文本原样返
     }
     truncatedBytes := len(text) - total
     sep := fmt.Sprintf("\n…[truncated %d bytes]…\n", truncatedBytes)
+
+    // 边界保护：sep 可能比 total 还长（极小 excerpt_bytes 或极大 truncatedBytes）
+    if len(sep) >= total-minExcerpt {
+        // 退化为单端截断：仅保留头部 + 静态短标记
+        return safeTruncateUTF8(text, total-len("…[truncated]")) + "…[truncated]"
+    }
+
     half := (total - len(sep)) / 2
+    if half <= 0 {                           // 双重保护，理论上 sep 检查后不会触达
+        return safeTruncateUTF8(text, total)
+    }
     head := safeTruncateUTF8(text, half)
     tail := safeTruncateUTF8Tail(text, half)
     return head + sep + tail
@@ -253,7 +294,8 @@ func excerpt(text string, total int) string {
 
 - `safeTruncateUTF8` / `safeTruncateUTF8Tail`：在 rune 边界截断，避免切碎多字节字符。
 - `total` 由 `excerpt_bytes` 配置，默认 512，范围 [0, 2048]，0 表示禁用摘要。
-- 分隔符长度依赖被截字节数，需要估算最坏长度后再算 `half`，确保最终结果不超过 `total`。
+- **`excerpt_bytes` 下限校验**：配置层强制 ≥ 64（< 64 视为禁用）。算法内的 `minExcerpt=32` 是兜底，防止配置校验被绕过。
+- **必加的单元测试**：`total=0`、`total=1`、`total=64`、`text` 长度等于 `total ± 1`、纯多字节文本（中文/emoji）刚好卡在 `half` 边界、`truncatedBytes` 极大（导致 `sep` 长度反超 `total`）。
 - 配置改动**只对新写入生效**，已有行不回填。
 
 ### 5.2 input 文本抽取（4 协议）
@@ -271,16 +313,53 @@ func excerpt(text string, total int) string {
 
 抽取逻辑集中在 `payload_audit_extract.go`，**不与 content_moderation 的同名抽取共享代码**（两者目标不同：moderation 取最后一条 user message，audit 取完整对话）。
 
-### 5.3 output 文本抽取（流式 delta）
+### 5.3 output 事件分类 visitor（不只是 text delta）
 
-| 协议 | delta 字段 |
+合规审计需要捕捉**所有可能含敏感内容的事件**，不只是助手回答的纯文本。每个协议建一张事件表，逐个 SSE event type 决定如何累加：
+
+**OpenAI Chat Completions**：
+| event 类型（在 `choices[].delta`） | 累加到 output 的内容 |
 |---|---|
-| OpenAI Chat | `choices[].delta.content` |
-| OpenAI Responses | `response.output_text.delta` |
-| Anthropic Messages | `content_block_delta.delta.text` |
-| Gemini | `candidates[].content.parts[].text` |
+| `content` | 字面文本 |
+| `tool_calls[].function.name` + `.arguments` | `[tool_call name=X args=...]` 形式 |
+| `refusal` | `[refusal: ...]` |
+| `reasoning` / `reasoning_content`（部分模型） | `[reasoning: ...]` |
+| `finish_reason=content_filter / length / tool_calls` | `[finish: <reason>]` |
+| 错误事件（顶层 `error`） | `[error: ...]` |
 
-非流式直接拷贝 response body 的 `choices[].message.content`（或对应字段）。
+**OpenAI Responses**：
+| event type | 累加 |
+|---|---|
+| `response.output_text.delta` | 字面文本 |
+| `response.refusal.delta` | `[refusal: ...]` |
+| `response.reasoning_summary.delta` / `response.reasoning.delta` | `[reasoning: ...]` |
+| `response.function_call_arguments.delta` | `[tool_call args delta=...]` |
+| `response.failed` / `response.incomplete` | `[failed: <reason>]` / `[incomplete: <reason>]` |
+| `response.completed`（含最终 usage） | 不累加，触发 finalize |
+
+**Anthropic Messages**：
+| event type | 累加 |
+|---|---|
+| `content_block_delta` 且 `delta.type=text_delta` | 字面文本 |
+| `content_block_delta` 且 `delta.type=input_json_delta`（tool_use） | `[tool_use args=...]` |
+| `content_block_delta` 且 `delta.type=thinking_delta` | `[thinking: ...]` |
+| `content_block_start` 且 `content_block.type=tool_use` | `[tool_use name=X id=Y]` |
+| `message_stop` / `message_delta.stop_reason` | `[stop: <reason>]` |
+| `error` | `[error: ...]` |
+
+**Gemini**：
+| 路径 | 累加 |
+|---|---|
+| `candidates[].content.parts[].text` | 字面文本 |
+| `candidates[].content.parts[].functionCall` | `[function_call name=X args=...]` |
+| `candidates[].finishReason in {SAFETY, RECITATION, MAX_TOKENS, ...}` | `[finish: <reason>]` |
+| `promptFeedback.blockReason` | `[blocked: <reason>]` |
+
+**非流式响应**：直接拷贝 response body，按上述事件路径同样的 visitor 抽取。
+
+**测试 fixture 要求**：每个协议至少 5 组 fixture——纯文本 / 含 tool / 含 refusal / 含 reasoning（如适用）/ 失败/中断。fixture 从真实抓包简化而来，长期维护在 `testdata/payload_audit_extract/<protocol>/`。
+
+**非合并字段（`error_message` 列）**：网关层捕获到的协议外错误（5xx、timeout、network err）写入 `error_message`，不混入 output_body。
 
 ---
 
@@ -365,6 +444,24 @@ func (c *PayloadAuditCollector) Finalize(statusCode int, duration time.Duration,
 
 禁用时所有方法 fast-path return，单次调用 < 50 ns。
 
+**热更新生命周期（关键）**：
+
+- `PayloadAuditService` 持有一个 `*atomic.Pointer[ConfigSnapshot]`，配置每次更新生成一份 immutable snapshot
+- 每个 collector 在创建时**捕获当前 generation 的 snapshot 指针**，整个请求生命周期内不切换——避免请求中途配置改变导致 input/output 截断尺寸不一致
+- 已入队事件携带它出生时的 generation；worker 处理时按事件自带 generation 决定行为，**不读 atomic 指针**
+
+**配置变更分两类**：
+
+| 变更类型 | 影响范围 | 是否需要 sink 重建 |
+|---|---|---|
+| `excerpt_bytes` / `input_max_bytes` / `output_max_bytes` / `group_ids` / `all_groups` | 仅影响新创建的 collector | 否，热更新立即生效 |
+| `worker_count` / `batch_size` / `batch_flush_ms` | 影响 worker 行为 | 否，worker 启动时读取，可在下次循环 tick 生效 |
+| `queue_size` / `queue_max_bytes` | 影响通道容量 | **是，需重建 sink**：旧 sink 标记为 draining、不再接受新事件，新 sink 接管入队；旧 sink 把残余事件 flush 完即销毁 |
+| `retention_days` | 影响 cleanup cron | 否，下次 cron 生效 |
+| `export_api_keys` | 影响 export middleware | 否，middleware 每次请求读 snapshot |
+
+UI 上 `queue_size`/`queue_max_bytes` 改动应明确提示"将触发审计 sink 重建，约 1-3 秒内可能短暂提高丢弃率"。
+
 ### 6.3 sink 与 worker
 
 ```go
@@ -404,16 +501,38 @@ for {
 }
 ```
 
-### 6.4 wire 注册
+### 6.4 wire 注册（按现有 ProvideXxx pattern）
+
+仿照现有 `ProvideOpsSystemLogSink` / `ProvideEmailQueueService` 等做法：
 
 ```go
-// service/wire.go
-wire.Bind(new(PayloadAuditRepository), new(*repository.PayloadAuditRepo))
+// service/wire.go 中加入 ProviderSet
+func ProvidePayloadAuditService(
+    cfg *config.Config,
+    repo PayloadAuditRepository,
+    settings SettingsRepository,
+    redis *redis.Client,
+) (*PayloadAuditService, error) { ... }
 
-// 启动钩子（main.go / server.go）
-audit.Start(ctx)
-defer audit.Stop(ctx)
+func ProvidePayloadAuditSink(
+    svc *PayloadAuditService,
+    repo PayloadAuditRepository,
+    redis *redis.Client,
+) *PayloadAuditSink { ... }
+
+func ProvidePayloadAuditCleanup(
+    svc *PayloadAuditService,
+    repo PayloadAuditRepository,
+    timingWheel *TimingWheelService,
+) *PayloadAuditCleanupService { ... }
 ```
+
+```go
+// repository/wire.go 中注册仓储绑定
+wire.Bind(new(service.PayloadAuditRepository), new(*PayloadAuditRepo)),
+```
+
+启动钩子按照现有 service 启动模式（参照 `ContentModerationService.Start` / `OpsSystemLogSink.Start`）：在 `server.go` 的 service 启动序列里加 `payloadAuditSink.Start(ctx)`，`Stop` 走 `gracefulShutdown` 列表。
 
 ---
 
@@ -461,9 +580,12 @@ GET /api/v1/audit/exports/payloads
 
 **游标语义**：
 - 排序固定为 `(created_at DESC, id DESC)`（最新的优先）
-- cursor 解码为 `(cursor_created_at, cursor_id)`，查询条件追加 `WHERE (created_at, id) < (cursor_created_at, cursor_id)`，**严格小于**，不会重复也不会漏
+- 第一次请求时服务端**冻结上界**：`to_effective = min(to_param, now())`，并把它编码进 cursor。后续每页都用同一个 `to_effective`，避免分页期间新插入的行（时间 > 第一页起点）破坏可重复读
+- cursor 解码为 `(to_effective, last_created_at, last_id)`：
+  - 查询条件 = `created_at <= to_effective AND (created_at, last_id) < (last_created_at, last_id)` —— 严格小于推进游标，不会重复也不会漏
 - 没有更多数据时 `next_cursor` 字段省略（不返回 `null`，省字节）
-- 新数据在分页过程中插入：因为是 DESC，新数据在游标"之后"（时间更新），分页结果不受影响
+- **不变量**：在 `from..to_effective` 这个**冻结的时间窗**内，分页结果对该次扫描会话是 stable snapshot；新插入的行（`created_at > to_effective`）下次扫描会话才会被看见
+- cursor 用 base64(JSON) 编码，包含 schema version 字段，便于将来格式变更
 
 ### 7.4 响应
 
@@ -598,13 +720,44 @@ POST   /admin/payload-audit/cleanup    手动触发清理
 | Worker 端单条平均 | < 5 ms |
 | 满负载丢弃率 | < 0.1%（默认配置 32k 队列、4 worker，1k QPS 内可吃下） |
 
-### 9.1.1 内存预算
+### 9.1.1 内存预算与双重 bounded 队列
 
-- **平均场景**：32k 队列 × 平均事件 ~10 KB（典型 chat 输入输出） ≈ **320 MB** 上限
-- **极端场景**：32k 队列被 vision payload 填满（每条 10MB input）≈ **320 GB**，**不应发生**
-- 推论：`queue_size` 默认 32768 是按平均 10KB 设计的；生产若主要是 vision/long-context，应**调小** `queue_size` 至 4096 左右，或反之 `worker_count` 调大让队列保持低占用
-- admin status 接口暴露 `queue.usage_pct`，超过 50% 持续 5 分钟应告警调参
-- 单条 `input_max_bytes` / `output_max_bytes` 是**截断阈值**，不是队列计费单位
+为避免极端场景（vision payload 把 32k 队列撑到 320 GB），队列同时受**两个上限**约束：
+
+```go
+type PayloadAuditSink struct {
+    queue       chan *PayloadAuditEvent  // count-bounded, default 32768
+    byteBudget  *atomic.Int64            // byte-bounded
+    maxBytes    int64                    // default 1 GiB
+    // ...
+}
+
+func (s *PayloadAuditSink) TryEnqueue(evt *PayloadAuditEvent) bool {
+    sz := evt.SizeBytes()
+    if s.byteBudget.Add(sz) > s.maxBytes {
+        s.byteBudget.Add(-sz)            // 回滚
+        s.metrics.dropped.Add(1)
+        s.metrics.droppedReason["byte_budget"].Add(1)
+        return false
+    }
+    select {
+    case s.queue <- evt:
+        return true
+    default:
+        s.byteBudget.Add(-sz)
+        s.metrics.dropped.Add(1)
+        s.metrics.droppedReason["queue_full"].Add(1)
+        return false
+    }
+}
+// worker flush 后归还 byteBudget
+```
+
+- **平均场景**：每事件 ~10 KB，32k 条 ≈ 320 MB —— 远低于 1 GiB byte budget，count 限制先生效
+- **极端场景**：连续 vision payload（每条 10 MB），byte budget 1 GiB 时**最多 ~100 条**就会拒绝入队，丢弃量飙升而不是吃满 RAM
+- 配置项加 `queue_max_bytes`（默认 `1073741824`，可调）
+- `dropped` metric 拆 label：`reason={queue_full|byte_budget|panic}`，便于诊断瓶颈
+- admin status 暴露 `queue.bytes_used / queue.bytes_max / queue.usage_pct`
 
 ### 9.2 Prometheus 指标
 
@@ -759,7 +912,8 @@ handler 总改动 ~150 行；service stream handlers 各 +~20 行（4 处）共 
 - 图表/统计（不是审计模块的职责）
 - 手动删除单条记录（审计原则不可篡改）
 - 标记/打 tag/笔记
-- WebSocket 实时推流
+- WebSocket 实时推流（管理后台 → 浏览器侧）
+- **OpenAI Realtime / WebSocket 协议捕获**（gateway 侧）：本期不实现，已在 §1 明确排除
 - 多副本部署的 instance 隔离
 - mTLS 鉴权（必要时再加）
 - IP 白名单（必要时再加）
