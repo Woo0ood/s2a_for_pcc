@@ -40,7 +40,7 @@ type PayloadAuditService struct {
 
 // ProvidePayloadAuditService loads settings and builds the initial snapshot.
 // On load failure, an empty disabled snapshot is installed so the service can start.
-func ProvidePayloadAuditService(settings payloadAuditSettingsRepo, rdb *redis.Client) (*PayloadAuditService, error) {
+func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client) (*PayloadAuditService, error) {
 	s := &PayloadAuditService{settings: settings, rdb: rdb}
 	if err := s.LoadFromSettings(context.Background()); err != nil {
 		s.snap.Store(buildSnapshot(false, &PayloadAuditConfig{}, 0))

@@ -142,6 +142,15 @@ var ProviderSet = wire.NewSet(
 	NewGeminiCliCodeAssistClient,
 	NewGeminiDriveClient,
 
+	// Payload audit
+	NewPayloadAuditRepo,
+	NewPayloadAuditSinkAdapter,
+	wire.Bind(new(service.PayloadAuditRepository), new(*PayloadAuditSinkAdapter)),
+	NewPayloadAuditCleanupAdapter,
+	wire.Bind(new(service.PayloadAuditCleanupRepo), new(*PayloadAuditCleanupAdapter)),
+	NewPayloadAuditPartitionMaintainerAdapter,
+	wire.Bind(new(service.PayloadAuditPartitionMaintainerRepo), new(*PayloadAuditPartitionMaintainerAdapter)),
+
 	ProvideEnt,
 	ProvideSQLDB,
 	ProvideRedis,

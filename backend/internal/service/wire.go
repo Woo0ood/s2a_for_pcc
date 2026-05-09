@@ -11,6 +11,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
+	"github.com/robfig/cron/v3"
 )
 
 // BuildInfo contains build information
@@ -518,6 +519,14 @@ var ProviderSet = wire.NewSet(
 	ProvideChannelMonitorService,
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorRequestTemplateService,
+
+	// Payload audit
+	ProvidePayloadAuditService,
+	ProvidePayloadAuditSink,
+	NewPayloadAuditRedisBuffer,
+	NewPayloadAuditCleanup,
+	NewPayloadAuditPartitionMaintainer,
+	ProvidePayloadAuditCronService,
 )
 
 // ProvidePaymentConfigService wraps NewPaymentConfigService to accept the named
@@ -556,4 +565,98 @@ func ProvideChannelMonitorRunner(svc *ChannelMonitorService, settingService *Set
 	svc.SetScheduler(r)
 	r.Start()
 	return r
+}
+
+// ProvidePayloadAuditSink creates the sink, recovers any events from the Redis
+// shutdown buffer, enqueues them, starts the worker pool, and triggers an
+// immediate partition-maintenance run to ensure the current month's partition
+// exists before the first INSERT.
+func ProvidePayloadAuditSink(
+	repo PayloadAuditRepository,
+	svc *PayloadAuditService,
+	redisBuf *PayloadAuditRedisBuffer,
+	partMaint *PayloadAuditPartitionMaintainer,
+) *PayloadAuditSink {
+	snap := svc.Snapshot()
+	cfg := SinkConfig{
+		WorkerCount:   snap.WorkerCount,
+		QueueSize:     snap.QueueSize,
+		QueueMaxBytes: int64(snap.QueueMaxBytes),
+		BatchSize:     snap.BatchSize,
+		BatchFlushMs:  snap.BatchFlushMs,
+	}
+	sink := NewPayloadAuditSink(repo, cfg)
+
+	ctx := context.Background()
+
+	// Recover events buffered to Redis during previous shutdown.
+	recovered, err := redisBuf.Recover(ctx)
+	if err != nil {
+		logger.LegacyPrintf("service.payload_audit", "Warning: Redis recover partial: %v", err)
+	}
+	for _, e := range recovered {
+		sink.TryEnqueue(e)
+	}
+
+	// Start worker pool.
+	sink.Start(ctx)
+
+	// Ensure current+next month partitions exist (non-blocking).
+	go func() {
+		if err := partMaint.RunOnce(context.Background(), 60*24*time.Hour); err != nil {
+			logger.LegacyPrintf("service.payload_audit", "Warning: startup partition create: %v", err)
+		}
+	}()
+
+	return sink
+}
+
+// PayloadAuditCronService manages cron-scheduled partition maintenance and cleanup.
+type PayloadAuditCronService struct {
+	cron *cron.Cron
+}
+
+// ProvidePayloadAuditCronService sets up daily cron jobs:
+//   - 02:00 UTC: partition maintenance (60-day lookahead)
+//   - 03:00 UTC: old partition cleanup
+func ProvidePayloadAuditCronService(
+	partMaint *PayloadAuditPartitionMaintainer,
+	cleanup *PayloadAuditCleanup,
+) *PayloadAuditCronService {
+	c := cron.New(cron.WithParser(
+		cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow),
+	))
+
+	// 02:00 UTC daily — partition maintenance
+	_, _ = c.AddFunc("0 2 * * *", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if err := partMaint.RunOnce(ctx, 60*24*time.Hour); err != nil {
+			logger.LegacyPrintf("service.payload_audit", "cron partition maintain error: %v", err)
+		}
+	})
+
+	// 03:00 UTC daily — partition cleanup
+	_, _ = c.AddFunc("0 3 * * *", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		deleted, err := cleanup.RunOnce(ctx)
+		if err != nil {
+			logger.LegacyPrintf("service.payload_audit", "cron cleanup error: %v", err)
+		} else if deleted > 0 {
+			logger.LegacyPrintf("service.payload_audit", "cron cleanup dropped %d partitions", deleted)
+		}
+	})
+
+	c.Start()
+	return &PayloadAuditCronService{cron: c}
+}
+
+// Stop gracefully stops the cron scheduler.
+func (s *PayloadAuditCronService) Stop() {
+	if s == nil || s.cron == nil {
+		return
+	}
+	ctx := s.cron.Stop()
+	<-ctx.Done()
 }

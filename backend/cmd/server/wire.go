@@ -98,6 +98,9 @@ func provideCleanup(
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
+	payloadAuditSink *service.PayloadAuditSink,
+	payloadAuditRedisBuffer *service.PayloadAuditRedisBuffer,
+	payloadAuditCron *service.PayloadAuditCronService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -243,6 +246,24 @@ func provideCleanup(
 			{"ChannelMonitorRunner", func() error {
 				if channelMonitorRunner != nil {
 					channelMonitorRunner.Stop()
+				}
+				return nil
+			}},
+			{"PayloadAuditCronService", func() error {
+				if payloadAuditCron != nil {
+					payloadAuditCron.Stop()
+				}
+				return nil
+			}},
+			{"PayloadAuditSink", func() error {
+				if payloadAuditSink == nil {
+					return nil
+				}
+				remaining := payloadAuditSink.Stop(ctx, 10*time.Second)
+				if len(remaining) > 0 && payloadAuditRedisBuffer != nil {
+					if err := payloadAuditRedisBuffer.DrainBatch(ctx, remaining, 5*time.Second); err != nil {
+						log.Printf("[Cleanup] PayloadAuditSink: partial drain to Redis: %v", err)
+					}
 				}
 				return nil
 			}},
