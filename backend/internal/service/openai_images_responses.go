@@ -572,6 +572,14 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthNonStreamingResponse(
 	if err != nil {
 		return OpenAIUsage{}, 0, err
 	}
+
+	// Payload audit: capture image output before writing to client.
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractOpenAIImagesOutputText(responseBody); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
+
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	c.Data(resp.StatusCode, "application/json; charset=utf-8", responseBody)
 	return usage, len(results), nil
@@ -614,6 +622,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 	var sseData openAISSEDataAccumulator
 	var processDataErr error
 	processDataDone := false
+	auditColl := GetPayloadAuditCollector(c)
 
 	processData := func(dataBytes []byte) {
 		if processDataDone || processDataErr != nil {
@@ -711,6 +720,13 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				payload := buildOpenAIImagesStreamCompletedPayload(eventName, img, format, createdAt, usageRaw)
 				emitted[key] = struct{}{}
 				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, eventName, payload)
+
+				// Payload audit: capture completed image output.
+				if auditColl != nil {
+					if text := extractOpenAIImagesOutputText(payload); text != "" {
+						auditColl.AppendOutput(text)
+					}
+				}
 			}
 			imageCount = len(emitted)
 			processDataDone = true
@@ -751,6 +767,13 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthStreamingResponse(
 				payload := buildOpenAIImagesStreamCompletedPayload(eventName, img, format, createdAt, nil)
 				emitted[key] = struct{}{}
 				s.tryWriteOpenAIImagesStreamEvent(c, flusher, &clientDisconnected, &lastDownstreamWriteAt, eventName, payload)
+
+				// Payload audit: capture pending image output.
+				if auditColl != nil {
+					if text := extractOpenAIImagesOutputText(payload); text != "" {
+						auditColl.AppendOutput(text)
+					}
+				}
 			}
 			imageCount = len(emitted)
 			return nil

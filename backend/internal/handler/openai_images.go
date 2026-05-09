@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,6 +63,25 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		return
 	}
 
+	// Payload audit: attach collector after body read, defer finalize.
+	auditEndpoint := "/v1/images/generations"
+	if strings.Contains(c.Request.URL.Path, "/images/edits") {
+		auditEndpoint = "/v1/images/edits"
+	}
+	auditCol := AttachPayloadAuditCollector(c, h.payloadAuditSvc, "openai", auditEndpoint)
+	defer func() {
+		var auditErrMsg string
+		if msg, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
+			if s, ok := msg.(string); ok && s != "" {
+				auditErrMsg = s
+			}
+		}
+		if auditErrMsg == "" && c.Writer.Status() >= 500 {
+			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
+		}
+		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+	}()
+
 	if isMultipartImagesContentType(c.GetHeader("Content-Type")) {
 		setOpsRequestContext(c, "", false, nil)
 	} else {
@@ -80,6 +100,37 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		zap.Bool("multipart", parsed.Multipart),
 		zap.String("capability", string(parsed.RequiredCapability)),
 	)
+
+	// Payload audit: set metadata and input now that model/stream are known.
+	if auditCol.Enabled() {
+		var userEmail, groupName string
+		if apiKey.User != nil {
+			userEmail = apiKey.User.Email
+		}
+		if apiKey.Group != nil {
+			groupName = apiKey.Group.Name
+		}
+		auditCol.SetMetadata(service.PayloadAuditMetadata{
+			Endpoint:  parsed.Endpoint,
+			Provider:  "openai",
+			ClientIP:  c.ClientIP(),
+			UserID:    int64PtrIfPositive(apiKey.UserID),
+			UserEmail: userEmail,
+			APIKeyID:  int64PtrIfPositive(apiKey.ID),
+			APIKeyName: apiKey.Name,
+			GroupID:   apiKey.GroupID,
+			GroupName: groupName,
+			Model:    parsed.Model,
+			Stream:   parsed.Stream,
+		})
+		if parsed.Multipart {
+			// For multipart requests, store prompt as input (body contains binary data).
+			auditCol.SetInput([]byte(parsed.Prompt), "text")
+		} else {
+			auditCol.SetInput(body, "json")
+		}
+		c.Set(service.PayloadAuditCollectorCtxKey, auditCol)
+	}
 
 	if !service.GroupAllowsImageGeneration(apiKey.Group) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())

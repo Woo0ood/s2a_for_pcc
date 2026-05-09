@@ -897,6 +897,14 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 	if err != nil {
 		return OpenAIUsage{}, 0, err
 	}
+
+	// Payload audit: capture image output before writing to client.
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractOpenAIImagesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
+
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := "application/json"
 	if s.cfg != nil && !s.cfg.Security.ResponseHeaders.Enabled {
@@ -939,6 +947,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 	seenSSEData := false
 	fallbackTooLarge := false
 	var sseData openAISSEDataAccumulator
+	auditColl := GetPayloadAuditCollector(c)
 
 	processSSEData := func(dataBytes []byte) {
 		seenSSEData = true
@@ -946,6 +955,13 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 		fallbackBytes = 0
 		mergeOpenAIUsage(&usage, dataBytes)
 		imageCounter.AddSSEData(dataBytes)
+
+		// Payload audit: capture streaming image output.
+		if auditColl != nil {
+			if text := extractOpenAIImagesOutputText(dataBytes); text != "" {
+				auditColl.AppendOutput(text)
+			}
+		}
 	}
 
 	flushSSEEvent := func() {
@@ -996,6 +1012,13 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 		}
 		mergeOpenAIUsage(&usage, body)
 		imageCounter.AddJSONResponse(body)
+
+		// Payload audit: capture fallback (non-SSE) image output.
+		if auditColl != nil {
+			if text := extractOpenAIImagesOutputText(body); text != "" {
+				auditColl.AppendOutput(text)
+			}
+		}
 	}
 
 	streamInterval := s.openAIImageStreamDataInterval()
@@ -1646,4 +1669,38 @@ func dedupeStrings(values []string) []string {
 		out = append(out, value)
 	}
 	return out
+}
+
+// extractOpenAIImagesOutputText extracts a human-readable summary from an
+// OpenAI images API response body for payload audit purposes. It collects
+// URL list and revised prompts, and replaces b64_json content with a
+// placeholder to avoid storing large base64 blobs.
+func extractOpenAIImagesOutputText(body []byte) string {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return ""
+	}
+
+	var parts []string
+
+	dataArr := gjson.GetBytes(body, "data")
+	if !dataArr.Exists() || !dataArr.IsArray() {
+		return strings.TrimSpace(string(body))
+	}
+
+	for i, item := range dataArr.Array() {
+		prefix := fmt.Sprintf("[%d]", i)
+		if url := strings.TrimSpace(item.Get("url").String()); url != "" {
+			parts = append(parts, prefix+" url="+url)
+		} else if item.Get("b64_json").Exists() {
+			parts = append(parts, prefix+" [image base64 omitted]")
+		}
+		if rp := strings.TrimSpace(item.Get("revised_prompt").String()); rp != "" {
+			parts = append(parts, prefix+" revised_prompt="+rp)
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "\n")
 }

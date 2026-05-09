@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // --- in-memory mock of payloadAuditSettingsRepo ---
@@ -33,6 +34,54 @@ func (m *mockSettingsRepo) Set(_ context.Context, key, value string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.data[key] = value
+	return nil
+}
+
+func (m *mockSettingsRepo) Get(_ context.Context, key string) (*Setting, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	v, ok := m.data[key]
+	if !ok {
+		return nil, ErrSettingNotFound
+	}
+	return &Setting{Key: key, Value: v, UpdatedAt: time.Now()}, nil
+}
+
+func (m *mockSettingsRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make(map[string]string, len(keys))
+	for _, k := range keys {
+		if v, ok := m.data[k]; ok {
+			result[k] = v
+		}
+	}
+	return result, nil
+}
+
+func (m *mockSettingsRepo) SetMultiple(_ context.Context, settings map[string]string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for k, v := range settings {
+		m.data[k] = v
+	}
+	return nil
+}
+
+func (m *mockSettingsRepo) GetAll(_ context.Context) (map[string]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make(map[string]string, len(m.data))
+	for k, v := range m.data {
+		result[k] = v
+	}
+	return result, nil
+}
+
+func (m *mockSettingsRepo) Delete(_ context.Context, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, key)
 	return nil
 }
 
