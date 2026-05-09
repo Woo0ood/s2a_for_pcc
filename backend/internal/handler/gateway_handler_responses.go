@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -60,6 +61,20 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		return
 	}
 
+	auditCol := AttachPayloadAuditCollector(c, h.payloadAuditSvc, "openai", "/v1/responses")
+	defer func() {
+		var auditErrMsg string
+		if msg, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
+			if s, ok := msg.(string); ok && s != "" {
+				auditErrMsg = s
+			}
+		}
+		if auditErrMsg == "" && c.Writer.Status() >= 500 {
+			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
+		}
+		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+	}()
+
 	setOpsRequestContext(c, "", false, body)
 
 	// Validate JSON
@@ -77,6 +92,32 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	reqModel := modelResult.String()
 	reqStream := gjson.GetBytes(body, "stream").Bool()
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
+
+	// Payload audit: set metadata and input now that apiKey/model/stream are known.
+	if auditCol.Enabled() {
+		var userEmail, groupName string
+		if apiKey.User != nil {
+			userEmail = apiKey.User.Email
+		}
+		if apiKey.Group != nil {
+			groupName = apiKey.Group.Name
+		}
+		auditCol.SetMetadata(service.PayloadAuditMetadata{
+			Endpoint:   "/v1/responses",
+			Provider:   "openai",
+			ClientIP:   c.ClientIP(),
+			UserID:     int64PtrIfPositive(apiKey.UserID),
+			UserEmail:  userEmail,
+			APIKeyID:   int64PtrIfPositive(apiKey.ID),
+			APIKeyName: apiKey.Name,
+			GroupID:    apiKey.GroupID,
+			GroupName:  groupName,
+			Model:      reqModel,
+			Stream:     reqStream,
+		})
+		auditCol.SetInput(body, "json")
+		c.Set(service.PayloadAuditCollectorCtxKey, auditCol)
+	}
 
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))

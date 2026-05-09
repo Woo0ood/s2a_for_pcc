@@ -3579,6 +3579,12 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				firstTokenMs = &ms
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
+			// Payload audit: capture output text from each Responses SSE event
+			if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+				if delta := ExtractOpenAIResponsesEventText(eventType, dataBytes); delta != "" {
+					auditColl.AppendOutput(delta)
+				}
+			}
 		}
 
 		if !clientDisconnected {
@@ -3694,6 +3700,12 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
 	}
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractResponsesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
 	c.Data(resp.StatusCode, contentType, body)
 	return &openaiNonStreamingResultPassthrough{
 		OpenAIUsage: usage,
@@ -3755,6 +3767,12 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 			contentType = "text/event-stream"
 		}
 	}
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractResponsesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &openaiNonStreamingResultPassthrough{
@@ -3762,6 +3780,52 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		usage:       usage,
 		imageCount:  countOpenAIImageOutputsFromSSEBody(bodyText),
 	}, nil
+}
+
+// extractResponsesOutputText extracts assistant content text from an OpenAI
+// Responses API non-stream response JSON. Used for audit capture.
+func extractResponsesOutputText(respJSON []byte) string {
+	output := gjson.GetBytes(respJSON, "output")
+	if !output.Exists() || !output.IsArray() {
+		return ""
+	}
+	var b strings.Builder
+	for _, item := range output.Array() {
+		itemType := item.Get("type").String()
+		switch itemType {
+		case "message":
+			content := item.Get("content")
+			if !content.Exists() || !content.IsArray() {
+				continue
+			}
+			for _, block := range content.Array() {
+				blockType := block.Get("type").String()
+				switch blockType {
+				case "output_text":
+					if t := block.Get("text"); t.Exists() && t.Type == gjson.String {
+						b.WriteString(t.String())
+					}
+				case "refusal":
+					if t := block.Get("refusal"); t.Exists() && t.Type == gjson.String && t.String() != "" {
+						b.WriteString(fmt.Sprintf("[refusal: %s]", t.String()))
+					}
+				}
+			}
+		case "reasoning":
+			if summary := item.Get("summary"); summary.Exists() && summary.IsArray() {
+				for _, s := range summary.Array() {
+					if t := s.Get("text"); t.Exists() && t.Type == gjson.String && t.String() != "" {
+						b.WriteString(fmt.Sprintf("[reasoning: %s]", t.String()))
+					}
+				}
+			}
+		case "function_call":
+			if name := item.Get("name"); name.Exists() && name.Type == gjson.String {
+				b.WriteString(fmt.Sprintf("[tool_use name=%s]", name.String()))
+			}
+		}
+	}
+	return b.String()
 }
 
 func writeOpenAIPassthroughResponseHeaders(dst http.Header, src http.Header, filter *responseheaders.CompiledHeaderFilter) {
