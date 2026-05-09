@@ -7,10 +7,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
@@ -133,6 +135,8 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 // POST /v1beta/models/{model}:generateContent
 // POST /v1beta/models/{model}:streamGenerateContent?alt=sse
 func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
+	requestStart := time.Now()
+
 	apiKey, ok := middleware.GetAPIKeyFromContext(c)
 	if !ok || apiKey == nil {
 		googleError(c, http.StatusUnauthorized, "Invalid API key")
@@ -180,6 +184,46 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	if len(body) == 0 {
 		googleError(c, http.StatusBadRequest, "Request body is empty")
 		return
+	}
+
+	auditCol := AttachPayloadAuditCollector(c, h.payloadAuditSvc, "gemini", c.Request.URL.Path)
+	defer func() {
+		var auditErrMsg string
+		if msg, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
+			if s, ok := msg.(string); ok && s != "" {
+				auditErrMsg = s
+			}
+		}
+		if auditErrMsg == "" && c.Writer.Status() >= 500 {
+			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
+		}
+		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+	}()
+
+	// Payload audit: set metadata and input now that apiKey/model/stream are known.
+	if auditCol.Enabled() {
+		var userEmail, groupName string
+		if apiKey.User != nil {
+			userEmail = apiKey.User.Email
+		}
+		if apiKey.Group != nil {
+			groupName = apiKey.Group.Name
+		}
+		auditCol.SetMetadata(service.PayloadAuditMetadata{
+			Endpoint:   c.Request.URL.Path,
+			Provider:   "gemini",
+			ClientIP:   c.ClientIP(),
+			UserID:     int64PtrIfPositive(apiKey.UserID),
+			UserEmail:  userEmail,
+			APIKeyID:   int64PtrIfPositive(apiKey.ID),
+			APIKeyName: apiKey.Name,
+			GroupID:    apiKey.GroupID,
+			GroupName:  groupName,
+			Model:      modelName,
+			Stream:     stream,
+		})
+		auditCol.SetInput(body, "json")
+		c.Set(service.PayloadAuditCollectorCtxKey, auditCol)
 	}
 
 	setOpsRequestContext(c, modelName, stream, body)

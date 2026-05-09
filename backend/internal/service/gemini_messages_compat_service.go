@@ -1949,6 +1949,13 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
 	}
 
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := ExtractGeminiStreamFrame(unwrappedBody); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
+
 	claudeResp, usage := convertGeminiToClaudeMessage(geminiResp, originalModel, unwrappedBody)
 	c.JSON(http.StatusOK, claudeResp)
 
@@ -2001,6 +2008,8 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 	openToolName := ""
 	seenToolJSON := ""
 
+	auditColl := GetPayloadAuditCollector(c)
+
 	reader := bufio.NewReader(resp.Body)
 	for {
 		line, err := reader.ReadString('\n')
@@ -2025,6 +2034,13 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 		unwrappedBytes, err := unwrapGeminiResponse([]byte(payload))
 		if err != nil {
 			continue
+		}
+
+		// Payload audit: extract output text from Gemini compat stream frame
+		if auditColl != nil {
+			if text := ExtractGeminiStreamFrame(unwrappedBytes); text != "" {
+				auditColl.AppendOutput(text)
+			}
 		}
 
 		var geminiResp map[string]any
@@ -2495,6 +2511,13 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 		}
 	}
 
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := ExtractGeminiStreamFrame(respBody); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
+
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
 	contentType := resp.Header.Get("Content-Type")
@@ -2540,6 +2563,8 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 		return nil, errors.New("streaming not supported")
 	}
 
+	auditColl := GetPayloadAuditCollector(c)
+
 	reader := bufio.NewReader(resp.Body)
 	usage := &ClaudeUsage{}
 	var firstTokenMs *int
@@ -2571,6 +2596,13 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 
 					if u := extractGeminiUsage(rawBytes); u != nil {
 						usage = u
+					}
+
+					// Payload audit: extract output text from native Gemini stream frame
+					if auditColl != nil && len(rawBytes) > 0 {
+						if text := ExtractGeminiStreamFrame(rawBytes); text != "" {
+							auditColl.AppendOutput(text)
+						}
 					}
 
 					if firstTokenMs == nil {
