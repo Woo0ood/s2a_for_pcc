@@ -180,7 +180,11 @@ CREATE TABLE payload_audit_logs (
 
 - 月度分区，沿用 `usage_logs` 已有的分区管理函数（参见 `035_usage_logs_partitioning.sql`）。
 - 预创建未来 2 个月的分区（独立 cron 每天 02:00 跑）。
-- 清理 cron 每天 03:00 跑：`DETACH PARTITION CONCURRENTLY` + `DROP TABLE`，按 `retention_days` 删过期月。
+- 清理 cron 每天 03:00 跑，按 `retention_days` 删过期月，单分区生命周期：
+  1. `ALTER TABLE payload_audit_logs DETACH PARTITION <p> CONCURRENTLY` —— PG ≥ 14 支持，不阻塞 SELECT/INSERT
+  2. **轮询 `pg_partitioned_table` / `pg_inherits` 直到该分区已脱离主表**（CONCURRENTLY 是异步的，最多等 30s）
+  3. `DROP TABLE <p>` 真正释放空间
+  4. 单步失败：记 slog error，回滚到 step 1（DETACH 可重入），等下次 cron 再试，**不在同一次 cron 内无限重试**
 
 ### 4.4 配置项（settings 表）
 
@@ -220,7 +224,9 @@ CREATE TABLE payload_audit_logs (
 
 > `export_api_keys` 只存 SHA256 哈希；明文 token 仅在创建时返回一次。选 SHA256 不选 bcrypt 因为这是机器对机器的高频校验。
 >
-> **存储与变更**：admin 的 POST/DELETE/PUT 端点（§7.7）内部对 `payload_audit_config` 做 read-modify-write 整体覆盖，不引入独立 keys 表。变更通过 settings 服务的 mutex 串行化，避免并发覆盖丢失。
+> **存储与变更**：admin 的 POST/DELETE 端点（§7.7）内部对 `payload_audit_config` 做 read-modify-write 整体覆盖，不引入独立 keys 表。变更通过 settings 服务的 mutex 串行化，避免并发覆盖丢失。
+>
+> **`last_used_at` 不进 settings JSON**：高频更新会把整段 JSON 反复改写，挤占 settings 缓存与连接池。改为存 Redis 字符串 `payload_audit:export_key:last_used:<key_id>`，TTL 7 天；admin 列表接口读取时合并 Redis 数据展示。读不到（TTL 过期或 Redis 故障）就显示为空，不影响功能。
 
 ---
 
@@ -453,6 +459,12 @@ GET /api/v1/audit/exports/payloads
 - `include_body` 取值不在 `excerpt|full|none` 三者之一时 → 400
 - 默认 `include_body=excerpt`，扫描器先粗筛再深拉
 
+**游标语义**：
+- 排序固定为 `(created_at DESC, id DESC)`（最新的优先）
+- cursor 解码为 `(cursor_created_at, cursor_id)`，查询条件追加 `WHERE (created_at, id) < (cursor_created_at, cursor_id)`，**严格小于**，不会重复也不会漏
+- 没有更多数据时 `next_cursor` 字段省略（不返回 `null`，省字节）
+- 新数据在分页过程中插入：因为是 DESC，新数据在游标"之后"（时间更新），分页结果不受影响
+
 ### 7.4 响应
 
 ```json
@@ -488,6 +500,16 @@ GET /api/v1/audit/exports/payloads
 }
 ```
 
+**`include_body` 三种模式下的字段差异**：
+
+| include_body | input_excerpt / output_excerpt | input_body / output_body |
+|---|---|---|
+| `none` | 不返 | 不返 |
+| `excerpt`（默认） | 返回 | 不返 |
+| `full` | 返回 | 返回 |
+
+其余字段（id / created_at / 元数据 / *_bytes / *_truncated）三种模式都返。
+
 ### 7.5 流式批量导出
 
 `GET /api/v1/audit/exports/payloads.ndjson`：
@@ -521,7 +543,10 @@ DELETE /admin/payload-audit/export-keys/:id          吊销
 ### 8.2 页面结构（参考现有 UsageView）
 
 - **概览卡片 × 4**：启用状态、已记录(24h)、队列占用 %、丢弃数(24h)
-- **筛选栏**：时间区间、分组、用户、API Key、端点、Provider、Model、是否流式、excerpt 关键字搜索（`ILIKE '%kw%'` over `input_excerpt` + `output_excerpt`，**只在已经被时间区间索引筛过的子集内执行**；UI 上明确提示"建议结合时间区间使用"，避免大跨度全表扫描）
+- **筛选栏**：时间区间、分组、用户、API Key、端点、Provider、Model、是否流式、excerpt 关键字搜索
+  - 关键字搜索为 `ILIKE '%kw%'` over `input_excerpt + output_excerpt`，**只在已被时间区间索引筛过的子集内 seq scan**
+  - **后端硬约束**：带关键字时强制 `to - from ≤ 7 天`，否则返 400；UI 同步提示
+  - 不引入 pg_trgm GIN 索引（excerpt 列写入频繁，trigram 索引维护开销不划算）
 - **列表**：默认 `include_body=excerpt`；点行 → 抽屉/对话框打开详情；分页
 - **详情对话框**：
   - 元数据区（request_id 可复制、关联跳转 usage_log）
@@ -564,12 +589,22 @@ POST   /admin/payload-audit/cleanup    手动触发清理
 | 指标 | 目标 |
 |---|---|
 | Collector 创建（关闭时） | < 50 ns |
-| Collector 创建（开启时） | < 1 µs |
+| Collector 创建（开启时，典型 input 10KB） | < 5 µs |
+| Collector 创建（最坏 input 10MB，含 `bytes.Clone`） | < 5 ms |
 | `AppendOutput` 单次 | < 100 ns |
-| `Finalize + TryEnqueue` | < 5 µs |
-| 请求路径总额外延迟 | < 100 µs（典型）/ < 1 ms（10MB input） |
+| `Finalize + TryEnqueue`（typical output ≤ 100KB） | < 50 µs |
+| 请求路径总额外延迟（典型） | < 100 µs |
+| 请求路径总额外延迟（10MB input，最坏） | < 5 ms（绝大部分来自一次内存拷贝） |
 | Worker 端单条平均 | < 5 ms |
 | 满负载丢弃率 | < 0.1%（默认配置 32k 队列、4 worker，1k QPS 内可吃下） |
+
+### 9.1.1 内存预算
+
+- **平均场景**：32k 队列 × 平均事件 ~10 KB（典型 chat 输入输出） ≈ **320 MB** 上限
+- **极端场景**：32k 队列被 vision payload 填满（每条 10MB input）≈ **320 GB**，**不应发生**
+- 推论：`queue_size` 默认 32768 是按平均 10KB 设计的；生产若主要是 vision/long-context，应**调小** `queue_size` 至 4096 左右，或反之 `worker_count` 调大让队列保持低占用
+- admin status 接口暴露 `queue.usage_pct`，超过 50% 持续 5 分钟应告警调参
+- 单条 `input_max_bytes` / `output_max_bytes` 是**截断阈值**，不是队列计费单位
 
 ### 9.2 Prometheus 指标
 
@@ -608,7 +643,7 @@ payload_audit_export_rows_returned                          # histogram
 ### 9.4 Cron
 
 - **清理 cron**：每天 UTC 03:00。cutoff = `now() - retention_days`，DETACH+DROP 所有早于 cutoff 的月度分区（一次可能批量清掉多个月，比如 retention 从 180 缩到 90 时），每个分区都写一条 ops_system_log。**服务启动时不自动跑**，避免首次部署时意外清空已有数据；改由 admin 显式调用 `POST /admin/payload-audit/cleanup`。
-- **分区维护 cron**：每天 UTC 02:00。检查未来 60 天分区是否齐全，缺失补建。服务**启动时立即跑一次**（必要：保证当前月分区一定存在，否则首条写入会失败）。
+- **分区维护 cron**：每天 UTC 02:00。检查未来 60 天分区是否齐全，缺失补建。服务**启动时立即跑一次**（必要：保证当前月分区一定存在，否则首条写入会失败）。失败时记 slog error 并把"距离当前月分区耗尽的天数"作为 metric 暴露——连续 3 次失败 → 视为 ops 告警事件（运维需手动介入），避免月底悄无声息全失败。
 - **手动触发清理**：`POST /admin/payload-audit/cleanup` 同步触发一次完整 cleanup 流程（前台等待返回）。
 
 ### 9.5 硬保护
@@ -709,7 +744,7 @@ handler 总改动 ~150 行；service stream handlers 各 +~20 行（4 处）共 
 
 写在 `docs/PAYLOAD_AUDIT.md`：
 
-1. **PostgreSQL 版本要求** ≥ 14（lz4 列压缩）。低于 14 自动回退 `pglz`，迁移有版本判断。
+1. **PostgreSQL 版本要求** ≥ 14（lz4 列压缩、`DETACH PARTITION CONCURRENTLY`）。低于 14 自动回退：`pglz` + 同步 DETACH。迁移用 `SELECT current_setting('server_version_num')::int >= 140000` 在 DO 块里分支建表。
 2. **磁盘容量预估表**：千次 / 万次 / 十万次调用每天对应 6 个月容量。
 3. **`queue.usage_pct > 50%` 持续 5 分钟**：建议扩 `worker_count`。
 4. **Redis 故障**只影响关停丢失，不影响正常运行。
@@ -730,3 +765,4 @@ handler 总改动 ~150 行；service stream handlers 各 +~20 行（4 处）共 
 - IP 白名单（必要时再加）
 - 输入/输出脱敏（合规扫描需要原文）
 - payload_audit_logs 自身的访问审计表（复用 ops_system_logs）
+- **admin 后台查看完整 body 的访问审计**（即"审计员的审计"）：当前只对**对外导出 API**记访问审计。admin 在管理页打开详情、点"展开完整内容"不会留痕，等于"管理员能看任何人的原文且无记录"。如果合规框架要求"四眼原则" / "看了什么必须留底"，需要后续补一个 `payload_audit_admin_view_logs` 表或同样写 ops_system_logs。**当前阶段明确接受这个洞**（管理员本身就是高权限角色，假设可信）。
