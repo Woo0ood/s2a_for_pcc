@@ -27,6 +27,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/payloadauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -74,6 +75,7 @@ const (
 	TypeGroup                         = "Group"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
+	TypePayloadAuditLog               = "PayloadAuditLog"
 	TypePaymentAuditLog               = "PaymentAuditLog"
 	TypePaymentOrder                  = "PaymentOrder"
 	TypePaymentProviderInstance       = "PaymentProviderInstance"
@@ -19778,6 +19780,2141 @@ func (m *IdentityAdoptionDecisionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown IdentityAdoptionDecision edge %s", name)
+}
+
+// PayloadAuditLogMutation represents an operation that mutates the PayloadAuditLog nodes in the graph.
+type PayloadAuditLogMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *int64
+	created_at       *time.Time
+	updated_at       *time.Time
+	request_id       *string
+	user_id          *int64
+	adduser_id       *int64
+	user_email       *string
+	api_key_id       *int64
+	addapi_key_id    *int64
+	api_key_name     *string
+	group_id         *int64
+	addgroup_id      *int64
+	group_name       *string
+	client_ip        *string
+	endpoint         *string
+	provider         *string
+	model            *string
+	upstream_model   *string
+	stream           *bool
+	status_code      *int
+	addstatus_code   *int
+	duration_ms      *int
+	addduration_ms   *int
+	input_excerpt    *string
+	output_excerpt   *string
+	input_body       *string
+	output_body      *string
+	input_format     *string
+	output_format    *string
+	input_bytes      *int
+	addinput_bytes   *int
+	output_bytes     *int
+	addoutput_bytes  *int
+	input_truncated  *bool
+	output_truncated *bool
+	output_omitted   *bool
+	error_message    *string
+	clearedFields    map[string]struct{}
+	done             bool
+	oldValue         func(context.Context) (*PayloadAuditLog, error)
+	predicates       []predicate.PayloadAuditLog
+}
+
+var _ ent.Mutation = (*PayloadAuditLogMutation)(nil)
+
+// payloadauditlogOption allows management of the mutation configuration using functional options.
+type payloadauditlogOption func(*PayloadAuditLogMutation)
+
+// newPayloadAuditLogMutation creates new mutation for the PayloadAuditLog entity.
+func newPayloadAuditLogMutation(c config, op Op, opts ...payloadauditlogOption) *PayloadAuditLogMutation {
+	m := &PayloadAuditLogMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePayloadAuditLog,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPayloadAuditLogID sets the ID field of the mutation.
+func withPayloadAuditLogID(id int64) payloadauditlogOption {
+	return func(m *PayloadAuditLogMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PayloadAuditLog
+		)
+		m.oldValue = func(ctx context.Context) (*PayloadAuditLog, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PayloadAuditLog.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPayloadAuditLog sets the old PayloadAuditLog of the mutation.
+func withPayloadAuditLog(node *PayloadAuditLog) payloadauditlogOption {
+	return func(m *PayloadAuditLogMutation) {
+		m.oldValue = func(context.Context) (*PayloadAuditLog, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PayloadAuditLogMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PayloadAuditLogMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PayloadAuditLogMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PayloadAuditLogMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PayloadAuditLog.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *PayloadAuditLogMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *PayloadAuditLogMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *PayloadAuditLogMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *PayloadAuditLogMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *PayloadAuditLogMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *PayloadAuditLogMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetRequestID sets the "request_id" field.
+func (m *PayloadAuditLogMutation) SetRequestID(s string) {
+	m.request_id = &s
+}
+
+// RequestID returns the value of the "request_id" field in the mutation.
+func (m *PayloadAuditLogMutation) RequestID() (r string, exists bool) {
+	v := m.request_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestID returns the old "request_id" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldRequestID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestID: %w", err)
+	}
+	return oldValue.RequestID, nil
+}
+
+// ResetRequestID resets all changes to the "request_id" field.
+func (m *PayloadAuditLogMutation) ResetRequestID() {
+	m.request_id = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *PayloadAuditLogMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *PayloadAuditLogMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *PayloadAuditLogMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (m *PayloadAuditLogMutation) ClearUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+	m.clearedFields[payloadauditlog.FieldUserID] = struct{}{}
+}
+
+// UserIDCleared returns if the "user_id" field was cleared in this mutation.
+func (m *PayloadAuditLogMutation) UserIDCleared() bool {
+	_, ok := m.clearedFields[payloadauditlog.FieldUserID]
+	return ok
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *PayloadAuditLogMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+	delete(m.clearedFields, payloadauditlog.FieldUserID)
+}
+
+// SetUserEmail sets the "user_email" field.
+func (m *PayloadAuditLogMutation) SetUserEmail(s string) {
+	m.user_email = &s
+}
+
+// UserEmail returns the value of the "user_email" field in the mutation.
+func (m *PayloadAuditLogMutation) UserEmail() (r string, exists bool) {
+	v := m.user_email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserEmail returns the old "user_email" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldUserEmail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserEmail: %w", err)
+	}
+	return oldValue.UserEmail, nil
+}
+
+// ResetUserEmail resets all changes to the "user_email" field.
+func (m *PayloadAuditLogMutation) ResetUserEmail() {
+	m.user_email = nil
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *PayloadAuditLogMutation) SetAPIKeyID(i int64) {
+	m.api_key_id = &i
+	m.addapi_key_id = nil
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *PayloadAuditLogMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldAPIKeyID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// AddAPIKeyID adds i to the "api_key_id" field.
+func (m *PayloadAuditLogMutation) AddAPIKeyID(i int64) {
+	if m.addapi_key_id != nil {
+		*m.addapi_key_id += i
+	} else {
+		m.addapi_key_id = &i
+	}
+}
+
+// AddedAPIKeyID returns the value that was added to the "api_key_id" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedAPIKeyID() (r int64, exists bool) {
+	v := m.addapi_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (m *PayloadAuditLogMutation) ClearAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	m.clearedFields[payloadauditlog.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyIDCleared returns if the "api_key_id" field was cleared in this mutation.
+func (m *PayloadAuditLogMutation) APIKeyIDCleared() bool {
+	_, ok := m.clearedFields[payloadauditlog.FieldAPIKeyID]
+	return ok
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *PayloadAuditLogMutation) ResetAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	delete(m.clearedFields, payloadauditlog.FieldAPIKeyID)
+}
+
+// SetAPIKeyName sets the "api_key_name" field.
+func (m *PayloadAuditLogMutation) SetAPIKeyName(s string) {
+	m.api_key_name = &s
+}
+
+// APIKeyName returns the value of the "api_key_name" field in the mutation.
+func (m *PayloadAuditLogMutation) APIKeyName() (r string, exists bool) {
+	v := m.api_key_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyName returns the old "api_key_name" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldAPIKeyName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyName: %w", err)
+	}
+	return oldValue.APIKeyName, nil
+}
+
+// ResetAPIKeyName resets all changes to the "api_key_name" field.
+func (m *PayloadAuditLogMutation) ResetAPIKeyName() {
+	m.api_key_name = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *PayloadAuditLogMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *PayloadAuditLogMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *PayloadAuditLogMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearGroupID clears the value of the "group_id" field.
+func (m *PayloadAuditLogMutation) ClearGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	m.clearedFields[payloadauditlog.FieldGroupID] = struct{}{}
+}
+
+// GroupIDCleared returns if the "group_id" field was cleared in this mutation.
+func (m *PayloadAuditLogMutation) GroupIDCleared() bool {
+	_, ok := m.clearedFields[payloadauditlog.FieldGroupID]
+	return ok
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *PayloadAuditLogMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	delete(m.clearedFields, payloadauditlog.FieldGroupID)
+}
+
+// SetGroupName sets the "group_name" field.
+func (m *PayloadAuditLogMutation) SetGroupName(s string) {
+	m.group_name = &s
+}
+
+// GroupName returns the value of the "group_name" field in the mutation.
+func (m *PayloadAuditLogMutation) GroupName() (r string, exists bool) {
+	v := m.group_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupName returns the old "group_name" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldGroupName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupName: %w", err)
+	}
+	return oldValue.GroupName, nil
+}
+
+// ResetGroupName resets all changes to the "group_name" field.
+func (m *PayloadAuditLogMutation) ResetGroupName() {
+	m.group_name = nil
+}
+
+// SetClientIP sets the "client_ip" field.
+func (m *PayloadAuditLogMutation) SetClientIP(s string) {
+	m.client_ip = &s
+}
+
+// ClientIP returns the value of the "client_ip" field in the mutation.
+func (m *PayloadAuditLogMutation) ClientIP() (r string, exists bool) {
+	v := m.client_ip
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientIP returns the old "client_ip" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldClientIP(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientIP is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientIP requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientIP: %w", err)
+	}
+	return oldValue.ClientIP, nil
+}
+
+// ResetClientIP resets all changes to the "client_ip" field.
+func (m *PayloadAuditLogMutation) ResetClientIP() {
+	m.client_ip = nil
+}
+
+// SetEndpoint sets the "endpoint" field.
+func (m *PayloadAuditLogMutation) SetEndpoint(s string) {
+	m.endpoint = &s
+}
+
+// Endpoint returns the value of the "endpoint" field in the mutation.
+func (m *PayloadAuditLogMutation) Endpoint() (r string, exists bool) {
+	v := m.endpoint
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndpoint returns the old "endpoint" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldEndpoint(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndpoint is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndpoint requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndpoint: %w", err)
+	}
+	return oldValue.Endpoint, nil
+}
+
+// ResetEndpoint resets all changes to the "endpoint" field.
+func (m *PayloadAuditLogMutation) ResetEndpoint() {
+	m.endpoint = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *PayloadAuditLogMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *PayloadAuditLogMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *PayloadAuditLogMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetModel sets the "model" field.
+func (m *PayloadAuditLogMutation) SetModel(s string) {
+	m.model = &s
+}
+
+// Model returns the value of the "model" field in the mutation.
+func (m *PayloadAuditLogMutation) Model() (r string, exists bool) {
+	v := m.model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModel returns the old "model" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModel: %w", err)
+	}
+	return oldValue.Model, nil
+}
+
+// ResetModel resets all changes to the "model" field.
+func (m *PayloadAuditLogMutation) ResetModel() {
+	m.model = nil
+}
+
+// SetUpstreamModel sets the "upstream_model" field.
+func (m *PayloadAuditLogMutation) SetUpstreamModel(s string) {
+	m.upstream_model = &s
+}
+
+// UpstreamModel returns the value of the "upstream_model" field in the mutation.
+func (m *PayloadAuditLogMutation) UpstreamModel() (r string, exists bool) {
+	v := m.upstream_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamModel returns the old "upstream_model" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldUpstreamModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamModel: %w", err)
+	}
+	return oldValue.UpstreamModel, nil
+}
+
+// ResetUpstreamModel resets all changes to the "upstream_model" field.
+func (m *PayloadAuditLogMutation) ResetUpstreamModel() {
+	m.upstream_model = nil
+}
+
+// SetStream sets the "stream" field.
+func (m *PayloadAuditLogMutation) SetStream(b bool) {
+	m.stream = &b
+}
+
+// Stream returns the value of the "stream" field in the mutation.
+func (m *PayloadAuditLogMutation) Stream() (r bool, exists bool) {
+	v := m.stream
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStream returns the old "stream" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldStream(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStream is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStream requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStream: %w", err)
+	}
+	return oldValue.Stream, nil
+}
+
+// ResetStream resets all changes to the "stream" field.
+func (m *PayloadAuditLogMutation) ResetStream() {
+	m.stream = nil
+}
+
+// SetStatusCode sets the "status_code" field.
+func (m *PayloadAuditLogMutation) SetStatusCode(i int) {
+	m.status_code = &i
+	m.addstatus_code = nil
+}
+
+// StatusCode returns the value of the "status_code" field in the mutation.
+func (m *PayloadAuditLogMutation) StatusCode() (r int, exists bool) {
+	v := m.status_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatusCode returns the old "status_code" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldStatusCode(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatusCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatusCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatusCode: %w", err)
+	}
+	return oldValue.StatusCode, nil
+}
+
+// AddStatusCode adds i to the "status_code" field.
+func (m *PayloadAuditLogMutation) AddStatusCode(i int) {
+	if m.addstatus_code != nil {
+		*m.addstatus_code += i
+	} else {
+		m.addstatus_code = &i
+	}
+}
+
+// AddedStatusCode returns the value that was added to the "status_code" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedStatusCode() (r int, exists bool) {
+	v := m.addstatus_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStatusCode resets all changes to the "status_code" field.
+func (m *PayloadAuditLogMutation) ResetStatusCode() {
+	m.status_code = nil
+	m.addstatus_code = nil
+}
+
+// SetDurationMs sets the "duration_ms" field.
+func (m *PayloadAuditLogMutation) SetDurationMs(i int) {
+	m.duration_ms = &i
+	m.addduration_ms = nil
+}
+
+// DurationMs returns the value of the "duration_ms" field in the mutation.
+func (m *PayloadAuditLogMutation) DurationMs() (r int, exists bool) {
+	v := m.duration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDurationMs returns the old "duration_ms" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldDurationMs(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDurationMs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDurationMs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDurationMs: %w", err)
+	}
+	return oldValue.DurationMs, nil
+}
+
+// AddDurationMs adds i to the "duration_ms" field.
+func (m *PayloadAuditLogMutation) AddDurationMs(i int) {
+	if m.addduration_ms != nil {
+		*m.addduration_ms += i
+	} else {
+		m.addduration_ms = &i
+	}
+}
+
+// AddedDurationMs returns the value that was added to the "duration_ms" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedDurationMs() (r int, exists bool) {
+	v := m.addduration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDurationMs resets all changes to the "duration_ms" field.
+func (m *PayloadAuditLogMutation) ResetDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+}
+
+// SetInputExcerpt sets the "input_excerpt" field.
+func (m *PayloadAuditLogMutation) SetInputExcerpt(s string) {
+	m.input_excerpt = &s
+}
+
+// InputExcerpt returns the value of the "input_excerpt" field in the mutation.
+func (m *PayloadAuditLogMutation) InputExcerpt() (r string, exists bool) {
+	v := m.input_excerpt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputExcerpt returns the old "input_excerpt" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldInputExcerpt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputExcerpt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputExcerpt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputExcerpt: %w", err)
+	}
+	return oldValue.InputExcerpt, nil
+}
+
+// ResetInputExcerpt resets all changes to the "input_excerpt" field.
+func (m *PayloadAuditLogMutation) ResetInputExcerpt() {
+	m.input_excerpt = nil
+}
+
+// SetOutputExcerpt sets the "output_excerpt" field.
+func (m *PayloadAuditLogMutation) SetOutputExcerpt(s string) {
+	m.output_excerpt = &s
+}
+
+// OutputExcerpt returns the value of the "output_excerpt" field in the mutation.
+func (m *PayloadAuditLogMutation) OutputExcerpt() (r string, exists bool) {
+	v := m.output_excerpt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputExcerpt returns the old "output_excerpt" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldOutputExcerpt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputExcerpt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputExcerpt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputExcerpt: %w", err)
+	}
+	return oldValue.OutputExcerpt, nil
+}
+
+// ResetOutputExcerpt resets all changes to the "output_excerpt" field.
+func (m *PayloadAuditLogMutation) ResetOutputExcerpt() {
+	m.output_excerpt = nil
+}
+
+// SetInputBody sets the "input_body" field.
+func (m *PayloadAuditLogMutation) SetInputBody(s string) {
+	m.input_body = &s
+}
+
+// InputBody returns the value of the "input_body" field in the mutation.
+func (m *PayloadAuditLogMutation) InputBody() (r string, exists bool) {
+	v := m.input_body
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputBody returns the old "input_body" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldInputBody(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputBody is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputBody requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputBody: %w", err)
+	}
+	return oldValue.InputBody, nil
+}
+
+// ResetInputBody resets all changes to the "input_body" field.
+func (m *PayloadAuditLogMutation) ResetInputBody() {
+	m.input_body = nil
+}
+
+// SetOutputBody sets the "output_body" field.
+func (m *PayloadAuditLogMutation) SetOutputBody(s string) {
+	m.output_body = &s
+}
+
+// OutputBody returns the value of the "output_body" field in the mutation.
+func (m *PayloadAuditLogMutation) OutputBody() (r string, exists bool) {
+	v := m.output_body
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputBody returns the old "output_body" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldOutputBody(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputBody is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputBody requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputBody: %w", err)
+	}
+	return oldValue.OutputBody, nil
+}
+
+// ResetOutputBody resets all changes to the "output_body" field.
+func (m *PayloadAuditLogMutation) ResetOutputBody() {
+	m.output_body = nil
+}
+
+// SetInputFormat sets the "input_format" field.
+func (m *PayloadAuditLogMutation) SetInputFormat(s string) {
+	m.input_format = &s
+}
+
+// InputFormat returns the value of the "input_format" field in the mutation.
+func (m *PayloadAuditLogMutation) InputFormat() (r string, exists bool) {
+	v := m.input_format
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputFormat returns the old "input_format" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldInputFormat(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputFormat is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputFormat requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputFormat: %w", err)
+	}
+	return oldValue.InputFormat, nil
+}
+
+// ResetInputFormat resets all changes to the "input_format" field.
+func (m *PayloadAuditLogMutation) ResetInputFormat() {
+	m.input_format = nil
+}
+
+// SetOutputFormat sets the "output_format" field.
+func (m *PayloadAuditLogMutation) SetOutputFormat(s string) {
+	m.output_format = &s
+}
+
+// OutputFormat returns the value of the "output_format" field in the mutation.
+func (m *PayloadAuditLogMutation) OutputFormat() (r string, exists bool) {
+	v := m.output_format
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputFormat returns the old "output_format" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldOutputFormat(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputFormat is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputFormat requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputFormat: %w", err)
+	}
+	return oldValue.OutputFormat, nil
+}
+
+// ResetOutputFormat resets all changes to the "output_format" field.
+func (m *PayloadAuditLogMutation) ResetOutputFormat() {
+	m.output_format = nil
+}
+
+// SetInputBytes sets the "input_bytes" field.
+func (m *PayloadAuditLogMutation) SetInputBytes(i int) {
+	m.input_bytes = &i
+	m.addinput_bytes = nil
+}
+
+// InputBytes returns the value of the "input_bytes" field in the mutation.
+func (m *PayloadAuditLogMutation) InputBytes() (r int, exists bool) {
+	v := m.input_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputBytes returns the old "input_bytes" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldInputBytes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputBytes: %w", err)
+	}
+	return oldValue.InputBytes, nil
+}
+
+// AddInputBytes adds i to the "input_bytes" field.
+func (m *PayloadAuditLogMutation) AddInputBytes(i int) {
+	if m.addinput_bytes != nil {
+		*m.addinput_bytes += i
+	} else {
+		m.addinput_bytes = &i
+	}
+}
+
+// AddedInputBytes returns the value that was added to the "input_bytes" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedInputBytes() (r int, exists bool) {
+	v := m.addinput_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInputBytes resets all changes to the "input_bytes" field.
+func (m *PayloadAuditLogMutation) ResetInputBytes() {
+	m.input_bytes = nil
+	m.addinput_bytes = nil
+}
+
+// SetOutputBytes sets the "output_bytes" field.
+func (m *PayloadAuditLogMutation) SetOutputBytes(i int) {
+	m.output_bytes = &i
+	m.addoutput_bytes = nil
+}
+
+// OutputBytes returns the value of the "output_bytes" field in the mutation.
+func (m *PayloadAuditLogMutation) OutputBytes() (r int, exists bool) {
+	v := m.output_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputBytes returns the old "output_bytes" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldOutputBytes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputBytes: %w", err)
+	}
+	return oldValue.OutputBytes, nil
+}
+
+// AddOutputBytes adds i to the "output_bytes" field.
+func (m *PayloadAuditLogMutation) AddOutputBytes(i int) {
+	if m.addoutput_bytes != nil {
+		*m.addoutput_bytes += i
+	} else {
+		m.addoutput_bytes = &i
+	}
+}
+
+// AddedOutputBytes returns the value that was added to the "output_bytes" field in this mutation.
+func (m *PayloadAuditLogMutation) AddedOutputBytes() (r int, exists bool) {
+	v := m.addoutput_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputBytes resets all changes to the "output_bytes" field.
+func (m *PayloadAuditLogMutation) ResetOutputBytes() {
+	m.output_bytes = nil
+	m.addoutput_bytes = nil
+}
+
+// SetInputTruncated sets the "input_truncated" field.
+func (m *PayloadAuditLogMutation) SetInputTruncated(b bool) {
+	m.input_truncated = &b
+}
+
+// InputTruncated returns the value of the "input_truncated" field in the mutation.
+func (m *PayloadAuditLogMutation) InputTruncated() (r bool, exists bool) {
+	v := m.input_truncated
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputTruncated returns the old "input_truncated" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldInputTruncated(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputTruncated is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputTruncated requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputTruncated: %w", err)
+	}
+	return oldValue.InputTruncated, nil
+}
+
+// ResetInputTruncated resets all changes to the "input_truncated" field.
+func (m *PayloadAuditLogMutation) ResetInputTruncated() {
+	m.input_truncated = nil
+}
+
+// SetOutputTruncated sets the "output_truncated" field.
+func (m *PayloadAuditLogMutation) SetOutputTruncated(b bool) {
+	m.output_truncated = &b
+}
+
+// OutputTruncated returns the value of the "output_truncated" field in the mutation.
+func (m *PayloadAuditLogMutation) OutputTruncated() (r bool, exists bool) {
+	v := m.output_truncated
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputTruncated returns the old "output_truncated" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldOutputTruncated(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputTruncated is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputTruncated requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputTruncated: %w", err)
+	}
+	return oldValue.OutputTruncated, nil
+}
+
+// ResetOutputTruncated resets all changes to the "output_truncated" field.
+func (m *PayloadAuditLogMutation) ResetOutputTruncated() {
+	m.output_truncated = nil
+}
+
+// SetOutputOmitted sets the "output_omitted" field.
+func (m *PayloadAuditLogMutation) SetOutputOmitted(b bool) {
+	m.output_omitted = &b
+}
+
+// OutputOmitted returns the value of the "output_omitted" field in the mutation.
+func (m *PayloadAuditLogMutation) OutputOmitted() (r bool, exists bool) {
+	v := m.output_omitted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputOmitted returns the old "output_omitted" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldOutputOmitted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputOmitted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputOmitted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputOmitted: %w", err)
+	}
+	return oldValue.OutputOmitted, nil
+}
+
+// ResetOutputOmitted resets all changes to the "output_omitted" field.
+func (m *PayloadAuditLogMutation) ResetOutputOmitted() {
+	m.output_omitted = nil
+}
+
+// SetErrorMessage sets the "error_message" field.
+func (m *PayloadAuditLogMutation) SetErrorMessage(s string) {
+	m.error_message = &s
+}
+
+// ErrorMessage returns the value of the "error_message" field in the mutation.
+func (m *PayloadAuditLogMutation) ErrorMessage() (r string, exists bool) {
+	v := m.error_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorMessage returns the old "error_message" field's value of the PayloadAuditLog entity.
+// If the PayloadAuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PayloadAuditLogMutation) OldErrorMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorMessage: %w", err)
+	}
+	return oldValue.ErrorMessage, nil
+}
+
+// ResetErrorMessage resets all changes to the "error_message" field.
+func (m *PayloadAuditLogMutation) ResetErrorMessage() {
+	m.error_message = nil
+}
+
+// Where appends a list predicates to the PayloadAuditLogMutation builder.
+func (m *PayloadAuditLogMutation) Where(ps ...predicate.PayloadAuditLog) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PayloadAuditLogMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PayloadAuditLogMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PayloadAuditLog, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PayloadAuditLogMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PayloadAuditLogMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PayloadAuditLog).
+func (m *PayloadAuditLogMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PayloadAuditLogMutation) Fields() []string {
+	fields := make([]string, 0, 29)
+	if m.created_at != nil {
+		fields = append(fields, payloadauditlog.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, payloadauditlog.FieldUpdatedAt)
+	}
+	if m.request_id != nil {
+		fields = append(fields, payloadauditlog.FieldRequestID)
+	}
+	if m.user_id != nil {
+		fields = append(fields, payloadauditlog.FieldUserID)
+	}
+	if m.user_email != nil {
+		fields = append(fields, payloadauditlog.FieldUserEmail)
+	}
+	if m.api_key_id != nil {
+		fields = append(fields, payloadauditlog.FieldAPIKeyID)
+	}
+	if m.api_key_name != nil {
+		fields = append(fields, payloadauditlog.FieldAPIKeyName)
+	}
+	if m.group_id != nil {
+		fields = append(fields, payloadauditlog.FieldGroupID)
+	}
+	if m.group_name != nil {
+		fields = append(fields, payloadauditlog.FieldGroupName)
+	}
+	if m.client_ip != nil {
+		fields = append(fields, payloadauditlog.FieldClientIP)
+	}
+	if m.endpoint != nil {
+		fields = append(fields, payloadauditlog.FieldEndpoint)
+	}
+	if m.provider != nil {
+		fields = append(fields, payloadauditlog.FieldProvider)
+	}
+	if m.model != nil {
+		fields = append(fields, payloadauditlog.FieldModel)
+	}
+	if m.upstream_model != nil {
+		fields = append(fields, payloadauditlog.FieldUpstreamModel)
+	}
+	if m.stream != nil {
+		fields = append(fields, payloadauditlog.FieldStream)
+	}
+	if m.status_code != nil {
+		fields = append(fields, payloadauditlog.FieldStatusCode)
+	}
+	if m.duration_ms != nil {
+		fields = append(fields, payloadauditlog.FieldDurationMs)
+	}
+	if m.input_excerpt != nil {
+		fields = append(fields, payloadauditlog.FieldInputExcerpt)
+	}
+	if m.output_excerpt != nil {
+		fields = append(fields, payloadauditlog.FieldOutputExcerpt)
+	}
+	if m.input_body != nil {
+		fields = append(fields, payloadauditlog.FieldInputBody)
+	}
+	if m.output_body != nil {
+		fields = append(fields, payloadauditlog.FieldOutputBody)
+	}
+	if m.input_format != nil {
+		fields = append(fields, payloadauditlog.FieldInputFormat)
+	}
+	if m.output_format != nil {
+		fields = append(fields, payloadauditlog.FieldOutputFormat)
+	}
+	if m.input_bytes != nil {
+		fields = append(fields, payloadauditlog.FieldInputBytes)
+	}
+	if m.output_bytes != nil {
+		fields = append(fields, payloadauditlog.FieldOutputBytes)
+	}
+	if m.input_truncated != nil {
+		fields = append(fields, payloadauditlog.FieldInputTruncated)
+	}
+	if m.output_truncated != nil {
+		fields = append(fields, payloadauditlog.FieldOutputTruncated)
+	}
+	if m.output_omitted != nil {
+		fields = append(fields, payloadauditlog.FieldOutputOmitted)
+	}
+	if m.error_message != nil {
+		fields = append(fields, payloadauditlog.FieldErrorMessage)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PayloadAuditLogMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case payloadauditlog.FieldCreatedAt:
+		return m.CreatedAt()
+	case payloadauditlog.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case payloadauditlog.FieldRequestID:
+		return m.RequestID()
+	case payloadauditlog.FieldUserID:
+		return m.UserID()
+	case payloadauditlog.FieldUserEmail:
+		return m.UserEmail()
+	case payloadauditlog.FieldAPIKeyID:
+		return m.APIKeyID()
+	case payloadauditlog.FieldAPIKeyName:
+		return m.APIKeyName()
+	case payloadauditlog.FieldGroupID:
+		return m.GroupID()
+	case payloadauditlog.FieldGroupName:
+		return m.GroupName()
+	case payloadauditlog.FieldClientIP:
+		return m.ClientIP()
+	case payloadauditlog.FieldEndpoint:
+		return m.Endpoint()
+	case payloadauditlog.FieldProvider:
+		return m.Provider()
+	case payloadauditlog.FieldModel:
+		return m.Model()
+	case payloadauditlog.FieldUpstreamModel:
+		return m.UpstreamModel()
+	case payloadauditlog.FieldStream:
+		return m.Stream()
+	case payloadauditlog.FieldStatusCode:
+		return m.StatusCode()
+	case payloadauditlog.FieldDurationMs:
+		return m.DurationMs()
+	case payloadauditlog.FieldInputExcerpt:
+		return m.InputExcerpt()
+	case payloadauditlog.FieldOutputExcerpt:
+		return m.OutputExcerpt()
+	case payloadauditlog.FieldInputBody:
+		return m.InputBody()
+	case payloadauditlog.FieldOutputBody:
+		return m.OutputBody()
+	case payloadauditlog.FieldInputFormat:
+		return m.InputFormat()
+	case payloadauditlog.FieldOutputFormat:
+		return m.OutputFormat()
+	case payloadauditlog.FieldInputBytes:
+		return m.InputBytes()
+	case payloadauditlog.FieldOutputBytes:
+		return m.OutputBytes()
+	case payloadauditlog.FieldInputTruncated:
+		return m.InputTruncated()
+	case payloadauditlog.FieldOutputTruncated:
+		return m.OutputTruncated()
+	case payloadauditlog.FieldOutputOmitted:
+		return m.OutputOmitted()
+	case payloadauditlog.FieldErrorMessage:
+		return m.ErrorMessage()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PayloadAuditLogMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case payloadauditlog.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case payloadauditlog.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case payloadauditlog.FieldRequestID:
+		return m.OldRequestID(ctx)
+	case payloadauditlog.FieldUserID:
+		return m.OldUserID(ctx)
+	case payloadauditlog.FieldUserEmail:
+		return m.OldUserEmail(ctx)
+	case payloadauditlog.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case payloadauditlog.FieldAPIKeyName:
+		return m.OldAPIKeyName(ctx)
+	case payloadauditlog.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case payloadauditlog.FieldGroupName:
+		return m.OldGroupName(ctx)
+	case payloadauditlog.FieldClientIP:
+		return m.OldClientIP(ctx)
+	case payloadauditlog.FieldEndpoint:
+		return m.OldEndpoint(ctx)
+	case payloadauditlog.FieldProvider:
+		return m.OldProvider(ctx)
+	case payloadauditlog.FieldModel:
+		return m.OldModel(ctx)
+	case payloadauditlog.FieldUpstreamModel:
+		return m.OldUpstreamModel(ctx)
+	case payloadauditlog.FieldStream:
+		return m.OldStream(ctx)
+	case payloadauditlog.FieldStatusCode:
+		return m.OldStatusCode(ctx)
+	case payloadauditlog.FieldDurationMs:
+		return m.OldDurationMs(ctx)
+	case payloadauditlog.FieldInputExcerpt:
+		return m.OldInputExcerpt(ctx)
+	case payloadauditlog.FieldOutputExcerpt:
+		return m.OldOutputExcerpt(ctx)
+	case payloadauditlog.FieldInputBody:
+		return m.OldInputBody(ctx)
+	case payloadauditlog.FieldOutputBody:
+		return m.OldOutputBody(ctx)
+	case payloadauditlog.FieldInputFormat:
+		return m.OldInputFormat(ctx)
+	case payloadauditlog.FieldOutputFormat:
+		return m.OldOutputFormat(ctx)
+	case payloadauditlog.FieldInputBytes:
+		return m.OldInputBytes(ctx)
+	case payloadauditlog.FieldOutputBytes:
+		return m.OldOutputBytes(ctx)
+	case payloadauditlog.FieldInputTruncated:
+		return m.OldInputTruncated(ctx)
+	case payloadauditlog.FieldOutputTruncated:
+		return m.OldOutputTruncated(ctx)
+	case payloadauditlog.FieldOutputOmitted:
+		return m.OldOutputOmitted(ctx)
+	case payloadauditlog.FieldErrorMessage:
+		return m.OldErrorMessage(ctx)
+	}
+	return nil, fmt.Errorf("unknown PayloadAuditLog field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PayloadAuditLogMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case payloadauditlog.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case payloadauditlog.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case payloadauditlog.FieldRequestID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestID(v)
+		return nil
+	case payloadauditlog.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case payloadauditlog.FieldUserEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserEmail(v)
+		return nil
+	case payloadauditlog.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case payloadauditlog.FieldAPIKeyName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyName(v)
+		return nil
+	case payloadauditlog.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case payloadauditlog.FieldGroupName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupName(v)
+		return nil
+	case payloadauditlog.FieldClientIP:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientIP(v)
+		return nil
+	case payloadauditlog.FieldEndpoint:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndpoint(v)
+		return nil
+	case payloadauditlog.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case payloadauditlog.FieldModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModel(v)
+		return nil
+	case payloadauditlog.FieldUpstreamModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamModel(v)
+		return nil
+	case payloadauditlog.FieldStream:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStream(v)
+		return nil
+	case payloadauditlog.FieldStatusCode:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatusCode(v)
+		return nil
+	case payloadauditlog.FieldDurationMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDurationMs(v)
+		return nil
+	case payloadauditlog.FieldInputExcerpt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputExcerpt(v)
+		return nil
+	case payloadauditlog.FieldOutputExcerpt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputExcerpt(v)
+		return nil
+	case payloadauditlog.FieldInputBody:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputBody(v)
+		return nil
+	case payloadauditlog.FieldOutputBody:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputBody(v)
+		return nil
+	case payloadauditlog.FieldInputFormat:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputFormat(v)
+		return nil
+	case payloadauditlog.FieldOutputFormat:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputFormat(v)
+		return nil
+	case payloadauditlog.FieldInputBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputBytes(v)
+		return nil
+	case payloadauditlog.FieldOutputBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputBytes(v)
+		return nil
+	case payloadauditlog.FieldInputTruncated:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputTruncated(v)
+		return nil
+	case payloadauditlog.FieldOutputTruncated:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputTruncated(v)
+		return nil
+	case payloadauditlog.FieldOutputOmitted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputOmitted(v)
+		return nil
+	case payloadauditlog.FieldErrorMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorMessage(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PayloadAuditLog field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PayloadAuditLogMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, payloadauditlog.FieldUserID)
+	}
+	if m.addapi_key_id != nil {
+		fields = append(fields, payloadauditlog.FieldAPIKeyID)
+	}
+	if m.addgroup_id != nil {
+		fields = append(fields, payloadauditlog.FieldGroupID)
+	}
+	if m.addstatus_code != nil {
+		fields = append(fields, payloadauditlog.FieldStatusCode)
+	}
+	if m.addduration_ms != nil {
+		fields = append(fields, payloadauditlog.FieldDurationMs)
+	}
+	if m.addinput_bytes != nil {
+		fields = append(fields, payloadauditlog.FieldInputBytes)
+	}
+	if m.addoutput_bytes != nil {
+		fields = append(fields, payloadauditlog.FieldOutputBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PayloadAuditLogMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case payloadauditlog.FieldUserID:
+		return m.AddedUserID()
+	case payloadauditlog.FieldAPIKeyID:
+		return m.AddedAPIKeyID()
+	case payloadauditlog.FieldGroupID:
+		return m.AddedGroupID()
+	case payloadauditlog.FieldStatusCode:
+		return m.AddedStatusCode()
+	case payloadauditlog.FieldDurationMs:
+		return m.AddedDurationMs()
+	case payloadauditlog.FieldInputBytes:
+		return m.AddedInputBytes()
+	case payloadauditlog.FieldOutputBytes:
+		return m.AddedOutputBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PayloadAuditLogMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case payloadauditlog.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case payloadauditlog.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAPIKeyID(v)
+		return nil
+	case payloadauditlog.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	case payloadauditlog.FieldStatusCode:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStatusCode(v)
+		return nil
+	case payloadauditlog.FieldDurationMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDurationMs(v)
+		return nil
+	case payloadauditlog.FieldInputBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInputBytes(v)
+		return nil
+	case payloadauditlog.FieldOutputBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PayloadAuditLog numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PayloadAuditLogMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(payloadauditlog.FieldUserID) {
+		fields = append(fields, payloadauditlog.FieldUserID)
+	}
+	if m.FieldCleared(payloadauditlog.FieldAPIKeyID) {
+		fields = append(fields, payloadauditlog.FieldAPIKeyID)
+	}
+	if m.FieldCleared(payloadauditlog.FieldGroupID) {
+		fields = append(fields, payloadauditlog.FieldGroupID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PayloadAuditLogMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PayloadAuditLogMutation) ClearField(name string) error {
+	switch name {
+	case payloadauditlog.FieldUserID:
+		m.ClearUserID()
+		return nil
+	case payloadauditlog.FieldAPIKeyID:
+		m.ClearAPIKeyID()
+		return nil
+	case payloadauditlog.FieldGroupID:
+		m.ClearGroupID()
+		return nil
+	}
+	return fmt.Errorf("unknown PayloadAuditLog nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PayloadAuditLogMutation) ResetField(name string) error {
+	switch name {
+	case payloadauditlog.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case payloadauditlog.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case payloadauditlog.FieldRequestID:
+		m.ResetRequestID()
+		return nil
+	case payloadauditlog.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case payloadauditlog.FieldUserEmail:
+		m.ResetUserEmail()
+		return nil
+	case payloadauditlog.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case payloadauditlog.FieldAPIKeyName:
+		m.ResetAPIKeyName()
+		return nil
+	case payloadauditlog.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case payloadauditlog.FieldGroupName:
+		m.ResetGroupName()
+		return nil
+	case payloadauditlog.FieldClientIP:
+		m.ResetClientIP()
+		return nil
+	case payloadauditlog.FieldEndpoint:
+		m.ResetEndpoint()
+		return nil
+	case payloadauditlog.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case payloadauditlog.FieldModel:
+		m.ResetModel()
+		return nil
+	case payloadauditlog.FieldUpstreamModel:
+		m.ResetUpstreamModel()
+		return nil
+	case payloadauditlog.FieldStream:
+		m.ResetStream()
+		return nil
+	case payloadauditlog.FieldStatusCode:
+		m.ResetStatusCode()
+		return nil
+	case payloadauditlog.FieldDurationMs:
+		m.ResetDurationMs()
+		return nil
+	case payloadauditlog.FieldInputExcerpt:
+		m.ResetInputExcerpt()
+		return nil
+	case payloadauditlog.FieldOutputExcerpt:
+		m.ResetOutputExcerpt()
+		return nil
+	case payloadauditlog.FieldInputBody:
+		m.ResetInputBody()
+		return nil
+	case payloadauditlog.FieldOutputBody:
+		m.ResetOutputBody()
+		return nil
+	case payloadauditlog.FieldInputFormat:
+		m.ResetInputFormat()
+		return nil
+	case payloadauditlog.FieldOutputFormat:
+		m.ResetOutputFormat()
+		return nil
+	case payloadauditlog.FieldInputBytes:
+		m.ResetInputBytes()
+		return nil
+	case payloadauditlog.FieldOutputBytes:
+		m.ResetOutputBytes()
+		return nil
+	case payloadauditlog.FieldInputTruncated:
+		m.ResetInputTruncated()
+		return nil
+	case payloadauditlog.FieldOutputTruncated:
+		m.ResetOutputTruncated()
+		return nil
+	case payloadauditlog.FieldOutputOmitted:
+		m.ResetOutputOmitted()
+		return nil
+	case payloadauditlog.FieldErrorMessage:
+		m.ResetErrorMessage()
+		return nil
+	}
+	return fmt.Errorf("unknown PayloadAuditLog field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PayloadAuditLogMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PayloadAuditLogMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PayloadAuditLogMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PayloadAuditLogMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PayloadAuditLogMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PayloadAuditLogMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PayloadAuditLogMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown PayloadAuditLog unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PayloadAuditLogMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown PayloadAuditLog edge %s", name)
 }
 
 // PaymentAuditLogMutation represents an operation that mutates the PaymentAuditLog nodes in the graph.
