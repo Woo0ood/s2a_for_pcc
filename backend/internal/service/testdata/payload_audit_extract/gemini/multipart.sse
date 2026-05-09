@@ -1,0 +1,4 @@
+data: {"candidates":[{"content":{"parts":[{"text":"Part one"},{"text":" and part two"}],"role":"model"},"index":0}]}
+
+data: {"candidates":[{"content":{"parts":[{"text":" final"}],"role":"model"},"finishReason":"MAX_TOKENS","index":0}]}
+

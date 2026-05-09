@@ -1,0 +1,12 @@
+event: response.reasoning_summary.delta
+data: {"type":"response.reasoning_summary.delta","delta":"Thinking step 1"}
+
+event: response.reasoning_summary.delta
+data: {"type":"response.reasoning_summary.delta","delta":" and step 2"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"Final answer"}
+
+event: response.completed
+data: {"type":"response.completed"}
+

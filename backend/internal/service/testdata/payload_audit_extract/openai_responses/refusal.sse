@@ -1,0 +1,12 @@
+event: response.refusal.delta
+data: {"type":"response.refusal.delta","delta":"I'm sorry, I can't"}
+
+event: response.refusal.delta
+data: {"type":"response.refusal.delta","delta":" do that"}
+
+event: response.refusal.done
+data: {"type":"response.refusal.done"}
+
+event: response.completed
+data: {"type":"response.completed"}
+

@@ -1,0 +1,10 @@
+data: {"id":"chatcmpl-4","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"Let me think"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-4","choices":[{"index":0,"delta":{"reasoning_content":" about this"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-4","choices":[{"index":0,"delta":{"content":"The answer is 42"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

@@ -1,0 +1,8 @@
+data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{"role":"assistant","refusal":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{"refusal":"I cannot help with that request"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+
