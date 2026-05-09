@@ -31,6 +31,7 @@ import channelMonitorTemplateAPI from './channelMonitorTemplate'
 import adminPaymentAPI from './payment'
 import affiliatesAPI from './affiliates'
 import riskControlAPI from './riskControl'
+import payloadAuditAPI from './payloadAudit'
 
 /**
  * Unified admin API object for convenient access
@@ -63,7 +64,8 @@ export const adminAPI = {
   channelMonitorTemplate: channelMonitorTemplateAPI,
   payment: adminPaymentAPI,
   affiliates: affiliatesAPI,
-  riskControl: riskControlAPI
+  riskControl: riskControlAPI,
+  payloadAudit: payloadAuditAPI
 }
 
 export {
@@ -94,7 +96,8 @@ export {
   channelMonitorTemplateAPI,
   adminPaymentAPI,
   affiliatesAPI,
-  riskControlAPI
+  riskControlAPI,
+  payloadAuditAPI
 }
 
 export default adminAPI
@@ -105,3 +108,11 @@ export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from 
 export type { BackupAgentHealth, DataManagementConfig } from './dataManagement'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from './tlsFingerprintProfile'
 export type { ContentModerationConfig, ContentModerationLog, ModerationMode } from './riskControl'
+export type {
+  PayloadAuditConfig,
+  PayloadAuditConfigEnvelope,
+  PayloadAuditLog,
+  PayloadAuditStatus,
+  PayloadAuditExportKey,
+  ListPayloadsParams,
+} from './payloadAudit'
