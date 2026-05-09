@@ -105,6 +105,7 @@ func ProvideHandlers(
 	paymentHandler *PaymentHandler,
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
+	auditExportHandler *AuditExportHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -125,7 +126,13 @@ func ProvideHandlers(
 		Payment:          paymentHandler,
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
+		AuditExport:      auditExportHandler,
 	}
+}
+
+// ProvideAuditExportHandler creates the AuditExportHandler with a slog-based ops logger.
+func ProvideAuditExportHandler(repo AuditExportRepo) *AuditExportHandler {
+	return NewAuditExportHandler(repo, NewSlogAuditExportOpsLogger())
 }
 
 // ProviderSet is the Wire provider set for all handlers
@@ -146,6 +153,8 @@ var ProviderSet = wire.NewSet(
 	NewPaymentHandler,
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
+	ProvideAuditExportHandler,
+	wire.Bind(new(AuditExportRepo), new(*repository.PayloadAuditRepo)),
 
 	// Admin handlers
 	admin.NewDashboardHandler,

@@ -30,6 +30,7 @@ func SetupRouter(
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
 	settingService *service.SettingService,
+	payloadAuditService *service.PayloadAuditService,
 	cfg *config.Config,
 	redisClient *redis.Client,
 ) *gin.Engine {
@@ -81,7 +82,7 @@ func SetupRouter(
 	}
 
 	// 注册路由
-	registerRoutes(r, handlers, jwtAuth, adminAuth, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, cfg, redisClient)
+	registerRoutes(r, handlers, jwtAuth, adminAuth, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, payloadAuditService, cfg, redisClient)
 
 	return r
 }
@@ -97,6 +98,7 @@ func registerRoutes(
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
 	settingService *service.SettingService,
+	payloadAuditService *service.PayloadAuditService,
 	cfg *config.Config,
 	redisClient *redis.Client,
 ) {
@@ -114,4 +116,9 @@ func registerRoutes(
 	routes.RegisterPaymentRoutes(v1, h.Payment, h.PaymentWebhook, h.Admin.Payment, jwtAuth, adminAuth, settingService)
 
 	handler.RegisterPageRoutes(v1, cfg.Pricing.DataDir, gin.HandlerFunc(jwtAuth), gin.HandlerFunc(adminAuth), settingService)
+
+	// Public audit export API (own bearer-token auth)
+	auditExportLimiter := middleware2.NewAuditExportRateLimiter(redisClient)
+	auditExportMW := middleware2.AuditExportAuthMiddleware(payloadAuditService, auditExportLimiter)
+	routes.RegisterPublicAuditRoutes(r, h.AuditExport, auditExportMW)
 }
