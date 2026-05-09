@@ -5381,6 +5381,16 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 					firstTokenMs = &ms
 				}
 				s.parseSSEUsagePassthrough(data, usage)
+
+				// Payload audit: extract output text from Anthropic SSE data
+				if trimmed != "" && trimmed != "[DONE]" {
+					if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+						evtType := gjson.Get(data, "type").String()
+						if delta := ExtractAnthropicEventText(evtType, []byte(data)); delta != "" {
+							auditColl.AppendOutput(delta)
+						}
+					}
+				}
 			} else {
 				trimmed := strings.TrimSpace(line)
 				if strings.HasPrefix(trimmed, "event:") && anthropicStreamEventIsTerminal(strings.TrimSpace(strings.TrimPrefix(trimmed, "event:")), "") {
@@ -5554,6 +5564,13 @@ func (s *GatewayService) handleNonStreamingResponseAnthropicAPIKeyPassthrough(
 	}
 
 	usage := parseClaudeUsageFromResponseBody(body)
+
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractAnthropicMessagesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
 
 	writeAnthropicPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
@@ -7449,6 +7466,16 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 					return nil, err
 				}
 
+				// Payload audit: extract output text from each Anthropic SSE event
+				if data != "" && data != "[DONE]" {
+					if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+						evtType := gjson.Get(data, "type").String()
+						if delta := ExtractAnthropicEventText(evtType, []byte(data)); delta != "" {
+							auditColl.AppendOutput(delta)
+						}
+					}
+				}
+
 				for _, block := range outputBlocks {
 					if !clientDisconnected {
 						restored := reverseToolNamesIfPresent(c, []byte(block))
@@ -7793,6 +7820,13 @@ func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *h
 		}
 	}
 
+	// Payload audit: capture non-stream output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractAnthropicMessagesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
+
 	// 如果有模型映射，替换响应中的model字段
 	if originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
@@ -7813,6 +7847,34 @@ func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *h
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &response.Usage, nil
+}
+
+// extractAnthropicMessagesOutputText extracts assistant content text from an
+// Anthropic Messages API non-stream response JSON. Used for audit capture.
+func extractAnthropicMessagesOutputText(respJSON []byte) string {
+	var b strings.Builder
+	content := gjson.GetBytes(respJSON, "content")
+	if !content.Exists() || !content.IsArray() {
+		return ""
+	}
+	for _, block := range content.Array() {
+		blockType := block.Get("type").String()
+		switch blockType {
+		case "text":
+			if t := block.Get("text"); t.Exists() && t.Type == gjson.String {
+				b.WriteString(t.String())
+			}
+		case "thinking":
+			if t := block.Get("thinking"); t.Exists() && t.Type == gjson.String && t.String() != "" {
+				b.WriteString(fmt.Sprintf("[thinking: %s]", t.String()))
+			}
+		case "tool_use":
+			if name := block.Get("name"); name.Exists() && name.Type == gjson.String {
+				b.WriteString(fmt.Sprintf("[tool_use name=%s]", name.String()))
+			}
+		}
+	}
+	return b.String()
 }
 
 // replaceModelInResponseBody 替换响应体中的model字段

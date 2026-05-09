@@ -48,6 +48,8 @@ type GatewayHandler struct {
 	contentModerationService  *service.ContentModerationService
 	concurrencyHelper         *ConcurrencyHelper
 	userMsgQueueHelper        *UserMsgQueueHelper
+	payloadAuditSvc           *service.PayloadAuditService
+	payloadAuditSink          *service.PayloadAuditSink
 	maxAccountSwitches        int
 	maxAccountSwitchesGemini  int
 	cfg                       *config.Config
@@ -70,6 +72,8 @@ func NewGatewayHandler(
 	userMsgQueueService *service.UserMessageQueueService,
 	cfg *config.Config,
 	settingService *service.SettingService,
+	payloadAuditSvc *service.PayloadAuditService,
+	payloadAuditSink *service.PayloadAuditSink,
 ) *GatewayHandler {
 	pingInterval := time.Duration(0)
 	maxAccountSwitches := 10
@@ -103,6 +107,8 @@ func NewGatewayHandler(
 		contentModerationService:  contentModerationService,
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
 		userMsgQueueHelper:        umqHelper,
+		payloadAuditSvc:           payloadAuditSvc,
+		payloadAuditSink:          payloadAuditSink,
 		maxAccountSwitches:        maxAccountSwitches,
 		maxAccountSwitchesGemini:  maxAccountSwitchesGemini,
 		cfg:                       cfg,
@@ -113,6 +119,8 @@ func NewGatewayHandler(
 // Messages handles Claude API compatible messages endpoint
 // POST /v1/messages
 func (h *GatewayHandler) Messages(c *gin.Context) {
+	requestStart := time.Now()
+
 	// 从context获取apiKey和user（ApiKeyAuth中间件已设置）
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
@@ -150,6 +158,20 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 
+	auditCol := AttachPayloadAuditCollector(c, h.payloadAuditSvc, "anthropic", "/v1/messages")
+	defer func() {
+		var auditErrMsg string
+		if msg, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
+			if s, ok := msg.(string); ok && s != "" {
+				auditErrMsg = s
+			}
+		}
+		if auditErrMsg == "" && c.Writer.Status() >= 500 {
+			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
+		}
+		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+	}()
+
 	setOpsRequestContext(c, "", false, body)
 
 	parsedReq, err := service.ParseGatewayRequest(body, domain.PlatformAnthropic)
@@ -160,6 +182,32 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	reqModel := parsedReq.Model
 	reqStream := parsedReq.Stream
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
+
+	// Payload audit: set metadata and input now that apiKey/model/stream are known.
+	if auditCol.Enabled() {
+		var userEmail, groupName string
+		if apiKey.User != nil {
+			userEmail = apiKey.User.Email
+		}
+		if apiKey.Group != nil {
+			groupName = apiKey.Group.Name
+		}
+		auditCol.SetMetadata(service.PayloadAuditMetadata{
+			Endpoint:   "/v1/messages",
+			Provider:   "anthropic",
+			ClientIP:   c.ClientIP(),
+			UserID:     int64PtrIfPositive(apiKey.UserID),
+			UserEmail:  userEmail,
+			APIKeyID:   int64PtrIfPositive(apiKey.ID),
+			APIKeyName: apiKey.Name,
+			GroupID:    apiKey.GroupID,
+			GroupName:  groupName,
+			Model:      reqModel,
+			Stream:     reqStream,
+		})
+		auditCol.SetInput(body, "json")
+		c.Set(service.PayloadAuditCollectorCtxKey, auditCol)
+	}
 
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
