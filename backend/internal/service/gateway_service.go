@@ -7862,15 +7862,15 @@ func extractAnthropicMessagesOutputText(respJSON []byte) string {
 		switch blockType {
 		case "text":
 			if t := block.Get("text"); t.Exists() && t.Type == gjson.String {
-				b.WriteString(t.String())
+				_, _ = b.WriteString(t.String())
 			}
 		case "thinking":
 			if t := block.Get("thinking"); t.Exists() && t.Type == gjson.String && t.String() != "" {
-				b.WriteString(fmt.Sprintf("[thinking: %s]", t.String()))
+				_, _ = b.WriteString(fmt.Sprintf("[thinking: %s]", t.String()))
 			}
 		case "tool_use":
 			if name := block.Get("name"); name.Exists() && name.Type == gjson.String {
-				b.WriteString(fmt.Sprintf("[tool_use name=%s]", name.String()))
+				_, _ = b.WriteString(fmt.Sprintf("[tool_use name=%s]", name.String()))
 			}
 		}
 	}

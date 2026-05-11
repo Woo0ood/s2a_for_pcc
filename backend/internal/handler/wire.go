@@ -2,7 +2,7 @@ package handler
 
 import (
 	"github.com/Woo0ood/s2a_for_pcc/internal/handler/admin"
-	"github.com/Woo0ood/s2a_for_pcc/internal/repository"
+	"github.com/Woo0ood/s2a_for_pcc/internal/repository" //nolint:depguard // export API uses repo filter/cursor types
 	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 
 	"github.com/google/wire"

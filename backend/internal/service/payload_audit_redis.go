@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9" //nolint:depguard // payload audit owns redis interaction
 )
 
 const (

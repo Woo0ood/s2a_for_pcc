@@ -101,17 +101,17 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			groupName = apiKey.Group.Name
 		}
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
-			Endpoint: "/v1/chat/completions",
-			Provider: "openai",
-			ClientIP: c.ClientIP(),
-			UserID:   int64PtrIfPositive(apiKey.UserID),
-			UserEmail: userEmail,
-			APIKeyID:  int64PtrIfPositive(apiKey.ID),
+			Endpoint:   "/v1/chat/completions",
+			Provider:   "openai",
+			ClientIP:   c.ClientIP(),
+			UserID:     int64PtrIfPositive(apiKey.UserID),
+			UserEmail:  userEmail,
+			APIKeyID:   int64PtrIfPositive(apiKey.ID),
 			APIKeyName: apiKey.Name,
-			GroupID:   apiKey.GroupID,
-			GroupName: groupName,
-			Model:    reqModel,
-			Stream:   reqStream,
+			GroupID:    apiKey.GroupID,
+			GroupName:  groupName,
+			Model:      reqModel,
+			Stream:     reqStream,
 		})
 		auditCol.SetInput(body, "json")
 		c.Set(service.PayloadAuditCollectorCtxKey, auditCol)

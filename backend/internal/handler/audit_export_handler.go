@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/response"
-	"github.com/Woo0ood/s2a_for_pcc/internal/repository"
+	"github.com/Woo0ood/s2a_for_pcc/internal/repository" //nolint:depguard // export API uses repo filter/cursor types
 	"github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -66,10 +66,10 @@ func (h *AuditExportHandler) VerifyAuth(c *gin.Context) {
 // --------------- shared constants ---------------
 
 const (
-	exportIncludeBodyNone    = "none"
-	exportIncludeBodyExcerpt = "excerpt"
-	exportIncludeBodyFull    = "full"
-	exportMaxTimeWindowDays  = 31
+	exportIncludeBodyNone     = "none"
+	exportIncludeBodyExcerpt  = "excerpt"
+	exportIncludeBodyFull     = "full"
+	exportMaxTimeWindowDays   = 31
 	exportMaxTimeWindowNDJSON = 7
 )
 
