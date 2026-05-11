@@ -42,6 +42,7 @@ func AttachPayloadAuditCollector(c *gin.Context, svc *service.PayloadAuditServic
 
 // FinalizePayloadAudit emits the audit event to the sink on handler exit.
 // No-op when collector is nil, disabled, out-of-scope, or already finalized.
+// Also records per-event Prometheus observations (input/output bytes, truncated).
 func FinalizePayloadAudit(coll *service.PayloadAuditCollector, sink *service.PayloadAuditSink, statusCode int, dur time.Duration, errMsg string) {
 	if coll == nil {
 		return
@@ -51,6 +52,16 @@ func FinalizePayloadAudit(coll *service.PayloadAuditCollector, sink *service.Pay
 		return
 	}
 	if sink != nil {
+		if pm := sink.PromMetrics(); pm != nil {
+			pm.InputBytesHist.Observe(float64(evt.InputBytes))
+			pm.OutputBytesHist.Observe(float64(evt.OutputBytes))
+			if evt.InputTruncated {
+				pm.TruncatedInput.Inc()
+			}
+			if evt.OutputTruncated {
+				pm.TruncatedOutput.Inc()
+			}
+		}
 		sink.TryEnqueue(evt)
 	}
 }

@@ -62,6 +62,8 @@ type PayloadAuditSink struct {
 	wg       sync.WaitGroup
 	metrics  SinkMetrics
 	started  atomic.Bool
+
+	promMetrics *PayloadAuditMetrics // optional; set via SetPromMetrics after registration
 }
 
 // eventSize returns an approximate in-memory cost of a single event.
@@ -221,13 +223,33 @@ func (s *PayloadAuditSink) workerLoop(ctx context.Context, id int) {
 	}
 }
 
+// SetPromMetrics attaches Prometheus metrics so the sink can observe insert
+// durations. Called after RegisterPayloadAuditMetrics.
+func (s *PayloadAuditSink) SetPromMetrics(pm *PayloadAuditMetrics) {
+	if s != nil {
+		s.promMetrics = pm
+	}
+}
+
+// PromMetrics returns the attached Prometheus metrics, or nil.
+func (s *PayloadAuditSink) PromMetrics() *PayloadAuditMetrics {
+	if s == nil {
+		return nil
+	}
+	return s.promMetrics
+}
+
 func (s *PayloadAuditSink) flushBatch(ctx context.Context, batch []*PayloadAuditEvent) error {
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	start := time.Now()
 	if err := s.repo.BatchInsert(cctx, batch); err != nil {
 		return err
 	}
 	s.metrics.BatchInserted.Add(int64(len(batch)))
+	if pm := s.promMetrics; pm != nil && pm.InsertDuration != nil {
+		pm.InsertDuration.Observe(time.Since(start).Seconds())
+	}
 	return nil
 }
 

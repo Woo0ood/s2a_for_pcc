@@ -601,6 +601,10 @@ func ProvidePayloadAuditSink(
 	// Start worker pool.
 	sink.Start(ctx)
 
+	// Register Prometheus metrics for the payload audit subsystem.
+	pm := RegisterPayloadAuditMetrics(nil, sink) // nil → prometheus.DefaultRegisterer
+	sink.SetPromMetrics(pm)
+
 	// Ensure current+next month partitions exist (non-blocking).
 	go func() {
 		if err := partMaint.RunOnce(context.Background(), 60*24*time.Hour); err != nil {
