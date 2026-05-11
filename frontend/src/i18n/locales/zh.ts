@@ -383,6 +383,7 @@ export default {
     channelMonitor: '渠道监控',
     channelStatus: '渠道状态',
     riskControl: '风控中心',
+    payloadAudit: '调用留存',
   },
 
   // Auth
@@ -2601,6 +2602,127 @@ export default {
         block: '拦截',
         error: '异常',
       },
+    },
+
+    // Payload Audit
+    payloadAudit: {
+      title: '调用留存',
+      description: '记录并查看 API 调用的请求/响应载荷',
+      refresh: '刷新',
+      config: '配置',
+      configTitle: '调用留存配置',
+      records: '调用记录',
+      recordsHint: '浏览已记录的请求与响应',
+      filters: '筛选',
+      filterFrom: '开始时间',
+      filterTo: '结束时间',
+      filterGroup: '分组 ID',
+      filterUser: '用户 ID',
+      filterApiKey: 'API Key ID',
+      filterEndpoint: '端点',
+      filterModel: '模型',
+      filterKeyword: 'excerpt 关键字搜索',
+      search: '查询',
+      emptyLogs: '暂无记录',
+      inputLabel: '入:',
+      outputLabel: '出:',
+      page: '第 {page} 页',
+      prevPage: '上一页',
+      nextPage: '下一页',
+      duration: '耗时',
+      copied: '已复制',
+
+      // Overview
+      overview: {
+        status: '启用状态',
+        enabled: '已启用',
+        disabled: '未启用',
+        on: '开',
+        off: '关',
+        recorded24h: '已记录 (24h)',
+        accepted: '已接受: {n}',
+        queueUsage: '队列占用',
+        dropped24h: '丢弃数 (24h)',
+      },
+
+      // Table
+      table: {
+        time: '时间',
+        user: '用户',
+        apiKey: 'API Key',
+        group: '分组',
+        endpoint: '端点',
+        model: '模型',
+        stream: '流式',
+        status: '状态',
+        bytes: '大小',
+        excerpt: '摘要',
+      },
+
+      // Detail
+      detail: {
+        title: '调用详情',
+        metadata: '元数据',
+        inputTab: '输入',
+        outputTab: '输出',
+        rawJsonTab: '原始 JSON',
+        expandFull: '展开完整内容',
+        truncated: '已截断',
+        omitted: '已省略',
+      },
+
+      // Config
+      configEnabled: '启用留存',
+      configEnabledHint: '开启后将记录 API 调用的请求与响应载荷',
+      configAllGroups: '全部分组',
+      configAllGroupsHint: '记录所有分组的调用',
+      configExcerptBytes: '摘要字节数',
+      configRetentionDays: '保留天数',
+      configInputMaxBytes: '输入最大字节',
+      configOutputMaxBytes: '输出最大字节',
+      configWorkerCount: '工作线程数',
+      configQueueSize: '队列大小',
+      configQueueMaxBytes: '队列最大字节',
+      configBatchSize: '批次大小',
+      configBatchFlushMs: '批次刷新间隔 (ms)',
+
+      // Config Tabs
+      tabs: {
+        basic: '基础',
+        performance: '性能',
+        apiKey: 'API Key',
+      },
+
+      // Export Keys
+      exportKeys: '导出 API Key',
+      noExportKeys: '暂无导出 Key',
+      createKey: '创建 Key',
+      deleteKey: '删除',
+      keyName: '名称',
+      keyNamePlaceholder: '例：monitoring-bot',
+      keyRateLimit: '速率限制 (次/分钟)',
+      keyCreatedAt: '创建时间',
+      keyLastUsed: '最后使用',
+      tokenCreated: 'Key 已创建',
+      tokenWarning: '请立即复制此 Token，关闭后将无法再次查看。',
+      tokenCopied: '已复制，关闭',
+      confirmDelete: '确认删除',
+      confirmDeleteMsg: '确定要删除导出 Key「{name}」吗？此操作不可撤销。',
+      runCleanup: '手动清理',
+      cleanupDone: '清理完成：删除 {deleted} 条，耗时 {ms}ms',
+
+      // Error messages
+      statusFailed: '获取状态失败',
+      loadFailed: '加载配置失败',
+      listFailed: '加载记录失败',
+      loadPayloadFailed: '加载完整载荷失败',
+      saved: '配置已保存',
+      sinkRebuild: '写入队列将重建',
+      saveFailed: '保存配置失败',
+      loadKeysFailed: '加载导出 Key 失败',
+      createKeyFailed: '创建 Key 失败',
+      deleteKeyFailed: '删除 Key 失败',
+      cleanupFailed: '清理失败',
     },
 
     // Channel Monitor
