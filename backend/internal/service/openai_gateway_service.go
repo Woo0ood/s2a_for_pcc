@@ -4503,6 +4503,16 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 				firstTokenMs = &ms
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
+			// Payload audit: capture output text from each SSE event (Responses + ChatCompletions)
+			if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+				delta := ExtractOpenAIResponsesEventText(eventType, dataBytes)
+				if delta == "" {
+					delta = ExtractOpenAIChatDeltaText(dataBytes)
+				}
+				if delta != "" {
+					auditColl.AppendOutput(delta)
+				}
+			}
 			return
 		}
 
@@ -4758,6 +4768,15 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	}
 	usage := &usageValue
 
+	// Payload audit: capture non-streaming output
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractChatCompletionsOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		} else if text := extractResponsesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
+	}
+
 	// Replace model in response if needed
 	if originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
@@ -4825,6 +4844,15 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 			bodyText = s.replaceModelInSSEBody(bodyText, mappedModel, originalModel)
 		}
 		body = []byte(bodyText)
+	}
+
+	// Payload audit: capture output from SSE-to-JSON conversion
+	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		if text := extractResponsesOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		} else if text := extractChatCompletionsOutputText(body); text != "" {
+			auditColl.AppendOutput(text)
+		}
 	}
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
