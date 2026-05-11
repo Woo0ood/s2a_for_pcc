@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/authidentity"
-	"github.com/Woo0ood/sub2api/ent/authidentitychannel"
+	"github.com/Woo0ood/s2a_for_pcc/ent/authidentity"
+	"github.com/Woo0ood/s2a_for_pcc/ent/authidentitychannel"
 )
 
 // AuthIdentityChannelCreate is the builder for creating a AuthIdentityChannel entity.

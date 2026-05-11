@@ -3,7 +3,7 @@ package service
 import (
 	"time"
 
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
 )
 
 // ChannelMonitor 全局常量。

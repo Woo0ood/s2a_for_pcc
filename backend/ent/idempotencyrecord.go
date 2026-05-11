@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/idempotencyrecord"
+	"github.com/Woo0ood/s2a_for_pcc/ent/idempotencyrecord"
 )
 
 // IdempotencyRecord is the model entity for the IdempotencyRecord schema.

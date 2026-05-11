@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
-	"github.com/Woo0ood/sub2api/internal/pkg/openai"
-	"github.com/Woo0ood/sub2api/internal/util/responseheaders"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/openai"
+	"github.com/Woo0ood/s2a_for_pcc/internal/util/responseheaders"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"

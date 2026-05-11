@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/claude"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/claude"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

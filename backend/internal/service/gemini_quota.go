@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
-	"github.com/Woo0ood/sub2api/internal/pkg/usagestats"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/usagestats"
 )
 
 type geminiModelClass string

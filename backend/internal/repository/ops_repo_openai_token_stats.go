@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 func (r *opsRepository) GetOpenAITokenStats(ctx context.Context, filter *service.OpsOpenAITokenStatsFilter) (*service.OpsOpenAITokenStatsResponse, error) {

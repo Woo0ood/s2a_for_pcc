@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
-	"github.com/Woo0ood/sub2api/internal/pkg/openai"
-	openaiwsv2 "github.com/Woo0ood/sub2api/internal/service/openai_ws_v2"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/openai"
+	openaiwsv2 "github.com/Woo0ood/s2a_for_pcc/internal/service/openai_ws_v2"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"

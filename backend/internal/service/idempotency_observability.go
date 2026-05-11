@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
 )
 
 // IdempotencyMetricsSnapshot 提供幂等核心指标快照（进程内累计）。

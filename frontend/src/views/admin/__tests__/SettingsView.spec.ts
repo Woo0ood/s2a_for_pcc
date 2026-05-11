@@ -555,10 +555,10 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(paymentLinks).toHaveLength(2);
     expect(paymentLinks[0]?.attributes("href")).toBe(
-      "https://github.com/Woo0ood/sub2api/blob/main/docs/PAYMENT_CN.md",
+      "https://github.com/Woo0ood/s2a_for_pcc/blob/main/docs/PAYMENT_CN.md",
     );
     expect(paymentLinks[1]?.attributes("href")).toBe(
-      "https://github.com/Woo0ood/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式",
+      "https://github.com/Woo0ood/s2a_for_pcc/blob/main/docs/PAYMENT_CN.md#支持的支付方式",
     );
     for (const link of paymentLinks) {
       expect(link.attributes("href")).toContain("docs/PAYMENT");

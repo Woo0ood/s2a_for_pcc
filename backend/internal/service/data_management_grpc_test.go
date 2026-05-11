@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

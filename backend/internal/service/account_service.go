@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
 )
 
 var (

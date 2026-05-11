@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Woo0ood/sub2api/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent"
 )
 
 // The APIKeyFunc type is an adapter to allow the use of ordinary

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/httpclient"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/httpclient"
 )
 
 // DriveStorageInfo represents Google Drive storage quota information

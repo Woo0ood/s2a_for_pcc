@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	_ "github.com/Woo0ood/sub2api/ent/runtime"
-	"github.com/Woo0ood/sub2api/internal/pkg/timezone"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	_ "github.com/Woo0ood/s2a_for_pcc/ent/runtime"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/timezone"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 

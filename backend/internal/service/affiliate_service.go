@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
 )
 
 var (

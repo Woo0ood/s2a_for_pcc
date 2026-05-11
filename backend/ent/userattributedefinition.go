@@ -10,7 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/userattributedefinition"
+	"github.com/Woo0ood/s2a_for_pcc/ent/userattributedefinition"
 )
 
 // UserAttributeDefinition is the model entity for the UserAttributeDefinition schema.

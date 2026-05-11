@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/internal/payment"
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/pkg/response"
-	middleware2 "github.com/Woo0ood/sub2api/internal/server/middleware"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/response"
+	middleware2 "github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

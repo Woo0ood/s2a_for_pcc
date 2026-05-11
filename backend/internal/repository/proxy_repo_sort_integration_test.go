@@ -3,8 +3,8 @@
 package repository
 
 import (
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 func (s *ProxyRepoSuite) TestListWithFiltersAndAccountCount_SortByAccountCountDesc() {

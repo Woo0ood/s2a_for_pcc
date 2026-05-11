@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Woo0ood/sub2api/internal/payment"
+	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
 	stripe "github.com/stripe/stripe-go/v85"
 	"github.com/stripe/stripe-go/v85/webhook"
 )

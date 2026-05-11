@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/Woo0ood/sub2api/internal/service"
+import "github.com/Woo0ood/s2a_for_pcc/internal/service"
 
 // NotifyEmailEntry represents a notification email with enable/disable and verification state.
 // All emails are user-managed; maximum 3 entries per user.

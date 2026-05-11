@@ -3,7 +3,7 @@ package service
 import (
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/ip"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/ip"
 )
 
 // API Key status constants

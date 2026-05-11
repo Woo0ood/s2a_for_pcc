@@ -5,7 +5,7 @@ package testutil
 import (
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 // NewTestUser 创建一个可用的测试用户，可通过 opts 覆盖默认值。

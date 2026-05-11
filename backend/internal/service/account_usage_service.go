@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
-	httppool "github.com/Woo0ood/sub2api/internal/pkg/httpclient"
-	openaipkg "github.com/Woo0ood/sub2api/internal/pkg/openai"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/pkg/timezone"
-	"github.com/Woo0ood/sub2api/internal/pkg/tlsfingerprint"
-	"github.com/Woo0ood/sub2api/internal/pkg/usagestats"
+	httppool "github.com/Woo0ood/s2a_for_pcc/internal/pkg/httpclient"
+	openaipkg "github.com/Woo0ood/s2a_for_pcc/internal/pkg/openai"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/timezone"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/tlsfingerprint"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/usagestats"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 )

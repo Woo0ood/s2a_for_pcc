@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/usagestats"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/usagestats"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

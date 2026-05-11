@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/authidentity"
-	"github.com/Woo0ood/sub2api/ent/authidentitychannel"
+	"github.com/Woo0ood/s2a_for_pcc/ent/authidentity"
+	"github.com/Woo0ood/s2a_for_pcc/ent/authidentitychannel"
 )
 
 // AuthIdentityChannel is the model entity for the AuthIdentityChannel schema.

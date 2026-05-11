@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"github.com/Woo0ood/sub2api/internal/handler/dto"
-	"github.com/Woo0ood/sub2api/internal/pkg/response"
-	middleware2 "github.com/Woo0ood/sub2api/internal/server/middleware"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/handler/dto"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/response"
+	middleware2 "github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

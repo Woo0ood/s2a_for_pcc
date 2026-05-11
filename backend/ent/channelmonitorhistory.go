@@ -9,8 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/channelmonitor"
-	"github.com/Woo0ood/sub2api/ent/channelmonitorhistory"
+	"github.com/Woo0ood/s2a_for_pcc/ent/channelmonitor"
+	"github.com/Woo0ood/s2a_for_pcc/ent/channelmonitorhistory"
 )
 
 // ChannelMonitorHistory is the model entity for the ChannelMonitorHistory schema.

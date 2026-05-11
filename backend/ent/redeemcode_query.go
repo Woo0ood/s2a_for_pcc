@@ -12,10 +12,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/group"
-	"github.com/Woo0ood/sub2api/ent/predicate"
-	"github.com/Woo0ood/sub2api/ent/redeemcode"
-	"github.com/Woo0ood/sub2api/ent/user"
+	"github.com/Woo0ood/s2a_for_pcc/ent/group"
+	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
+	"github.com/Woo0ood/s2a_for_pcc/ent/redeemcode"
+	"github.com/Woo0ood/s2a_for_pcc/ent/user"
 )
 
 // RedeemCodeQuery is the builder for querying RedeemCode entities.

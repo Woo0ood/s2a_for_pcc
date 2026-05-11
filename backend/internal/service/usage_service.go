@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/pkg/usagestats"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/usagestats"
 )
 
 var (

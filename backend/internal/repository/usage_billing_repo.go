@@ -6,9 +6,9 @@ import (
 	"errors"
 	"strings"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 type usageBillingRepository struct {

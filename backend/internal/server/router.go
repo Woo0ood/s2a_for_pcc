@@ -6,12 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
-	"github.com/Woo0ood/sub2api/internal/handler"
-	middleware2 "github.com/Woo0ood/sub2api/internal/server/middleware"
-	"github.com/Woo0ood/sub2api/internal/server/routes"
-	"github.com/Woo0ood/sub2api/internal/service"
-	"github.com/Woo0ood/sub2api/internal/web"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/handler"
+	middleware2 "github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Woo0ood/s2a_for_pcc/internal/server/routes"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/web"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"

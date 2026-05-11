@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/authidentity"
-	"github.com/Woo0ood/sub2api/ent/identityadoptiondecision"
-	"github.com/Woo0ood/sub2api/ent/pendingauthsession"
-	"github.com/Woo0ood/sub2api/ent/predicate"
+	"github.com/Woo0ood/s2a_for_pcc/ent/authidentity"
+	"github.com/Woo0ood/s2a_for_pcc/ent/identityadoptiondecision"
+	"github.com/Woo0ood/s2a_for_pcc/ent/pendingauthsession"
+	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
 )
 
 // IdentityAdoptionDecisionUpdate is the builder for updating IdentityAdoptionDecision entities.

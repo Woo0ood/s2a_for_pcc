@@ -19,12 +19,12 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/internal/config"
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
-	"github.com/Woo0ood/sub2api/internal/pkg/oauth"
-	"github.com/Woo0ood/sub2api/internal/pkg/response"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/oauth"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/response"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

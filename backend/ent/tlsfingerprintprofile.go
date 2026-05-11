@@ -10,7 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/tlsfingerprintprofile"
+	"github.com/Woo0ood/s2a_for_pcc/ent/tlsfingerprintprofile"
 )
 
 // TLSFingerprintProfile is the model entity for the TLSFingerprintProfile schema.

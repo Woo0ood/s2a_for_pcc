@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/payment"
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
 )
 
 const paymentResultReturnPath = "/payment/result"

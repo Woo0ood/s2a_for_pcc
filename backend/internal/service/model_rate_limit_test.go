@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/ctxkey"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/ctxkey"
 )
 
 func TestIsModelRateLimited(t *testing.T) {

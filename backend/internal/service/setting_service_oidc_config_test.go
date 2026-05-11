@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 	"github.com/stretchr/testify/require"
 )
 

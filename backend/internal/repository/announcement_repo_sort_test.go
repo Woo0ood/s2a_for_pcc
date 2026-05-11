@@ -3,7 +3,7 @@ package repository
 import (
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
 )
 
 func TestAnnouncementListOrder(t *testing.T) {

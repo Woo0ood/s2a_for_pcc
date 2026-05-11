@@ -13,7 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
-	"github.com/Woo0ood/sub2api/ent/intercept"
+	"github.com/Woo0ood/s2a_for_pcc/ent/intercept"
 )
 
 // SoftDeleteMixin 实现基于 deleted_at 时间戳的软删除功能。

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/websearch"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/websearch"
 	"github.com/stretchr/testify/require"
 )
 

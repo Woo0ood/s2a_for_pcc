@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
-	"github.com/Woo0ood/sub2api/internal/pkg/apicompat"
-	"github.com/Woo0ood/sub2api/internal/pkg/claude"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/apicompat"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/claude"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"

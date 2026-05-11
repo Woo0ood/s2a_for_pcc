@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 	"github.com/stretchr/testify/require"
 )
 

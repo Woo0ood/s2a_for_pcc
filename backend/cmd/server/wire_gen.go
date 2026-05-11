@@ -8,15 +8,15 @@ package main
 
 import (
 	"context"
-	"github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/internal/config"
-	"github.com/Woo0ood/sub2api/internal/handler"
-	"github.com/Woo0ood/sub2api/internal/handler/admin"
-	"github.com/Woo0ood/sub2api/internal/payment"
-	"github.com/Woo0ood/sub2api/internal/repository"
-	"github.com/Woo0ood/sub2api/internal/server"
-	"github.com/Woo0ood/sub2api/internal/server/middleware"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/handler"
+	"github.com/Woo0ood/s2a_for_pcc/internal/handler/admin"
+	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
+	"github.com/Woo0ood/s2a_for_pcc/internal/repository"
+	"github.com/Woo0ood/s2a_for_pcc/internal/server"
+	"github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
@@ -26,7 +26,7 @@ import (
 
 import (
 	_ "embed"
-	_ "github.com/Woo0ood/sub2api/ent/runtime"
+	_ "github.com/Woo0ood/s2a_for_pcc/ent/runtime"
 )
 
 // Injectors from wire.go:

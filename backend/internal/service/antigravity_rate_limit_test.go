@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/antigravity"
-	"github.com/Woo0ood/sub2api/internal/pkg/tlsfingerprint"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/antigravity"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 )
 

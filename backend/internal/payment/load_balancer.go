@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/paymentorder"
-	"github.com/Woo0ood/sub2api/ent/paymentproviderinstance"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/paymentorder"
+	"github.com/Woo0ood/s2a_for_pcc/ent/paymentproviderinstance"
 )
 
 // Strategy represents a load balancing strategy for provider instance selection.

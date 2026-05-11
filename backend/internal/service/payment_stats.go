@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/paymentauditlog"
-	"github.com/Woo0ood/sub2api/ent/paymentorder"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/paymentauditlog"
+	"github.com/Woo0ood/s2a_for_pcc/ent/paymentorder"
 )
 
 // --- Dashboard & Analytics ---

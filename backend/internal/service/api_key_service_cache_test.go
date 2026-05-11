@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )

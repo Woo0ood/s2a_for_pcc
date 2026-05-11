@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/antigravity"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/antigravity"
 )
 
 // TestGeminiSessionContinuousConversation 测试连续会话的摘要链匹配

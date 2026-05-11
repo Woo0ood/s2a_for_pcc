@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/paymentorder"
-	"github.com/Woo0ood/sub2api/ent/user"
+	"github.com/Woo0ood/s2a_for_pcc/ent/paymentorder"
+	"github.com/Woo0ood/s2a_for_pcc/ent/user"
 )
 
 // PaymentOrder is the model entity for the PaymentOrder schema.

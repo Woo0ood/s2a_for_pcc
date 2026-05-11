@@ -12,7 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/usagecleanuptask"
+	"github.com/Woo0ood/s2a_for_pcc/ent/usagecleanuptask"
 )
 
 // UsageCleanupTaskCreate is the builder for creating a UsageCleanupTask entity.

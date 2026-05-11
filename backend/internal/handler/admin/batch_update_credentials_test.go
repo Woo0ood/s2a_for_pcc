@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 // failingAdminService 嵌入 stubAdminService，可配置 UpdateAccount 在指定 ID 时失败。

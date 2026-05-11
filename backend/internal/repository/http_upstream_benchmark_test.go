@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 )
 
 // httpClientSink 用于防止编译器优化掉基准测试中的赋值操作

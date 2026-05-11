@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	middleware2 "github.com/Woo0ood/sub2api/internal/server/middleware"
-	"github.com/Woo0ood/sub2api/internal/service"
+	middleware2 "github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"

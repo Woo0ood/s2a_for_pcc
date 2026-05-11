@@ -1,4 +1,4 @@
-module github.com/Woo0ood/sub2api
+module github.com/Woo0ood/s2a_for_pcc
 
 go 1.26.3
 

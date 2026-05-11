@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/enttest"
-	dbusagecleanuptask "github.com/Woo0ood/sub2api/ent/usagecleanuptask"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/enttest"
+	dbusagecleanuptask "github.com/Woo0ood/s2a_for_pcc/ent/usagecleanuptask"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 	"github.com/stretchr/testify/require"
 
 	"entgo.io/ent/dialect"

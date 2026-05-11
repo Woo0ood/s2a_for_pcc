@@ -9,9 +9,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/group"
-	"github.com/Woo0ood/sub2api/ent/redeemcode"
-	"github.com/Woo0ood/sub2api/ent/user"
+	"github.com/Woo0ood/s2a_for_pcc/ent/group"
+	"github.com/Woo0ood/s2a_for_pcc/ent/redeemcode"
+	"github.com/Woo0ood/s2a_for_pcc/ent/user"
 )
 
 // RedeemCode is the model entity for the RedeemCode schema.

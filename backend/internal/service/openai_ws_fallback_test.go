@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 	coderws "github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 )

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

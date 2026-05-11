@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 )
 
 // APIKeyRateLimitCacheData holds rate limit usage data cached in Redis.

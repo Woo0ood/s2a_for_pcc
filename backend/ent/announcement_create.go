@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/announcement"
-	"github.com/Woo0ood/sub2api/ent/announcementread"
-	"github.com/Woo0ood/sub2api/internal/domain"
+	"github.com/Woo0ood/s2a_for_pcc/ent/announcement"
+	"github.com/Woo0ood/s2a_for_pcc/ent/announcementread"
+	"github.com/Woo0ood/s2a_for_pcc/internal/domain"
 )
 
 // AnnouncementCreate is the builder for creating a Announcement entity.

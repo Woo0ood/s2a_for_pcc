@@ -11,7 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/securitysecret"
+	"github.com/Woo0ood/s2a_for_pcc/ent/securitysecret"
 )
 
 // SecuritySecretCreate is the builder for creating a SecuritySecret entity.

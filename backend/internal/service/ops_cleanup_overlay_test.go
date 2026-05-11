@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 )
 
 // makeOverlayService 构造一个没有 cron / db 的 cleanup service，仅用来测试 effective overlay。

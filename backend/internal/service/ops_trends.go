@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
 )
 
 func (s *OpsService) GetThroughputTrend(ctx context.Context, filter *OpsDashboardFilter, bucketSeconds int) (*OpsThroughputTrendResponse, error) {

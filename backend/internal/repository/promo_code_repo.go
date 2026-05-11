@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/promocode"
-	"github.com/Woo0ood/sub2api/ent/promocodeusage"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/promocode"
+	"github.com/Woo0ood/s2a_for_pcc/ent/promocodeusage"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 
 	entsql "entgo.io/ent/dialect/sql"
 )

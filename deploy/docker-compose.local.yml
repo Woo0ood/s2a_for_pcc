@@ -24,7 +24,7 @@ services:
   # Sub2API Application
   # ===========================================================================
   sub2api:
-    image: ghcr.io/woo0ood/sub2api:latest
+    image: ghcr.io/woo0ood/s2a_for_pcc:latest
     container_name: sub2api
     restart: unless-stopped
     ulimits:

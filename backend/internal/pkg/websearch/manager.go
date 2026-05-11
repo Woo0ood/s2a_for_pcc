@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/proxyutil"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyutil"
 	"github.com/redis/go-redis/v9"
 )
 

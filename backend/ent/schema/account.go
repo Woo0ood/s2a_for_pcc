@@ -3,8 +3,8 @@
 package schema
 
 import (
-	"github.com/Woo0ood/sub2api/ent/schema/mixins"
-	"github.com/Woo0ood/sub2api/internal/domain"
+	"github.com/Woo0ood/s2a_for_pcc/ent/schema/mixins"
+	"github.com/Woo0ood/s2a_for_pcc/internal/domain"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

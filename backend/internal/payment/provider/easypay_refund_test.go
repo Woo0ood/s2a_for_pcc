@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/payment"
+	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
 )
 
 func TestNormalizeEasyPayAPIBase(t *testing.T) {

@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/geminicli"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/geminicli"
 )
 
 // GeminiOAuthClient performs Google OAuth token exchange/refresh for Gemini integration.

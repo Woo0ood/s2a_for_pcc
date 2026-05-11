@@ -22,7 +22,7 @@ import (
 const (
 	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
-	githubRepo     = "Woo0ood/sub2api"
+	githubRepo     = "Woo0ood/s2a_for_pcc"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"

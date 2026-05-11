@@ -128,7 +128,7 @@
 
                 <a
                   v-if="authStore.isAdmin"
-                  href="https://github.com/Woo0ood/sub2api"
+                  href="https://github.com/Woo0ood/s2a_for_pcc"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"

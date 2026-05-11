@@ -3,7 +3,7 @@ package schema
 import (
 	"time"
 
-	"github.com/Woo0ood/sub2api/ent/schema/mixins"
+	"github.com/Woo0ood/s2a_for_pcc/ent/schema/mixins"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

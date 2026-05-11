@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
-	"github.com/Woo0ood/sub2api/internal/util/responseheaders"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/imroc/req/v3"
 	"github.com/tidwall/gjson"

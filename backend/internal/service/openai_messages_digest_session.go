@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/apicompat"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/apicompat"
 )
 
 type openAICompatAnthropicDigestBinding struct {

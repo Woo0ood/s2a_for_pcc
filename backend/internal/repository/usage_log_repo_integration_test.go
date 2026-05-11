@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
-	"github.com/Woo0ood/sub2api/internal/pkg/timezone"
-	"github.com/Woo0ood/sub2api/internal/pkg/usagestats"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/timezone"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/usagestats"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )

@@ -3,7 +3,7 @@ package payment
 import (
 	"sync"
 
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
 )
 
 // Registry is a thread-safe registry mapping PaymentType to Provider.

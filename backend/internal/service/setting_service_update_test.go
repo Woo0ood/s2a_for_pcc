@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Woo0ood/sub2api/internal/config"
-	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

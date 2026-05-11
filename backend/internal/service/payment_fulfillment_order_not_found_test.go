@@ -12,9 +12,9 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	_ "modernc.org/sqlite"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/enttest"
-	"github.com/Woo0ood/sub2api/internal/payment"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/enttest"
+	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
 	"github.com/stretchr/testify/require"
 )
 

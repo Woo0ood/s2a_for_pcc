@@ -1,6 +1,6 @@
 package logger
 
-import "github.com/Woo0ood/sub2api/internal/config"
+import "github.com/Woo0ood/s2a_for_pcc/internal/config"
 
 func OptionsFromConfig(cfg config.LogConfig) InitOptions {
 	return InitOptions{

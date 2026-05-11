@@ -10,7 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/sub2api/ent/errorpassthroughrule"
+	"github.com/Woo0ood/s2a_for_pcc/ent/errorpassthroughrule"
 )
 
 // ErrorPassthroughRule is the model entity for the ErrorPassthroughRule schema.

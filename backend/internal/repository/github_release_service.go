@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/httpclient"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/httpclient"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 type githubReleaseClient struct {

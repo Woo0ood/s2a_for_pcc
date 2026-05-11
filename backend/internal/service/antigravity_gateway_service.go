@@ -20,8 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/antigravity"
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/antigravity"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"

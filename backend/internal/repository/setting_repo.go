@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/setting"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/setting"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 type settingRepository struct {

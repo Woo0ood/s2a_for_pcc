@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/repository"
-	"github.com/Woo0ood/sub2api/internal/server/middleware"
+	"github.com/Woo0ood/s2a_for_pcc/internal/repository"
+	"github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 

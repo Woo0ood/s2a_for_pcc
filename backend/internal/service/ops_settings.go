@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Woo0ood/sub2api/internal/pkg/logger"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
 	"strings"
 	"time"
 )

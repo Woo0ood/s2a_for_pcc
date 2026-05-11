@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/s2a_for_pcc/internal/config"
 )
 
 func TestOpsServiceListSystemLogs_DefaultClampAndSuccess(t *testing.T) {

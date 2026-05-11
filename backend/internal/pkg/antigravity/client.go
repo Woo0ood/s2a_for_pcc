@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/proxyurl"
-	"github.com/Woo0ood/sub2api/internal/pkg/proxyutil"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyurl"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyutil"
 )
 
 // ForbiddenError 表示上游返回 403 Forbidden

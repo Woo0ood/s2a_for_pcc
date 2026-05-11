@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	dbent "github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/channelmonitor"
-	"github.com/Woo0ood/sub2api/ent/channelmonitorrequesttemplate"
-	"github.com/Woo0ood/sub2api/internal/service"
+	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/channelmonitor"
+	"github.com/Woo0ood/s2a_for_pcc/ent/channelmonitorrequesttemplate"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 // channelMonitorRequestTemplateRepository 实现 service.ChannelMonitorRequestTemplateRepository。

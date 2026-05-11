@@ -23,9 +23,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/proxyurl"
-	"github.com/Woo0ood/sub2api/internal/pkg/proxyutil"
-	"github.com/Woo0ood/sub2api/internal/util/urlvalidator"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyurl"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyutil"
+	"github.com/Woo0ood/s2a_for_pcc/internal/util/urlvalidator"
 )
 
 // Transport 连接池默认配置

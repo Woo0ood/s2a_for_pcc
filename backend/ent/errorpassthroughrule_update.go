@@ -12,8 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/sub2api/ent/errorpassthroughrule"
-	"github.com/Woo0ood/sub2api/ent/predicate"
+	"github.com/Woo0ood/s2a_for_pcc/ent/errorpassthroughrule"
+	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
 )
 
 // ErrorPassthroughRuleUpdate is the builder for updating ErrorPassthroughRule entities.

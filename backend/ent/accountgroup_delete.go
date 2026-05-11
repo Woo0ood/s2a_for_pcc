@@ -7,8 +7,8 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/Woo0ood/sub2api/ent/accountgroup"
-	"github.com/Woo0ood/sub2api/ent/predicate"
+	"github.com/Woo0ood/s2a_for_pcc/ent/accountgroup"
+	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
 )
 
 // AccountGroupDelete is the builder for deleting a AccountGroup entity.

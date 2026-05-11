@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 
-	"github.com/Woo0ood/sub2api/ent"
-	"github.com/Woo0ood/sub2api/ent/tlsfingerprintprofile"
-	"github.com/Woo0ood/sub2api/internal/model"
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Woo0ood/s2a_for_pcc/ent/tlsfingerprintprofile"
+	"github.com/Woo0ood/s2a_for_pcc/internal/model"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 type tlsFingerprintProfileRepository struct {

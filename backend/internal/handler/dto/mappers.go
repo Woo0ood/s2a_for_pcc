@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Woo0ood/sub2api/internal/service"
+	"github.com/Woo0ood/s2a_for_pcc/internal/service"
 )
 
 func UserFromServiceShallow(u *service.User) *User {

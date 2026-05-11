@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Woo0ood/sub2api/internal/pkg/ctxkey"
+	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/ctxkey"
 )
 
 // ClaudeCodeValidator 验证请求是否来自 Claude Code 客户端
