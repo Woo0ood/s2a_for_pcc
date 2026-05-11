@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 

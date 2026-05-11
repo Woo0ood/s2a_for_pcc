@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/repository"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/repository"
+	"github.com/Woo0ood/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

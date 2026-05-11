@@ -240,7 +240,7 @@ import (
     "entgo.io/ent/schema"
     "entgo.io/ent/schema/field"
     "entgo.io/ent/schema/index"
-    "github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+    "github.com/Woo0ood/sub2api/ent/schema/mixins"
 )
 
 type PayloadAuditLog struct{ ent.Schema }

@@ -20,8 +20,8 @@ FROM ${NODE_IMAGE} AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm — pin to 9.x to avoid pnpm 10+ ignored-build-scripts hard error
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 # Install dependencies first (better caching)
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
@@ -53,6 +53,8 @@ WORKDIR /app/backend
 
 # Copy go mod files first (better caching)
 COPY backend/go.mod backend/go.sum ./
+# Use Chinese GOPROXY mirror to avoid proxy.golang.org connectivity issues
+ENV GOPROXY=https://goproxy.cn,direct
 RUN go mod download
 
 # Copy backend source first
@@ -86,7 +88,7 @@ FROM ${ALPINE_IMAGE}
 # Labels
 LABEL maintainer="Wei-Shaw <github.com/Wei-Shaw>"
 LABEL description="Sub2API - AI API Gateway Platform"
-LABEL org.opencontainers.image.source="https://github.com/Wei-Shaw/sub2api"
+LABEL org.opencontainers.image.source="https://github.com/Woo0ood/sub2api"
 
 # Install runtime dependencies
 RUN apk add --no-cache \

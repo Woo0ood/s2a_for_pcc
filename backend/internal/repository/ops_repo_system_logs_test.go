@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/service"
 )
 
 func TestBuildOpsSystemLogsWhere_WithClientRequestIDAndUserID(t *testing.T) {

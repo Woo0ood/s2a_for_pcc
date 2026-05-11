@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/util/audittoken"
+	"github.com/Woo0ood/sub2api/internal/util/audittoken"
 	"github.com/redis/go-redis/v9"
 )
 

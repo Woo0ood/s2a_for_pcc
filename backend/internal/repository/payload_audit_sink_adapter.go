@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/service"
 )
 
 // PayloadAuditSinkAdapter implements service.PayloadAuditRepository.

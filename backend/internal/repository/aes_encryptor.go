@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/sub2api/internal/service"
 )
 
 // AESEncryptor implements SecretEncryptor using AES-256-GCM

@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Wei-Shaw/sub2api/ent/payloadauditlog"
+	"github.com/Woo0ood/sub2api/ent/payloadauditlog"
 )
 
 // PayloadAuditLog is the model entity for the PayloadAuditLog schema.

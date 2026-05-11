@@ -5,13 +5,13 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/config"
+	"github.com/Woo0ood/sub2api/internal/handler/dto"
+	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	"github.com/Woo0ood/sub2api/internal/pkg/ip"
+	"github.com/Woo0ood/sub2api/internal/pkg/response"
+	middleware2 "github.com/Woo0ood/sub2api/internal/server/middleware"
+	"github.com/Woo0ood/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

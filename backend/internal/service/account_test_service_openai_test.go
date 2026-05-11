@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
+	"github.com/Woo0ood/sub2api/internal/pkg/tlsfingerprint"
 )
 
 // --- shared test helpers ---

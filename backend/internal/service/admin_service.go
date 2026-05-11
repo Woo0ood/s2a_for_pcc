@@ -14,14 +14,14 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/authidentity"
-	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/util/httputil"
+	dbent "github.com/Woo0ood/sub2api/ent"
+	"github.com/Woo0ood/sub2api/ent/authidentity"
+	"github.com/Woo0ood/sub2api/ent/authidentitychannel"
+	infraerrors "github.com/Woo0ood/sub2api/internal/pkg/errors"
+	"github.com/Woo0ood/sub2api/internal/pkg/httpclient"
+	"github.com/Woo0ood/sub2api/internal/pkg/logger"
+	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
+	"github.com/Woo0ood/sub2api/internal/util/httputil"
 )
 
 // AdminService interface defines admin management operations

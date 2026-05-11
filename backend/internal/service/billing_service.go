@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Woo0ood/sub2api/internal/config"
 )
 
 // APIKeyRateLimitCacheData holds rate limit usage data cached in Redis.

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
+	"github.com/Woo0ood/sub2api/internal/service"
 )
 
 type contentModerationRepository struct {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Woo0ood/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
 
