@@ -5460,6 +5460,21 @@ export default {
         allowUngroupedKey: 'Allow Ungrouped Key Scheduling',
         allowUngroupedKeyHint: 'When disabled, API Keys not assigned to any group cannot make requests (403 Forbidden). Keep disabled to ensure all Keys belong to a specific group.'
       },
+      modelFallback: {
+        title: 'Model Fallback',
+        description: 'Triggers: (1) upstream returns model-not-found → auto retry with fallback; (2) user-level 5h/7d rate limit exhausted → downgrade to cheaper model instead of 429. Both triggers share the same toggle and per-platform target models.',
+        enabled: 'Enable model fallback',
+        enabledHint: 'When disabled: upstream 404 will not retry, and user-level rate-limit exhaustion returns 429 directly.',
+        anthropic: 'Anthropic fallback model',
+        anthropicPlaceholder: 'e.g. claude-3-5-haiku-20241022',
+        openai: 'OpenAI fallback model',
+        openaiPlaceholder: 'e.g. gpt-4o-mini',
+        gemini: 'Gemini fallback model',
+        geminiPlaceholder: 'e.g. gemini-2.5-flash',
+        antigravity: 'Antigravity fallback model',
+        antigravityPlaceholder: 'e.g. gemini-2.5-flash',
+        scopeHint: 'Fallback model must have pricing configured and routable accounts in the user\'s current group; otherwise the downgraded request will fail at upstream routing.'
+      },
       gatewayForwarding: {
         title: 'Request Forwarding',
         description: 'Control how requests are forwarded to upstream OAuth accounts',

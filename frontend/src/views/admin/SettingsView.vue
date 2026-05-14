@@ -3274,6 +3274,90 @@
             </div>
           </div>
 
+          <!-- Model Fallback Settings -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.modelFallback.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.modelFallback.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <label
+                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.modelFallback.enabled") }}
+                  </label>
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.modelFallback.enabledHint") }}
+                  </p>
+                </div>
+                <Toggle v-model="form.enable_model_fallback" />
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.modelFallback.anthropic") }}
+                  </label>
+                  <input
+                    v-model="form.fallback_model_anthropic"
+                    type="text"
+                    class="input font-mono text-sm"
+                    :disabled="!form.enable_model_fallback"
+                    :placeholder="t('admin.settings.modelFallback.anthropicPlaceholder')"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.modelFallback.openai") }}
+                  </label>
+                  <input
+                    v-model="form.fallback_model_openai"
+                    type="text"
+                    class="input font-mono text-sm"
+                    :disabled="!form.enable_model_fallback"
+                    :placeholder="t('admin.settings.modelFallback.openaiPlaceholder')"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.modelFallback.gemini") }}
+                  </label>
+                  <input
+                    v-model="form.fallback_model_gemini"
+                    type="text"
+                    class="input font-mono text-sm"
+                    :disabled="!form.enable_model_fallback"
+                    :placeholder="t('admin.settings.modelFallback.geminiPlaceholder')"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.modelFallback.antigravity") }}
+                  </label>
+                  <input
+                    v-model="form.fallback_model_antigravity"
+                    type="text"
+                    class="input font-mono text-sm"
+                    :disabled="!form.enable_model_fallback"
+                    :placeholder="t('admin.settings.modelFallback.antigravityPlaceholder')"
+                  />
+                </div>
+              </div>
+
+              <p class="text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.modelFallback.scopeHint") }}
+              </p>
+            </div>
+          </div>
+
           <!-- Gateway Scheduling Settings -->
           <div class="card">
             <div

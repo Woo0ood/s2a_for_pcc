@@ -14,10 +14,23 @@ import (
 // it rewrites the request body's `model` field to the fallback model and clears the error,
 // letting the request proceed via the normal upstream-routing path.
 //
+// IMPORTANT: only the body is rewritten; the caller's `reqModel` local variable is NOT
+// changed. Routing (account selection, channel mapping) continues to use the user's
+// originally-requested model, and usage_logs records:
+//   - RequestedModel  = original reqModel       (what the client asked for)
+//   - UpstreamModel   = result.UpstreamModel    (the fallback model the upstream echoed back)
+// — so the admin call log naturally renders the same "original → fallback" two-line cell
+// that the existing channel-side model-redirect mechanism produces.
+//
 // Returns:
-//   - newBody:        rewritten body when fallback engaged; original body otherwise.
-//   - effectiveModel: fallback model name when engaged; original reqModel otherwise.
-//   - finalErr:       nil when fallback engaged or original billingErr was nil;
+//   - newBody:  rewritten body when fallback engaged; original body otherwise.
+//   - engaged:  true when the body was rewritten to a fallback model; caller must
+//     override channelMapping.BillingModelSource to service.BillingModelSourceRequested
+//     before calling ToUsageFields so the user is billed at the original (typically
+//     more expensive) requested-model price. This prevents users from gaming the
+//     rate-limit cap by burning through their quota to fall back to a cheaper model
+//     at cheaper prices.
+//   - finalErr: nil when fallback engaged (request proceeds) or original billingErr was nil;
 //     otherwise the original billingErr so the caller can return its normal 429/403/etc.
 //
 // The response body's `model` field is intentionally NOT rewritten back to the original
@@ -31,22 +44,22 @@ func applyUserRateLimitFallback(
 	platform string,
 	billingErr error,
 	settingService *service.SettingService,
-) (newBody []byte, effectiveModel string, finalErr error) {
+) (newBody []byte, engaged bool, finalErr error) {
 	if billingErr == nil {
-		return body, reqModel, nil
+		return body, false, nil
 	}
 	if settingService == nil {
-		return body, reqModel, billingErr
+		return body, false, billingErr
 	}
 	if !errors.Is(billingErr, service.ErrUserRateLimit5hExceeded) && !errors.Is(billingErr, service.ErrUserRateLimit7dExceeded) {
-		return body, reqModel, billingErr
+		return body, false, billingErr
 	}
 	if !settingService.IsModelFallbackEnabled(ctx) {
-		return body, reqModel, billingErr
+		return body, false, billingErr
 	}
 	fb := settingService.GetFallbackModel(ctx, platform)
 	if fb == "" || fb == reqModel {
-		return body, reqModel, billingErr
+		return body, false, billingErr
 	}
 
 	rewritten := service.ReplaceModelInBody(body, fb)
@@ -56,8 +69,8 @@ func applyUserRateLimitFallback(
 	}
 	logger.LegacyPrintf(
 		"handler.billing_fallback",
-		"user_rate_limit_fallback engaged: user_id=%d platform=%s original_model=%s fallback_model=%s reason=%s",
+		"user_rate_limit_fallback engaged: user_id=%d platform=%s original_model=%s fallback_model=%s reason=%s billing=requested",
 		userID, platform, reqModel, fb, reason,
 	)
-	return rewritten, fb, nil
+	return rewritten, true, nil
 }

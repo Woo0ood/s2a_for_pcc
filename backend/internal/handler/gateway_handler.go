@@ -303,7 +303,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		if apiKey.Group != nil {
 			platform = apiKey.Group.Platform
 		}
-		body, reqModel, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+		var fallbackEngaged bool
+		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+		if fallbackEngaged {
+			channelMapping.BillingModelSource = service.BillingModelSourceRequested
+		}
 	}
 	if billingErr != nil {
 		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(billingErr))

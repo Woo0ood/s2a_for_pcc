@@ -5619,6 +5619,21 @@ export default {
         allowUngroupedKey: '允许未分组 Key 调度',
         allowUngroupedKeyHint: '关闭后，未分配到任何分组的 API Key 将无法发起请求（返回 403）。建议保持关闭以确保所有 Key 都归属明确的分组。'
       },
+      modelFallback: {
+        title: '模型降级（Model Fallback）',
+        description: '触发条件：① 上游返回"模型不存在"错误时自动重试；② 用户级 5h/7d 限额耗尽时降级到便宜模型继续服务。两个条件共用同一开关与同一份每平台目标模型。',
+        enabled: '启用模型降级',
+        enabledHint: '关闭时：上游 404 不重试、用户级限额超出直接返回 429。',
+        anthropic: 'Anthropic 平台降级模型',
+        anthropicPlaceholder: '例如：claude-3-5-haiku-20241022',
+        openai: 'OpenAI 平台降级模型',
+        openaiPlaceholder: '例如：gpt-4o-mini',
+        gemini: 'Gemini 平台降级模型',
+        geminiPlaceholder: '例如：gemini-2.5-flash',
+        antigravity: 'Antigravity 平台降级模型',
+        antigravityPlaceholder: '例如：gemini-2.5-flash',
+        scopeHint: '降级模型必须在用户当前分组里有定价配置且账号可用；否则降级后请求会在上游路由阶段失败。'
+      },
       gatewayForwarding: {
         title: '请求转发行为',
         description: '控制请求转发到上游 OAuth 账号时的行为',

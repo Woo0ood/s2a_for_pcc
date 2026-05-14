@@ -295,7 +295,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if apiKey.Group != nil {
 			platform = apiKey.Group.Platform
 		}
-		body, reqModel, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+		var fallbackEngaged bool
+		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+		if fallbackEngaged {
+			channelMapping.BillingModelSource = service.BillingModelSourceRequested
+		}
 	}
 	if billingErr != nil {
 		reqLog.Info("gemini.billing_eligibility_check_failed", zap.Error(billingErr))
