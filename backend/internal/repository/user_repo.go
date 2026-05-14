@@ -1010,3 +1010,43 @@ func (r *userRepository) DisableTotp(ctx context.Context, userID int64) error {
 	}
 	return nil
 }
+
+// ResetUserRateLimitWindows resets expired user-level 5h/7d rate limit windows atomically.
+// 仅当窗口已存在且超期时重置 usage=0 并将 window 设为当前时间（5h）或 date_trunc('day', NOW())（7d）。
+func (r *userRepository) ResetUserRateLimitWindows(ctx context.Context, userID int64) error {
+	_, err := r.sql.ExecContext(ctx, `
+		UPDATE users SET
+			usage_5h = CASE WHEN window_5h_start IS NOT NULL AND window_5h_start + INTERVAL '5 hours' <= NOW() THEN 0 ELSE usage_5h END,
+			window_5h_start = CASE WHEN window_5h_start IS NOT NULL AND window_5h_start + INTERVAL '5 hours' <= NOW() THEN NOW() ELSE window_5h_start END,
+			usage_7d = CASE WHEN window_7d_start IS NOT NULL AND window_7d_start + INTERVAL '7 days' <= NOW() THEN 0 ELSE usage_7d END,
+			window_7d_start = CASE WHEN window_7d_start IS NOT NULL AND window_7d_start + INTERVAL '7 days' <= NOW() THEN date_trunc('day', NOW()) ELSE window_7d_start END,
+			updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL`,
+		userID)
+	return err
+}
+
+// GetUserRateLimitData returns the current user-level rate limit usage and window start times.
+func (r *userRepository) GetUserRateLimitData(ctx context.Context, userID int64) (result *service.UserRateLimitData, err error) {
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT usage_5h, usage_7d, window_5h_start, window_7d_start
+		FROM users
+		WHERE id = $1 AND deleted_at IS NULL`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+	if !rows.Next() {
+		return nil, service.ErrUserNotFound
+	}
+	data := &service.UserRateLimitData{}
+	if err := rows.Scan(&data.Usage5h, &data.Usage7d, &data.Window5hStart, &data.Window7dStart); err != nil {
+		return nil, err
+	}
+	return data, rows.Err()
+}

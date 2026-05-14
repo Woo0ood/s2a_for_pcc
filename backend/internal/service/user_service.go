@@ -42,6 +42,8 @@ var (
 		"IDENTITY_UNBIND_LAST_METHOD",
 		"bind another sign-in method before unbinding this provider",
 	)
+	ErrUserRateLimit5hExceeded = infraerrors.TooManyRequests("USER_RATE_5H_EXCEEDED", "user 5小时限额已用完")
+	ErrUserRateLimit7dExceeded = infraerrors.TooManyRequests("USER_RATE_7D_EXCEEDED", "user 7天限额已用完")
 )
 
 const (
@@ -111,6 +113,34 @@ type UserRepository interface {
 	UpdateTotpSecret(ctx context.Context, userID int64, encryptedSecret *string) error
 	EnableTotp(ctx context.Context, userID int64) error
 	DisableTotp(ctx context.Context, userID int64) error
+
+	// User-level 5h/7d USD rate limit (aggregated across all API keys)
+	GetUserRateLimitData(ctx context.Context, userID int64) (*UserRateLimitData, error)
+	ResetUserRateLimitWindows(ctx context.Context, userID int64) error
+}
+
+// UserRateLimitData holds user-level 5h/7d rate limit usage and window state.
+type UserRateLimitData struct {
+	Usage5h       float64
+	Usage7d       float64
+	Window5hStart *time.Time
+	Window7dStart *time.Time
+}
+
+// EffectiveUsage5h returns the 5h window usage, or 0 if the window has expired.
+func (d *UserRateLimitData) EffectiveUsage5h() float64 {
+	if IsWindowExpired(d.Window5hStart, RateLimitWindow5h) {
+		return 0
+	}
+	return d.Usage5h
+}
+
+// EffectiveUsage7d returns the 7d window usage, or 0 if the window has expired.
+func (d *UserRateLimitData) EffectiveUsage7d() float64 {
+	if IsWindowExpired(d.Window7dStart, RateLimitWindow7d) {
+		return 0
+	}
+	return d.Usage7d
 }
 
 type UserAuthIdentityRecord struct {

@@ -62,6 +62,7 @@ type AdminService interface {
 	// API Key management (admin)
 	AdminUpdateAPIKeyGroupID(ctx context.Context, keyID int64, groupID *int64) (*AdminUpdateAPIKeyGroupIDResult, error)
 	AdminResetAPIKeyRateLimitUsage(ctx context.Context, keyID int64) (*APIKey, error)
+	AdminResetUserRateLimitUsage(ctx context.Context, userID int64) (*User, error)
 
 	// ReplaceUserGroup 替换用户的专属分组：授予新分组权限、迁移 Key、移除旧分组权限
 	ReplaceUserGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (*ReplaceUserGroupResult, error)
@@ -136,6 +137,8 @@ type UpdateUserInput struct {
 	RPMLimit      *int     // 使用指针区分"未提供"和"设置为0"
 	Status        string
 	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
+	RateLimit5h *float64 // 用户级 5h USD 限额（0 = 不限制）
+	RateLimit7d *float64 // 用户级 7d USD 限额（0 = 不限制）
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
 	GroupRates map[int64]*float64
@@ -723,6 +726,8 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	oldStatus := user.Status
 	oldRole := user.Role
 	oldRPMLimit := user.RPMLimit
+	oldRateLimit5h := user.RateLimit5h
+	oldRateLimit7d := user.RateLimit7d
 
 	if input.Email != "" {
 		user.Email = input.Email
@@ -752,6 +757,13 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		user.RPMLimit = *input.RPMLimit
 	}
 
+	if input.RateLimit5h != nil {
+		user.RateLimit5h = *input.RateLimit5h
+	}
+	if input.RateLimit7d != nil {
+		user.RateLimit7d = *input.RateLimit7d
+	}
+
 	if input.AllowedGroups != nil {
 		user.AllowedGroups = *input.AllowedGroups
 	}
@@ -770,7 +782,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if s.authCacheInvalidator != nil {
 		// RPMLimit 直接参与 billing_cache_service.checkRPM 的三级级联，
 		// 不失效缓存会让修改在一个 L2 TTL 内失去效果。
-		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit {
+		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || user.RateLimit5h != oldRateLimit5h || user.RateLimit7d != oldRateLimit7d {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
 		}
 	}
@@ -2255,6 +2267,28 @@ func (s *adminServiceImpl) AdminResetAPIKeyRateLimitUsage(ctx context.Context, k
 		_ = s.billingCacheService.InvalidateAPIKeyRateLimit(ctx, apiKey.ID)
 	}
 	return apiKey, nil
+}
+
+// AdminResetUserRateLimitUsage resets user-level 5h/7d rate-limit usage windows.
+func (s *adminServiceImpl) AdminResetUserRateLimitUsage(ctx context.Context, userID int64) (*User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	user.Usage5h = 0
+	user.Usage7d = 0
+	user.Window5hStart = nil
+	user.Window7dStart = nil
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("reset user rate limit usage: %w", err)
+	}
+	if s.authCacheInvalidator != nil {
+		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
+	}
+	if s.billingCacheService != nil {
+		_ = s.billingCacheService.InvalidateUserRateLimit(ctx, user.ID)
+	}
+	return user, nil
 }
 
 // ReplaceUserGroup 替换用户的专属分组

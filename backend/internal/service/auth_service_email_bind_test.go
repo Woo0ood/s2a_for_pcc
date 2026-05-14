@@ -846,6 +846,10 @@ func (s *emailBindUserRepoStub) UnbindUserAuthProvider(context.Context, int64, s
 func (s *emailBindUserRepoStub) UpdateTotpSecret(context.Context, int64, *string) error { return nil }
 func (s *emailBindUserRepoStub) EnableTotp(context.Context, int64) error                { return nil }
 func (s *emailBindUserRepoStub) DisableTotp(context.Context, int64) error               { return nil }
+func (s *emailBindUserRepoStub) GetUserRateLimitData(context.Context, int64) (*service.UserRateLimitData, error) {
+	return nil, nil
+}
+func (s *emailBindUserRepoStub) ResetUserRateLimitWindows(context.Context, int64) error { return nil }
 
 func cloneEmailBindUser(user *service.User) *service.User {
 	if user == nil {

@@ -44,6 +44,7 @@ const (
 	cacheWriteUpdateSubscriptionUsage
 	cacheWriteDeductBalance
 	cacheWriteUpdateRateLimitUsage
+	cacheWriteUpdateUserRateLimitUsage
 )
 
 // 异步缓存写入工作池配置
@@ -83,6 +84,12 @@ type apiKeyRateLimitLoader interface {
 	GetRateLimitData(ctx context.Context, keyID int64) (*APIKeyRateLimitData, error)
 }
 
+// userRateLimitLoader defines the interface for loading user-level rate limit data from DB.
+type userRateLimitLoader interface {
+	GetUserRateLimitData(ctx context.Context, userID int64) (*UserRateLimitData, error)
+	ResetUserRateLimitWindows(ctx context.Context, userID int64) error
+}
+
 // BillingCacheService 计费缓存服务
 // 负责余额和订阅数据的缓存管理，提供高性能的计费资格检查
 type BillingCacheService struct {
@@ -90,6 +97,7 @@ type BillingCacheService struct {
 	userRepo              UserRepository
 	subRepo               UserSubscriptionRepository
 	apiKeyRateLimitLoader apiKeyRateLimitLoader
+	userRateLimitLoader   userRateLimitLoader
 	userRPMCache          UserRPMCache
 	userGroupRateRepo     UserGroupRateRepository
 	cfg                   *config.Config
@@ -123,6 +131,7 @@ func NewBillingCacheService(
 		userRepo:              userRepo,
 		subRepo:               subRepo,
 		apiKeyRateLimitLoader: apiKeyRepo,
+		userRateLimitLoader:   userRepo,
 		userRPMCache:          userRPMCache,
 		userGroupRateRepo:     userGroupRateRepo,
 		cfg:                   cfg,
@@ -218,6 +227,12 @@ func (s *BillingCacheService) cacheWriteWorker(ch <-chan cacheWriteTask) {
 					logger.LegacyPrintf("service.billing_cache", "Warning: update rate limit usage cache failed for api key %d: %v", task.apiKeyID, err)
 				}
 			}
+		case cacheWriteUpdateUserRateLimitUsage:
+			if s.cache != nil {
+				if err := s.cache.UpdateUserRateLimitUsage(ctx, task.userID, task.amount); err != nil {
+					logger.LegacyPrintf("service.billing_cache", "Warning: update user rate limit usage cache failed for user %d: %v", task.userID, err)
+				}
+			}
 		}
 		cancel()
 	}
@@ -236,6 +251,8 @@ func cacheWriteKindName(kind cacheWriteKind) string {
 		return "deduct_balance"
 	case cacheWriteUpdateRateLimitUsage:
 		return "update_rate_limit_usage"
+	case cacheWriteUpdateUserRateLimitUsage:
+		return "update_user_rate_limit_usage"
 	default:
 		return "unknown"
 	}
@@ -520,6 +537,18 @@ func (s *BillingCacheService) InvalidateAPIKeyRateLimit(ctx context.Context, key
 	return nil
 }
 
+// InvalidateUserRateLimit invalidates the Redis rate-limit usage cache for a user.
+func (s *BillingCacheService) InvalidateUserRateLimit(ctx context.Context, userID int64) error {
+	if s.cache == nil {
+		return nil
+	}
+	if err := s.cache.InvalidateUserRateLimit(ctx, userID); err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: invalidate user rate limit cache failed for user %d: %v", userID, err)
+		return err
+	}
+	return nil
+}
+
 // ============================================
 // API Key 限速缓存方法
 // ============================================
@@ -643,6 +672,111 @@ func (s *BillingCacheService) evaluateRateLimits(ctx context.Context, apiKey *AP
 	return nil
 }
 
+// ============================================
+// 用户级 5h/7d 限额（跨所有 API Key 聚合）
+// ============================================
+
+// checkUserRateLimits checks user-level 5h/7d rate limit windows.
+// 与 checkAPIKeyRateLimits 同模式：先 cache→DB fallback，再 evaluate。
+func (s *BillingCacheService) checkUserRateLimits(ctx context.Context, user *User) error {
+	if s.cache == nil {
+		if s.userRateLimitLoader == nil {
+			return nil
+		}
+		data, err := s.userRateLimitLoader.GetUserRateLimitData(ctx, user.ID)
+		if err != nil {
+			return nil // 不因 DB 错误阻塞请求
+		}
+		return s.evaluateUserRateLimits(ctx, user, data.Usage5h, data.Usage7d, data.Window5hStart, data.Window7dStart)
+	}
+
+	cacheData, err := s.cache.GetUserRateLimit(ctx, user.ID)
+	if err != nil {
+		// Cache miss → 从 DB 拉，回填 cache
+		if s.userRateLimitLoader == nil {
+			return nil
+		}
+		dbData, dbErr := s.userRateLimitLoader.GetUserRateLimitData(ctx, user.ID)
+		if dbErr != nil {
+			return nil
+		}
+		cacheEntry := &UserRateLimitCacheData{
+			Usage5h: dbData.Usage5h,
+			Usage7d: dbData.Usage7d,
+		}
+		if dbData.Window5hStart != nil {
+			cacheEntry.Window5h = dbData.Window5hStart.Unix()
+		}
+		if dbData.Window7dStart != nil {
+			cacheEntry.Window7d = dbData.Window7dStart.Unix()
+		}
+		_ = s.cache.SetUserRateLimit(ctx, user.ID, cacheEntry)
+		cacheData = cacheEntry
+	}
+
+	var w5h, w7d *time.Time
+	if cacheData.Window5h > 0 {
+		t := time.Unix(cacheData.Window5h, 0)
+		w5h = &t
+	}
+	if cacheData.Window7d > 0 {
+		t := time.Unix(cacheData.Window7d, 0)
+		w7d = &t
+	}
+	return s.evaluateUserRateLimits(ctx, user, cacheData.Usage5h, cacheData.Usage7d, w5h, w7d)
+}
+
+// evaluateUserRateLimits 检查用量是否超限；过期窗口异步重置。
+func (s *BillingCacheService) evaluateUserRateLimits(ctx context.Context, user *User, usage5h, usage7d float64, w5h, w7d *time.Time) error {
+	needsReset := false
+	if IsWindowExpired(w5h, RateLimitWindow5h) {
+		usage5h = 0
+		needsReset = true
+	}
+	if IsWindowExpired(w7d, RateLimitWindow7d) {
+		usage7d = 0
+		needsReset = true
+	}
+
+	if needsReset {
+		userID := user.ID
+		go func() {
+			resetCtx, cancel := context.WithTimeout(context.Background(), cacheWriteTimeout)
+			defer cancel()
+			if s.userRateLimitLoader != nil {
+				if err := s.userRateLimitLoader.ResetUserRateLimitWindows(resetCtx, userID); err != nil {
+					logger.LegacyPrintf("service.billing_cache", "Warning: reset user rate limit windows failed for user %d: %v", userID, err)
+				}
+			}
+			if s.cache != nil {
+				if err := s.cache.InvalidateUserRateLimit(resetCtx, userID); err != nil {
+					logger.LegacyPrintf("service.billing_cache", "Warning: invalidate user rate limit cache failed for user %d: %v", userID, err)
+				}
+			}
+		}()
+	}
+
+	if user.RateLimit5h > 0 && usage5h >= user.RateLimit5h {
+		return ErrUserRateLimit5hExceeded
+	}
+	if user.RateLimit7d > 0 && usage7d >= user.RateLimit7d {
+		return ErrUserRateLimit7dExceeded
+	}
+	return nil
+}
+
+// QueueUpdateUserRateLimitUsage asynchronously accumulates user-level rate limit usage in the cache.
+func (s *BillingCacheService) QueueUpdateUserRateLimitUsage(userID int64, cost float64) {
+	if s.cache == nil {
+		return
+	}
+	s.enqueueCacheWrite(cacheWriteTask{
+		kind:   cacheWriteUpdateUserRateLimitUsage,
+		userID: userID,
+		amount: cost,
+	})
+}
+
 // QueueUpdateAPIKeyRateLimitUsage asynchronously updates rate limit usage in the cache.
 func (s *BillingCacheService) QueueUpdateAPIKeyRateLimitUsage(apiKeyID int64, cost float64) {
 	if s.cache == nil {
@@ -687,6 +821,13 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	// Check API Key rate limits (applies to both billing modes)
 	if apiKey != nil && apiKey.HasRateLimits() {
 		if err := s.checkAPIKeyRateLimits(ctx, apiKey); err != nil {
+			return err
+		}
+	}
+
+	// Check User-level 5h/7d rate limits (aggregated across all API keys)
+	if user != nil && user.HasUserRateLimits() {
+		if err := s.checkUserRateLimits(ctx, user); err != nil {
 			return err
 		}
 	}

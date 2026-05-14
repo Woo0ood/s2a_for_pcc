@@ -8153,6 +8153,10 @@ func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, resu
 		deps.billingCacheService.QueueUpdateAPIKeyRateLimitUsage(p.APIKey.ID, p.Cost.ActualCost)
 	}
 
+	if p.Cost.ActualCost > 0 && p.User != nil && p.User.HasUserRateLimits() {
+		deps.billingCacheService.QueueUpdateUserRateLimitUsage(p.User.ID, p.Cost.ActualCost)
+	}
+
 	deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
 
 	// Notification checks run async — all parameters are already captured,

@@ -25,6 +25,8 @@ const (
 	rateLimitWindow5h = 5 * time.Hour
 	rateLimitWindow1d = 24 * time.Hour
 	rateLimitWindow7d = 7 * 24 * time.Hour
+
+	billingUserRateLimitKeyPrefix = "user:rate:"
 )
 
 // jitteredTTL 返回带随机抖动的 TTL，防止缓存雪崩
@@ -68,6 +70,18 @@ const (
 	rateLimitFieldWindow5h = "window_5h"
 	rateLimitFieldWindow1d = "window_1d"
 	rateLimitFieldWindow7d = "window_7d"
+)
+
+// billingUserRateLimitKey generates the Redis key for user-level rate limit cache.
+func billingUserRateLimitKey(userID int64) string {
+	return fmt.Sprintf("%s%d", billingUserRateLimitKeyPrefix, userID)
+}
+
+const (
+	userRateLimitFieldUsage5h  = "usage_5h"
+	userRateLimitFieldUsage7d  = "usage_7d"
+	userRateLimitFieldWindow5h = "window_5h"
+	userRateLimitFieldWindow7d = "window_7d"
 )
 
 var (
@@ -128,6 +142,34 @@ var (
 
 		update_window('usage_5h', 'window_5h', win5h)
 		update_window('usage_1d', 'window_1d', win1d)
+		update_window('usage_7d', 'window_7d', win7d)
+		redis.call('EXPIRE', KEYS[1], ARGV[2])
+		return 1
+	`)
+
+	// updateUserRateLimitUsageScript: 用户级 5h/7d 限额原子累加，与 APIKey 版逻辑一致但只处理两个窗口。
+	// ARGV: [1]=cost, [2]=ttl_seconds, [3]=now_unix, [4]=window_5h_seconds, [5]=window_7d_seconds
+	updateUserRateLimitUsageScript = redis.NewScript(`
+		local exists = redis.call('EXISTS', KEYS[1])
+		if exists == 0 then
+			return 0
+		end
+		local cost = tonumber(ARGV[1])
+		local now = tonumber(ARGV[3])
+		local win5h = tonumber(ARGV[4])
+		local win7d = tonumber(ARGV[5])
+
+		local function update_window(usage_field, window_field, window_duration)
+			local w = tonumber(redis.call('HGET', KEYS[1], window_field) or 0)
+			if w == 0 or (now - w) >= window_duration then
+				redis.call('HSET', KEYS[1], usage_field, tostring(cost))
+				redis.call('HSET', KEYS[1], window_field, tostring(now))
+			else
+				redis.call('HINCRBYFLOAT', KEYS[1], usage_field, cost)
+			end
+		end
+
+		update_window('usage_5h', 'window_5h', win5h)
 		update_window('usage_7d', 'window_7d', win7d)
 		redis.call('EXPIRE', KEYS[1], ARGV[2])
 		return 1
@@ -326,5 +368,70 @@ func (c *billingCache) UpdateAPIKeyRateLimitUsage(ctx context.Context, keyID int
 
 func (c *billingCache) InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error {
 	key := billingRateLimitKey(keyID)
+	return c.rdb.Del(ctx, key).Err()
+}
+
+func (c *billingCache) GetUserRateLimit(ctx context.Context, userID int64) (*service.UserRateLimitCacheData, error) {
+	key := billingUserRateLimitKey(userID)
+	result, err := c.rdb.HGetAll(ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, redis.Nil
+	}
+	data := &service.UserRateLimitCacheData{}
+	if v, ok := result[userRateLimitFieldUsage5h]; ok {
+		data.Usage5h, _ = strconv.ParseFloat(v, 64)
+	}
+	if v, ok := result[userRateLimitFieldUsage7d]; ok {
+		data.Usage7d, _ = strconv.ParseFloat(v, 64)
+	}
+	if v, ok := result[userRateLimitFieldWindow5h]; ok {
+		data.Window5h, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v, ok := result[userRateLimitFieldWindow7d]; ok {
+		data.Window7d, _ = strconv.ParseInt(v, 10, 64)
+	}
+	return data, nil
+}
+
+func (c *billingCache) SetUserRateLimit(ctx context.Context, userID int64, data *service.UserRateLimitCacheData) error {
+	if data == nil {
+		return nil
+	}
+	key := billingUserRateLimitKey(userID)
+	fields := map[string]any{
+		userRateLimitFieldUsage5h:  data.Usage5h,
+		userRateLimitFieldUsage7d:  data.Usage7d,
+		userRateLimitFieldWindow5h: data.Window5h,
+		userRateLimitFieldWindow7d: data.Window7d,
+	}
+	pipe := c.rdb.Pipeline()
+	pipe.HSet(ctx, key, fields)
+	pipe.Expire(ctx, key, rateLimitCacheTTL)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+func (c *billingCache) UpdateUserRateLimitUsage(ctx context.Context, userID int64, cost float64) error {
+	key := billingUserRateLimitKey(userID)
+	now := time.Now().Unix()
+	_, err := updateUserRateLimitUsageScript.Run(ctx, c.rdb, []string{key},
+		cost,
+		int(rateLimitCacheTTL.Seconds()),
+		now,
+		int(rateLimitWindow5h.Seconds()),
+		int(rateLimitWindow7d.Seconds()),
+	).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Printf("Warning: update user rate limit usage cache failed for user %d: %v", userID, err)
+		return err
+	}
+	return nil
+}
+
+func (c *billingCache) InvalidateUserRateLimit(ctx context.Context, userID int64) error {
+	key := billingUserRateLimitKey(userID)
 	return c.rdb.Del(ctx, key).Err()
 }

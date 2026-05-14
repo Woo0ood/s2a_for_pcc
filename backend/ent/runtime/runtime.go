@@ -1983,6 +1983,22 @@ func init() {
 	userDescRpmLimit := userFields[19].Descriptor()
 	// user.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	user.DefaultRpmLimit = userDescRpmLimit.Default.(int)
+	// userDescRateLimit5h is the schema descriptor for rate_limit_5h field.
+	userDescRateLimit5h := userFields[20].Descriptor()
+	// user.DefaultRateLimit5h holds the default value on creation for the rate_limit_5h field.
+	user.DefaultRateLimit5h = userDescRateLimit5h.Default.(float64)
+	// userDescRateLimit7d is the schema descriptor for rate_limit_7d field.
+	userDescRateLimit7d := userFields[21].Descriptor()
+	// user.DefaultRateLimit7d holds the default value on creation for the rate_limit_7d field.
+	user.DefaultRateLimit7d = userDescRateLimit7d.Default.(float64)
+	// userDescUsage5h is the schema descriptor for usage_5h field.
+	userDescUsage5h := userFields[22].Descriptor()
+	// user.DefaultUsage5h holds the default value on creation for the usage_5h field.
+	user.DefaultUsage5h = userDescUsage5h.Default.(float64)
+	// userDescUsage7d is the schema descriptor for usage_7d field.
+	userDescUsage7d := userFields[23].Descriptor()
+	// user.DefaultUsage7d holds the default value on creation for the usage_7d field.
+	user.DefaultUsage7d = userDescUsage7d.Default.(float64)
 	userallowedgroupFields := schema.UserAllowedGroup{}.Fields()
 	_ = userallowedgroupFields
 	// userallowedgroupDescCreatedAt is the schema descriptor for created_at field.

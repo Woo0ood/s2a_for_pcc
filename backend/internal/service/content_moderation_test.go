@@ -230,6 +230,12 @@ func (r *contentModerationTestUserRepo) EnableTotp(ctx context.Context, userID i
 func (r *contentModerationTestUserRepo) DisableTotp(ctx context.Context, userID int64) error {
 	panic("unexpected DisableTotp call")
 }
+func (r *contentModerationTestUserRepo) GetUserRateLimitData(context.Context, int64) (*UserRateLimitData, error) {
+	return nil, nil
+}
+func (r *contentModerationTestUserRepo) ResetUserRateLimitWindows(context.Context, int64) error {
+	return nil
+}
 
 type contentModerationTestAuthCacheInvalidator struct {
 	userIDs []int64

@@ -182,6 +182,10 @@ func TestAPIContracts(t *testing.T) {
 							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
 						}
 					},
+					"rate_limit_5h": 0,
+					"rate_limit_7d": 0,
+					"usage_5h": 0,
+					"usage_7d": 0,
 					"run_mode": "standard"
 				}
 			}`,
@@ -1402,6 +1406,14 @@ func (r *stubUserRepo) EnableTotp(ctx context.Context, userID int64) error {
 }
 
 func (r *stubUserRepo) DisableTotp(ctx context.Context, userID int64) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubUserRepo) GetUserRateLimitData(ctx context.Context, userID int64) (*service.UserRateLimitData, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUserRepo) ResetUserRateLimitWindows(ctx context.Context, userID int64) error {
 	return errors.New("not implemented")
 }
 

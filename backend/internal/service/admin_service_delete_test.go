@@ -172,6 +172,10 @@ func (s *userRepoStub) EnableTotp(ctx context.Context, userID int64) error {
 func (s *userRepoStub) DisableTotp(ctx context.Context, userID int64) error {
 	panic("unexpected DisableTotp call")
 }
+func (s *userRepoStub) GetUserRateLimitData(context.Context, int64) (*UserRateLimitData, error) {
+	return nil, nil
+}
+func (s *userRepoStub) ResetUserRateLimitWindows(context.Context, int64) error { return nil }
 
 type groupRepoStub struct {
 	affectedUserIDs []int64
@@ -423,6 +427,18 @@ func (s *billingCacheStub) UpdateAPIKeyRateLimitUsage(ctx context.Context, keyID
 }
 func (s *billingCacheStub) InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error {
 	panic("unexpected InvalidateAPIKeyRateLimit call")
+}
+func (s *billingCacheStub) GetUserRateLimit(context.Context, int64) (*UserRateLimitCacheData, error) {
+	return nil, nil
+}
+func (s *billingCacheStub) SetUserRateLimit(context.Context, int64, *UserRateLimitCacheData) error {
+	return nil
+}
+func (s *billingCacheStub) UpdateUserRateLimitUsage(context.Context, int64, float64) error {
+	return nil
+}
+func (s *billingCacheStub) InvalidateUserRateLimit(context.Context, int64) error {
+	return nil
 }
 
 func waitForInvalidations(t *testing.T, ch <-chan subscriptionInvalidateCall, expected int) []subscriptionInvalidateCall {

@@ -61,6 +61,18 @@ const (
 	FieldTotalRecharged = "total_recharged"
 	// FieldRpmLimit holds the string denoting the rpm_limit field in the database.
 	FieldRpmLimit = "rpm_limit"
+	// FieldRateLimit5h holds the string denoting the rate_limit_5h field in the database.
+	FieldRateLimit5h = "rate_limit_5h"
+	// FieldRateLimit7d holds the string denoting the rate_limit_7d field in the database.
+	FieldRateLimit7d = "rate_limit_7d"
+	// FieldUsage5h holds the string denoting the usage_5h field in the database.
+	FieldUsage5h = "usage_5h"
+	// FieldUsage7d holds the string denoting the usage_7d field in the database.
+	FieldUsage7d = "usage_7d"
+	// FieldWindow5hStart holds the string denoting the window_5h_start field in the database.
+	FieldWindow5hStart = "window_5h_start"
+	// FieldWindow7dStart holds the string denoting the window_7d_start field in the database.
+	FieldWindow7dStart = "window_7d_start"
 	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
 	EdgeAPIKeys = "api_keys"
 	// EdgeRedeemCodes holds the string denoting the redeem_codes edge name in mutations.
@@ -206,6 +218,12 @@ var Columns = []string{
 	FieldBalanceNotifyExtraEmails,
 	FieldTotalRecharged,
 	FieldRpmLimit,
+	FieldRateLimit5h,
+	FieldRateLimit7d,
+	FieldUsage5h,
+	FieldUsage7d,
+	FieldWindow5hStart,
+	FieldWindow7dStart,
 }
 
 var (
@@ -276,6 +294,14 @@ var (
 	DefaultTotalRecharged float64
 	// DefaultRpmLimit holds the default value on creation for the "rpm_limit" field.
 	DefaultRpmLimit int
+	// DefaultRateLimit5h holds the default value on creation for the "rate_limit_5h" field.
+	DefaultRateLimit5h float64
+	// DefaultRateLimit7d holds the default value on creation for the "rate_limit_7d" field.
+	DefaultRateLimit7d float64
+	// DefaultUsage5h holds the default value on creation for the "usage_5h" field.
+	DefaultUsage5h float64
+	// DefaultUsage7d holds the default value on creation for the "usage_7d" field.
+	DefaultUsage7d float64
 )
 
 // OrderOption defines the ordering options for the User queries.
@@ -399,6 +425,36 @@ func ByTotalRecharged(opts ...sql.OrderTermOption) OrderOption {
 // ByRpmLimit orders the results by the rpm_limit field.
 func ByRpmLimit(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRpmLimit, opts...).ToFunc()
+}
+
+// ByRateLimit5h orders the results by the rate_limit_5h field.
+func ByRateLimit5h(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRateLimit5h, opts...).ToFunc()
+}
+
+// ByRateLimit7d orders the results by the rate_limit_7d field.
+func ByRateLimit7d(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRateLimit7d, opts...).ToFunc()
+}
+
+// ByUsage5h orders the results by the usage_5h field.
+func ByUsage5h(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUsage5h, opts...).ToFunc()
+}
+
+// ByUsage7d orders the results by the usage_7d field.
+func ByUsage7d(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUsage7d, opts...).ToFunc()
+}
+
+// ByWindow5hStart orders the results by the window_5h_start field.
+func ByWindow5hStart(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWindow5hStart, opts...).ToFunc()
+}
+
+// ByWindow7dStart orders the results by the window_7d_start field.
+func ByWindow7dStart(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWindow7dStart, opts...).ToFunc()
 }
 
 // ByAPIKeysCount orders the results by api_keys count.

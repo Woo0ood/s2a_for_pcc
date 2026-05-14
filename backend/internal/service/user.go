@@ -58,6 +58,15 @@ type User struct {
 	// 避免每请求查 DB。字段不持久化到数据库。
 	UserGroupRPMOverride *int
 
+	// 用户级 5h/7d USD 限额（跨所有 API Key 聚合；0 = 不限制）。
+	// 与 APIKey 自身的 rate_limit_5h/7d 取最严格并行检查。
+	RateLimit5h   float64
+	RateLimit7d   float64
+	Usage5h       float64
+	Usage7d       float64
+	Window5hStart *time.Time
+	Window7dStart *time.Time
+
 	APIKeys       []APIKey
 	Subscriptions []UserSubscription
 }
@@ -99,4 +108,25 @@ func (u *User) SetPassword(password string) error {
 
 func (u *User) CheckPassword(password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) == nil
+}
+
+// HasUserRateLimits 返回是否设置了任一用户级 USD 限额。
+func (u *User) HasUserRateLimits() bool {
+	return u.RateLimit5h > 0 || u.RateLimit7d > 0
+}
+
+// EffectiveUsage5h 返回当前 5h 窗口的有效用量；窗口过期返回 0。
+func (u *User) EffectiveUsage5h() float64 {
+	if IsWindowExpired(u.Window5hStart, RateLimitWindow5h) {
+		return 0
+	}
+	return u.Usage5h
+}
+
+// EffectiveUsage7d 返回当前 7d 窗口的有效用量；窗口过期返回 0。
+func (u *User) EffectiveUsage7d() float64 {
+	if IsWindowExpired(u.Window7dStart, RateLimitWindow7d) {
+		return 0
+	}
+	return u.Usage7d
 }

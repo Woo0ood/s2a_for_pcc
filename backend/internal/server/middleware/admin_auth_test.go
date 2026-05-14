@@ -236,3 +236,11 @@ func (s *stubUserRepo) EnableTotp(ctx context.Context, userID int64) error {
 func (s *stubUserRepo) DisableTotp(ctx context.Context, userID int64) error {
 	panic("unexpected DisableTotp call")
 }
+
+func (s *stubUserRepo) GetUserRateLimitData(ctx context.Context, userID int64) (*service.UserRateLimitData, error) {
+	panic("unexpected GetUserRateLimitData call")
+}
+
+func (s *stubUserRepo) ResetUserRateLimitWindows(ctx context.Context, userID int64) error {
+	panic("unexpected ResetUserRateLimitWindows call")
+}

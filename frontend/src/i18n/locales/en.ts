@@ -1729,7 +1729,20 @@ export default {
       form: {
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
-        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.'
+        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.',
+        rateLimit5h: '5h Limit (USD)',
+        rateLimit7d: '7d Limit (USD)',
+        rateLimitPlaceholder: '0 = unlimited',
+        rateLimit5hHint: 'Max cumulative cost within a rolling 5h window for this user, aggregated across all API keys; 0 = unlimited.',
+        rateLimit7dHint: 'Max cumulative cost within a rolling 7d window for this user, aggregated across all API keys; 0 = unlimited.',
+        currentUsage5h: 'Used 5h: {usage} USD, resets at: {reset}',
+        currentUsage7d: 'Used 7d: {usage} USD, resets at: {reset}',
+        resetRateLimits: 'Reset rate limit usage',
+        resetRateLimitsHint: 'Zero out the current 5h/7d used amounts and reset window start times.',
+        resetRateLimitsConfirm: 'Reset this user\'s 5h/7d rate limit usage? This immediately lifts any limit.',
+        resetRateLimitsSuccess: 'Rate limit usage reset',
+        resetRateLimitsFailed: 'Reset failed',
+        resetting: 'Resetting...'
       },
       columns: {
         user: 'User',

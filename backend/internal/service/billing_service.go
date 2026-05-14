@@ -20,6 +20,14 @@ type APIKeyRateLimitCacheData struct {
 	Window7d int64   `json:"window_7d"`
 }
 
+// UserRateLimitCacheData holds user-level 5h/7d rate limit usage cached in Redis.
+type UserRateLimitCacheData struct {
+	Usage5h  float64 `json:"usage_5h"`
+	Usage7d  float64 `json:"usage_7d"`
+	Window5h int64   `json:"window_5h"` // unix timestamp, 0 = not started
+	Window7d int64   `json:"window_7d"`
+}
+
 // BillingCache defines cache operations for billing service
 type BillingCache interface {
 	// Balance operations
@@ -39,6 +47,12 @@ type BillingCache interface {
 	SetAPIKeyRateLimit(ctx context.Context, keyID int64, data *APIKeyRateLimitCacheData) error
 	UpdateAPIKeyRateLimitUsage(ctx context.Context, keyID int64, cost float64) error
 	InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error
+
+	// User-level rate limit operations (5h/7d aggregated across all API keys)
+	GetUserRateLimit(ctx context.Context, userID int64) (*UserRateLimitCacheData, error)
+	SetUserRateLimit(ctx context.Context, userID int64, data *UserRateLimitCacheData) error
+	UpdateUserRateLimitUsage(ctx context.Context, userID int64, cost float64) error
+	InvalidateUserRateLimit(ctx context.Context, userID int64) error
 }
 
 // ModelPricing 模型价格配置（per-token价格，与LiteLLM格式一致）

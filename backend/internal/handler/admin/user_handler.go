@@ -56,6 +56,8 @@ type UpdateUserRequest struct {
 	RPMLimit      *int     `json:"rpm_limit"`
 	Status        string   `json:"status" binding:"omitempty,oneof=active disabled"`
 	AllowedGroups *[]int64 `json:"allowed_groups"`
+	RateLimit5h *float64 `json:"rate_limit_5h"`
+	RateLimit7d *float64 `json:"rate_limit_7d"`
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
 	GroupRates map[int64]*float64 `json:"group_rates"`
@@ -280,6 +282,8 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Balance:       req.Balance,
 		Concurrency:   req.Concurrency,
 		RPMLimit:      req.RPMLimit,
+		RateLimit5h:   req.RateLimit5h,
+		RateLimit7d:   req.RateLimit7d,
 		Status:        req.Status,
 		AllowedGroups: req.AllowedGroups,
 		GroupRates:    req.GroupRates,
@@ -476,6 +480,24 @@ func (h *UserHandler) GetUserRPMStatus(c *gin.Context) {
 	}
 
 	response.Success(c, status)
+}
+
+// ResetRateLimits handles resetting user-level 5h/7d rate limit windows.
+// POST /api/v1/admin/users/:id/reset-rate-limits
+func (h *UserHandler) ResetRateLimits(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	user, err := h.adminService.AdminResetUserRateLimitUsage(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.UserFromServiceAdmin(user))
 }
 
 // BatchUpdateConcurrency 批量修改用户并发数

@@ -133,6 +133,10 @@ func (s *emailSyncRepoStub) UpdateTotpSecret(context.Context, int64, *string) er
 func (s *emailSyncRepoStub) EnableTotp(context.Context, int64) error { return nil }
 
 func (s *emailSyncRepoStub) DisableTotp(context.Context, int64) error { return nil }
+func (s *emailSyncRepoStub) GetUserRateLimitData(context.Context, int64) (*UserRateLimitData, error) {
+	return nil, nil
+}
+func (s *emailSyncRepoStub) ResetUserRateLimitWindows(context.Context, int64) error { return nil }
 
 func (s *emailSyncRepoStub) EnsureEmailAuthIdentity(_ context.Context, userID int64, email string) error {
 	s.ensureCalls = append(s.ensureCalls, ensureEmailCall{userID: userID, email: email})

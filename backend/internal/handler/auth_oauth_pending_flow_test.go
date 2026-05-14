@@ -2908,6 +2908,12 @@ func (r *oauthPendingFlowUserRepo) DisableTotp(ctx context.Context, userID int64
 		ClearTotpEnabledAt().
 		Exec(ctx)
 }
+func (r *oauthPendingFlowUserRepo) GetUserRateLimitData(context.Context, int64) (*service.UserRateLimitData, error) {
+	return nil, nil
+}
+func (r *oauthPendingFlowUserRepo) ResetUserRateLimitWindows(context.Context, int64) error {
+	return nil
+}
 
 func oauthPendingFlowServiceUser(entity *dbent.User) *service.User {
 	if entity == nil {

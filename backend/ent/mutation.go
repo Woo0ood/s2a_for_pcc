@@ -39787,6 +39787,16 @@ type UserMutation struct {
 	addtotal_recharged            *float64
 	rpm_limit                     *int
 	addrpm_limit                  *int
+	rate_limit_5h                 *float64
+	addrate_limit_5h              *float64
+	rate_limit_7d                 *float64
+	addrate_limit_7d              *float64
+	usage_5h                      *float64
+	addusage_5h                   *float64
+	usage_7d                      *float64
+	addusage_7d                   *float64
+	window_5h_start               *time.Time
+	window_7d_start               *time.Time
 	clearedFields                 map[string]struct{}
 	api_keys                      map[int64]struct{}
 	removedapi_keys               map[int64]struct{}
@@ -40934,6 +40944,328 @@ func (m *UserMutation) ResetRpmLimit() {
 	m.addrpm_limit = nil
 }
 
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (m *UserMutation) SetRateLimit5h(f float64) {
+	m.rate_limit_5h = &f
+	m.addrate_limit_5h = nil
+}
+
+// RateLimit5h returns the value of the "rate_limit_5h" field in the mutation.
+func (m *UserMutation) RateLimit5h() (r float64, exists bool) {
+	v := m.rate_limit_5h
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRateLimit5h returns the old "rate_limit_5h" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldRateLimit5h(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRateLimit5h is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRateLimit5h requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRateLimit5h: %w", err)
+	}
+	return oldValue.RateLimit5h, nil
+}
+
+// AddRateLimit5h adds f to the "rate_limit_5h" field.
+func (m *UserMutation) AddRateLimit5h(f float64) {
+	if m.addrate_limit_5h != nil {
+		*m.addrate_limit_5h += f
+	} else {
+		m.addrate_limit_5h = &f
+	}
+}
+
+// AddedRateLimit5h returns the value that was added to the "rate_limit_5h" field in this mutation.
+func (m *UserMutation) AddedRateLimit5h() (r float64, exists bool) {
+	v := m.addrate_limit_5h
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRateLimit5h resets all changes to the "rate_limit_5h" field.
+func (m *UserMutation) ResetRateLimit5h() {
+	m.rate_limit_5h = nil
+	m.addrate_limit_5h = nil
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (m *UserMutation) SetRateLimit7d(f float64) {
+	m.rate_limit_7d = &f
+	m.addrate_limit_7d = nil
+}
+
+// RateLimit7d returns the value of the "rate_limit_7d" field in the mutation.
+func (m *UserMutation) RateLimit7d() (r float64, exists bool) {
+	v := m.rate_limit_7d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRateLimit7d returns the old "rate_limit_7d" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldRateLimit7d(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRateLimit7d is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRateLimit7d requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRateLimit7d: %w", err)
+	}
+	return oldValue.RateLimit7d, nil
+}
+
+// AddRateLimit7d adds f to the "rate_limit_7d" field.
+func (m *UserMutation) AddRateLimit7d(f float64) {
+	if m.addrate_limit_7d != nil {
+		*m.addrate_limit_7d += f
+	} else {
+		m.addrate_limit_7d = &f
+	}
+}
+
+// AddedRateLimit7d returns the value that was added to the "rate_limit_7d" field in this mutation.
+func (m *UserMutation) AddedRateLimit7d() (r float64, exists bool) {
+	v := m.addrate_limit_7d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRateLimit7d resets all changes to the "rate_limit_7d" field.
+func (m *UserMutation) ResetRateLimit7d() {
+	m.rate_limit_7d = nil
+	m.addrate_limit_7d = nil
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (m *UserMutation) SetUsage5h(f float64) {
+	m.usage_5h = &f
+	m.addusage_5h = nil
+}
+
+// Usage5h returns the value of the "usage_5h" field in the mutation.
+func (m *UserMutation) Usage5h() (r float64, exists bool) {
+	v := m.usage_5h
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsage5h returns the old "usage_5h" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldUsage5h(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsage5h is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsage5h requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsage5h: %w", err)
+	}
+	return oldValue.Usage5h, nil
+}
+
+// AddUsage5h adds f to the "usage_5h" field.
+func (m *UserMutation) AddUsage5h(f float64) {
+	if m.addusage_5h != nil {
+		*m.addusage_5h += f
+	} else {
+		m.addusage_5h = &f
+	}
+}
+
+// AddedUsage5h returns the value that was added to the "usage_5h" field in this mutation.
+func (m *UserMutation) AddedUsage5h() (r float64, exists bool) {
+	v := m.addusage_5h
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUsage5h resets all changes to the "usage_5h" field.
+func (m *UserMutation) ResetUsage5h() {
+	m.usage_5h = nil
+	m.addusage_5h = nil
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (m *UserMutation) SetUsage7d(f float64) {
+	m.usage_7d = &f
+	m.addusage_7d = nil
+}
+
+// Usage7d returns the value of the "usage_7d" field in the mutation.
+func (m *UserMutation) Usage7d() (r float64, exists bool) {
+	v := m.usage_7d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsage7d returns the old "usage_7d" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldUsage7d(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsage7d is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsage7d requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsage7d: %w", err)
+	}
+	return oldValue.Usage7d, nil
+}
+
+// AddUsage7d adds f to the "usage_7d" field.
+func (m *UserMutation) AddUsage7d(f float64) {
+	if m.addusage_7d != nil {
+		*m.addusage_7d += f
+	} else {
+		m.addusage_7d = &f
+	}
+}
+
+// AddedUsage7d returns the value that was added to the "usage_7d" field in this mutation.
+func (m *UserMutation) AddedUsage7d() (r float64, exists bool) {
+	v := m.addusage_7d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUsage7d resets all changes to the "usage_7d" field.
+func (m *UserMutation) ResetUsage7d() {
+	m.usage_7d = nil
+	m.addusage_7d = nil
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (m *UserMutation) SetWindow5hStart(t time.Time) {
+	m.window_5h_start = &t
+}
+
+// Window5hStart returns the value of the "window_5h_start" field in the mutation.
+func (m *UserMutation) Window5hStart() (r time.Time, exists bool) {
+	v := m.window_5h_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWindow5hStart returns the old "window_5h_start" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldWindow5hStart(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWindow5hStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWindow5hStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWindow5hStart: %w", err)
+	}
+	return oldValue.Window5hStart, nil
+}
+
+// ClearWindow5hStart clears the value of the "window_5h_start" field.
+func (m *UserMutation) ClearWindow5hStart() {
+	m.window_5h_start = nil
+	m.clearedFields[user.FieldWindow5hStart] = struct{}{}
+}
+
+// Window5hStartCleared returns if the "window_5h_start" field was cleared in this mutation.
+func (m *UserMutation) Window5hStartCleared() bool {
+	_, ok := m.clearedFields[user.FieldWindow5hStart]
+	return ok
+}
+
+// ResetWindow5hStart resets all changes to the "window_5h_start" field.
+func (m *UserMutation) ResetWindow5hStart() {
+	m.window_5h_start = nil
+	delete(m.clearedFields, user.FieldWindow5hStart)
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (m *UserMutation) SetWindow7dStart(t time.Time) {
+	m.window_7d_start = &t
+}
+
+// Window7dStart returns the value of the "window_7d_start" field in the mutation.
+func (m *UserMutation) Window7dStart() (r time.Time, exists bool) {
+	v := m.window_7d_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWindow7dStart returns the old "window_7d_start" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldWindow7dStart(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWindow7dStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWindow7dStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWindow7dStart: %w", err)
+	}
+	return oldValue.Window7dStart, nil
+}
+
+// ClearWindow7dStart clears the value of the "window_7d_start" field.
+func (m *UserMutation) ClearWindow7dStart() {
+	m.window_7d_start = nil
+	m.clearedFields[user.FieldWindow7dStart] = struct{}{}
+}
+
+// Window7dStartCleared returns if the "window_7d_start" field was cleared in this mutation.
+func (m *UserMutation) Window7dStartCleared() bool {
+	_, ok := m.clearedFields[user.FieldWindow7dStart]
+	return ok
+}
+
+// ResetWindow7dStart resets all changes to the "window_7d_start" field.
+func (m *UserMutation) ResetWindow7dStart() {
+	m.window_7d_start = nil
+	delete(m.clearedFields, user.FieldWindow7dStart)
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by ids.
 func (m *UserMutation) AddAPIKeyIDs(ids ...int64) {
 	if m.api_keys == nil {
@@ -41616,7 +41948,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 29)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -41686,6 +42018,24 @@ func (m *UserMutation) Fields() []string {
 	if m.rpm_limit != nil {
 		fields = append(fields, user.FieldRpmLimit)
 	}
+	if m.rate_limit_5h != nil {
+		fields = append(fields, user.FieldRateLimit5h)
+	}
+	if m.rate_limit_7d != nil {
+		fields = append(fields, user.FieldRateLimit7d)
+	}
+	if m.usage_5h != nil {
+		fields = append(fields, user.FieldUsage5h)
+	}
+	if m.usage_7d != nil {
+		fields = append(fields, user.FieldUsage7d)
+	}
+	if m.window_5h_start != nil {
+		fields = append(fields, user.FieldWindow5hStart)
+	}
+	if m.window_7d_start != nil {
+		fields = append(fields, user.FieldWindow7dStart)
+	}
 	return fields
 }
 
@@ -41740,6 +42090,18 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.TotalRecharged()
 	case user.FieldRpmLimit:
 		return m.RpmLimit()
+	case user.FieldRateLimit5h:
+		return m.RateLimit5h()
+	case user.FieldRateLimit7d:
+		return m.RateLimit7d()
+	case user.FieldUsage5h:
+		return m.Usage5h()
+	case user.FieldUsage7d:
+		return m.Usage7d()
+	case user.FieldWindow5hStart:
+		return m.Window5hStart()
+	case user.FieldWindow7dStart:
+		return m.Window7dStart()
 	}
 	return nil, false
 }
@@ -41795,6 +42157,18 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldTotalRecharged(ctx)
 	case user.FieldRpmLimit:
 		return m.OldRpmLimit(ctx)
+	case user.FieldRateLimit5h:
+		return m.OldRateLimit5h(ctx)
+	case user.FieldRateLimit7d:
+		return m.OldRateLimit7d(ctx)
+	case user.FieldUsage5h:
+		return m.OldUsage5h(ctx)
+	case user.FieldUsage7d:
+		return m.OldUsage7d(ctx)
+	case user.FieldWindow5hStart:
+		return m.OldWindow5hStart(ctx)
+	case user.FieldWindow7dStart:
+		return m.OldWindow7dStart(ctx)
 	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
@@ -41965,6 +42339,48 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRpmLimit(v)
 		return nil
+	case user.FieldRateLimit5h:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRateLimit5h(v)
+		return nil
+	case user.FieldRateLimit7d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRateLimit7d(v)
+		return nil
+	case user.FieldUsage5h:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsage5h(v)
+		return nil
+	case user.FieldUsage7d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsage7d(v)
+		return nil
+	case user.FieldWindow5hStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWindow5hStart(v)
+		return nil
+	case user.FieldWindow7dStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWindow7dStart(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -41988,6 +42404,18 @@ func (m *UserMutation) AddedFields() []string {
 	if m.addrpm_limit != nil {
 		fields = append(fields, user.FieldRpmLimit)
 	}
+	if m.addrate_limit_5h != nil {
+		fields = append(fields, user.FieldRateLimit5h)
+	}
+	if m.addrate_limit_7d != nil {
+		fields = append(fields, user.FieldRateLimit7d)
+	}
+	if m.addusage_5h != nil {
+		fields = append(fields, user.FieldUsage5h)
+	}
+	if m.addusage_7d != nil {
+		fields = append(fields, user.FieldUsage7d)
+	}
 	return fields
 }
 
@@ -42006,6 +42434,14 @@ func (m *UserMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedTotalRecharged()
 	case user.FieldRpmLimit:
 		return m.AddedRpmLimit()
+	case user.FieldRateLimit5h:
+		return m.AddedRateLimit5h()
+	case user.FieldRateLimit7d:
+		return m.AddedRateLimit7d()
+	case user.FieldUsage5h:
+		return m.AddedUsage5h()
+	case user.FieldUsage7d:
+		return m.AddedUsage7d()
 	}
 	return nil, false
 }
@@ -42050,6 +42486,34 @@ func (m *UserMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddRpmLimit(v)
 		return nil
+	case user.FieldRateLimit5h:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRateLimit5h(v)
+		return nil
+	case user.FieldRateLimit7d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRateLimit7d(v)
+		return nil
+	case user.FieldUsage5h:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUsage5h(v)
+		return nil
+	case user.FieldUsage7d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUsage7d(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User numeric field %s", name)
 }
@@ -42075,6 +42539,12 @@ func (m *UserMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(user.FieldBalanceNotifyThreshold) {
 		fields = append(fields, user.FieldBalanceNotifyThreshold)
+	}
+	if m.FieldCleared(user.FieldWindow5hStart) {
+		fields = append(fields, user.FieldWindow5hStart)
+	}
+	if m.FieldCleared(user.FieldWindow7dStart) {
+		fields = append(fields, user.FieldWindow7dStart)
 	}
 	return fields
 }
@@ -42107,6 +42577,12 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldBalanceNotifyThreshold:
 		m.ClearBalanceNotifyThreshold()
+		return nil
+	case user.FieldWindow5hStart:
+		m.ClearWindow5hStart()
+		return nil
+	case user.FieldWindow7dStart:
+		m.ClearWindow7dStart()
 		return nil
 	}
 	return fmt.Errorf("unknown User nullable field %s", name)
@@ -42184,6 +42660,24 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldRpmLimit:
 		m.ResetRpmLimit()
+		return nil
+	case user.FieldRateLimit5h:
+		m.ResetRateLimit5h()
+		return nil
+	case user.FieldRateLimit7d:
+		m.ResetRateLimit7d()
+		return nil
+	case user.FieldUsage5h:
+		m.ResetUsage5h()
+		return nil
+	case user.FieldUsage7d:
+		m.ResetUsage7d()
+		return nil
+	case user.FieldWindow5hStart:
+		m.ResetWindow5hStart()
+		return nil
+	case user.FieldWindow7dStart:
+		m.ResetWindow7dStart()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

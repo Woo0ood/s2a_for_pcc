@@ -67,6 +67,18 @@ func (b *billingCacheWorkerStub) UpdateAPIKeyRateLimitUsage(ctx context.Context,
 func (b *billingCacheWorkerStub) InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error {
 	return nil
 }
+func (b *billingCacheWorkerStub) GetUserRateLimit(context.Context, int64) (*UserRateLimitCacheData, error) {
+	return nil, nil
+}
+func (b *billingCacheWorkerStub) SetUserRateLimit(context.Context, int64, *UserRateLimitCacheData) error {
+	return nil
+}
+func (b *billingCacheWorkerStub) UpdateUserRateLimitUsage(context.Context, int64, float64) error {
+	return nil
+}
+func (b *billingCacheWorkerStub) InvalidateUserRateLimit(context.Context, int64) error {
+	return nil
+}
 
 func TestBillingCacheServiceQueueHighLoad(t *testing.T) {
 	cache := &billingCacheWorkerStub{}
