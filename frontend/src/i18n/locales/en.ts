@@ -1729,7 +1729,20 @@ export default {
       form: {
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
-        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.'
+        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.',
+        rateLimit5h: '5h Limit (USD)',
+        rateLimit7d: '7d Limit (USD)',
+        rateLimitPlaceholder: '0 = unlimited',
+        rateLimit5hHint: 'Max cumulative cost within a rolling 5h window for this user, aggregated across all API keys; 0 = unlimited.',
+        rateLimit7dHint: 'Max cumulative cost within a rolling 7d window for this user, aggregated across all API keys; 0 = unlimited.',
+        currentUsage5h: 'Used 5h: {usage} USD, resets at: {reset}',
+        currentUsage7d: 'Used 7d: {usage} USD, resets at: {reset}',
+        resetRateLimits: 'Reset rate limit usage',
+        resetRateLimitsHint: 'Zero out the current 5h/7d used amounts and reset window start times.',
+        resetRateLimitsConfirm: 'Reset this user\'s 5h/7d rate limit usage? This immediately lifts any limit.',
+        resetRateLimitsSuccess: 'Rate limit usage reset',
+        resetRateLimitsFailed: 'Reset failed',
+        resetting: 'Resetting...'
       },
       columns: {
         user: 'User',
@@ -1742,6 +1755,7 @@ export default {
         subscriptions: 'Subscriptions',
         balance: 'Balance',
         usage: 'Usage',
+        rateLimits: 'Rate Limits',
         concurrency: 'Concurrency',
         status: 'Status',
         lastActive: 'Last Active',
@@ -5445,6 +5459,21 @@ export default {
         description: 'Control API Key scheduling behavior',
         allowUngroupedKey: 'Allow Ungrouped Key Scheduling',
         allowUngroupedKeyHint: 'When disabled, API Keys not assigned to any group cannot make requests (403 Forbidden). Keep disabled to ensure all Keys belong to a specific group.'
+      },
+      modelFallback: {
+        title: 'Model Fallback',
+        description: 'Triggers: (1) upstream returns model-not-found → auto retry with fallback; (2) user-level 5h/7d rate limit exhausted → downgrade to cheaper model instead of 429. Both triggers share the same toggle and per-platform target models.',
+        enabled: 'Enable model fallback',
+        enabledHint: 'When disabled: upstream 404 will not retry, and user-level rate-limit exhaustion returns 429 directly.',
+        anthropic: 'Anthropic fallback model',
+        anthropicPlaceholder: 'e.g. claude-3-5-haiku-20241022',
+        openai: 'OpenAI fallback model',
+        openaiPlaceholder: 'e.g. gpt-4o-mini',
+        gemini: 'Gemini fallback model',
+        geminiPlaceholder: 'e.g. gemini-2.5-flash',
+        antigravity: 'Antigravity fallback model',
+        antigravityPlaceholder: 'e.g. gemini-2.5-flash',
+        scopeHint: 'Fallback model must have pricing configured and routable accounts in the user\'s current group; otherwise the downgraded request will fail at upstream routing.'
       },
       gatewayForwarding: {
         title: 'Request Forwarding',

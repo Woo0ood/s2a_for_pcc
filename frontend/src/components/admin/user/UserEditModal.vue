@@ -49,6 +49,47 @@
         />
         <p class="input-hint">{{ t('admin.users.form.rpmLimitHint') }}</p>
       </div>
+      <div>
+        <label class="input-label">{{ t('admin.users.form.rateLimit5h') }}</label>
+        <input
+          v-model.number="form.rate_limit_5h"
+          type="number"
+          min="0"
+          step="0.01"
+          class="input"
+          :placeholder="t('admin.users.form.rateLimitPlaceholder')"
+        />
+        <p class="input-hint">{{ t('admin.users.form.rateLimit5hHint') }}</p>
+        <p v-if="user && (user.usage_5h ?? 0) > 0" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {{ t('admin.users.form.currentUsage5h', { usage: (user.usage_5h ?? 0).toFixed(4), reset: user.reset_5h_at ? new Date(user.reset_5h_at).toLocaleString() : '—' }) }}
+        </p>
+      </div>
+      <div>
+        <label class="input-label">{{ t('admin.users.form.rateLimit7d') }}</label>
+        <input
+          v-model.number="form.rate_limit_7d"
+          type="number"
+          min="0"
+          step="0.01"
+          class="input"
+          :placeholder="t('admin.users.form.rateLimitPlaceholder')"
+        />
+        <p class="input-hint">{{ t('admin.users.form.rateLimit7dHint') }}</p>
+        <p v-if="user && (user.usage_7d ?? 0) > 0" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {{ t('admin.users.form.currentUsage7d', { usage: (user.usage_7d ?? 0).toFixed(4), reset: user.reset_7d_at ? new Date(user.reset_7d_at).toLocaleString() : '—' }) }}
+        </p>
+      </div>
+      <div v-if="user && ((user.rate_limit_5h ?? 0) > 0 || (user.rate_limit_7d ?? 0) > 0)">
+        <button
+          type="button"
+          :disabled="resetting"
+          @click="handleResetRateLimits"
+          class="btn btn-secondary text-sm"
+        >
+          {{ resetting ? t('admin.users.form.resetting') : t('admin.users.form.resetRateLimits') }}
+        </button>
+        <p class="input-hint">{{ t('admin.users.form.resetRateLimitsHint') }}</p>
+      </div>
       <UserAttributeForm v-model="form.customAttributes" :user-id="user?.id" />
     </form>
     <template #footer>
@@ -78,11 +119,11 @@ const emit = defineEmits(['close', 'success'])
 const { t } = useI18n(); const appStore = useAppStore(); const { copyToClipboard } = useClipboard()
 
 const submitting = ref(false); const passwordCopied = ref(false)
-const form = reactive({ email: '', password: '', username: '', notes: '', concurrency: 1, rpm_limit: 0, customAttributes: {} as UserAttributeValuesMap })
+const form = reactive({ email: '', password: '', username: '', notes: '', concurrency: 1, rpm_limit: 0, rate_limit_5h: 0, rate_limit_7d: 0, customAttributes: {} as UserAttributeValuesMap })
 
 watch(() => props.user, (u) => {
   if (u) {
-    Object.assign(form, { email: u.email, password: '', username: u.username || '', notes: u.notes || '', concurrency: u.concurrency, rpm_limit: u.rpm_limit ?? 0, customAttributes: {} })
+    Object.assign(form, { email: u.email, password: '', username: u.username || '', notes: u.notes || '', concurrency: u.concurrency, rpm_limit: u.rpm_limit ?? 0, rate_limit_5h: u.rate_limit_5h ?? 0, rate_limit_7d: u.rate_limit_7d ?? 0, customAttributes: {} })
     passwordCopied.value = false
   }
 }, { immediate: true })
@@ -109,7 +150,7 @@ const handleUpdateUser = async () => {
   }
   submitting.value = true
   try {
-    const data: any = { email: form.email, username: form.username, notes: form.notes, concurrency: form.concurrency, rpm_limit: form.rpm_limit }
+    const data: any = { email: form.email, username: form.username, notes: form.notes, concurrency: form.concurrency, rpm_limit: form.rpm_limit, rate_limit_5h: form.rate_limit_5h, rate_limit_7d: form.rate_limit_7d }
     if (form.password.trim()) data.password = form.password.trim()
     await adminAPI.users.update(props.user.id, data)
     if (Object.keys(form.customAttributes).length > 0) await adminAPI.userAttributes.updateUserAttributeValues(props.user.id, form.customAttributes)
@@ -118,5 +159,22 @@ const handleUpdateUser = async () => {
   } catch (e: any) {
     appStore.showError(e.response?.data?.detail || t('admin.users.failedToUpdate'))
   } finally { submitting.value = false }
+}
+
+const resetting = ref(false)
+
+const handleResetRateLimits = async () => {
+  if (!props.user) return
+  if (!confirm(t('admin.users.form.resetRateLimitsConfirm'))) return
+  resetting.value = true
+  try {
+    await adminAPI.users.resetRateLimits(props.user.id)
+    appStore.showSuccess(t('admin.users.form.resetRateLimitsSuccess'))
+    emit('success')
+  } catch (e: any) {
+    appStore.showError(e.response?.data?.detail || t('admin.users.form.resetRateLimitsFailed'))
+  } finally {
+    resetting.value = false
+  }
 }
 </script>

@@ -35,6 +35,7 @@ type OpenAIGatewayHandler struct {
 	contentModerationService *service.ContentModerationService
 	payloadAuditSvc          *service.PayloadAuditService
 	payloadAuditSink         *service.PayloadAuditSink
+	settingService           *service.SettingService
 	concurrencyHelper        *ConcurrencyHelper
 	imageLimiter             *imageConcurrencyLimiter
 	maxAccountSwitches       int
@@ -59,6 +60,7 @@ func NewOpenAIGatewayHandler(
 	contentModerationService *service.ContentModerationService,
 	payloadAuditSvc *service.PayloadAuditService,
 	payloadAuditSink *service.PayloadAuditSink,
+	settingService *service.SettingService,
 	cfg *config.Config,
 ) *OpenAIGatewayHandler {
 	pingInterval := time.Duration(0)
@@ -78,6 +80,7 @@ func NewOpenAIGatewayHandler(
 		contentModerationService: contentModerationService,
 		payloadAuditSvc:          payloadAuditSvc,
 		payloadAuditSink:         payloadAuditSink,
+		settingService:           settingService,
 		concurrencyHelper:        NewConcurrencyHelper(concurrencyService, SSEPingFormatComment, pingInterval),
 		imageLimiter:             &imageConcurrencyLimiter{},
 		maxAccountSwitches:       maxAccountSwitches,
@@ -291,9 +294,21 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	}
 
 	// 2. Re-check billing eligibility after wait
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
-		reqLog.Info("openai.billing_eligibility_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
+	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription)
+	{
+		platform := ""
+		if apiKey.Group != nil {
+			platform = apiKey.Group.Platform
+		}
+		var fallbackEngaged bool
+		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+		if fallbackEngaged {
+			channelMapping.BillingModelSource = service.BillingModelSourceRequested
+		}
+	}
+	if billingErr != nil {
+		reqLog.Info("openai.billing_eligibility_check_failed", zap.Error(billingErr))
+		status, code, message, retryAfter := billingErrorDetails(billingErr)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
 		}
@@ -722,9 +737,21 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
-		reqLog.Info("openai_messages.billing_eligibility_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
+	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription)
+	{
+		platform := ""
+		if apiKey.Group != nil {
+			platform = apiKey.Group.Platform
+		}
+		var fallbackEngaged bool
+		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+		if fallbackEngaged {
+			channelMappingMsg.BillingModelSource = service.BillingModelSourceRequested
+		}
+	}
+	if billingErr != nil {
+		reqLog.Info("openai_messages.billing_eligibility_check_failed", zap.Error(billingErr))
+		status, code, message, retryAfter := billingErrorDetails(billingErr)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
 		}

@@ -12,7 +12,7 @@ func UserFromServiceShallow(u *service.User) *User {
 	if u == nil {
 		return nil
 	}
-	return &User{
+	out := &User{
 		ID:                         u.ID,
 		Email:                      u.Email,
 		Username:                   u.Username,
@@ -30,7 +30,22 @@ func UserFromServiceShallow(u *service.User) *User {
 		BalanceNotifyExtraEmails:   NotifyEmailEntriesFromService(u.BalanceNotifyExtraEmails),
 		TotalRecharged:             u.TotalRecharged,
 		RPMLimit:                   u.RPMLimit,
+		RateLimit5h:                u.RateLimit5h,
+		RateLimit7d:                u.RateLimit7d,
+		Usage5h:                    u.EffectiveUsage5h(),
+		Usage7d:                    u.EffectiveUsage7d(),
+		Window5hStart:              u.Window5hStart,
+		Window7dStart:              u.Window7dStart,
 	}
+	if u.Window5hStart != nil && !service.IsWindowExpired(u.Window5hStart, service.RateLimitWindow5h) {
+		t := u.Window5hStart.Add(service.RateLimitWindow5h)
+		out.Reset5hAt = &t
+	}
+	if u.Window7dStart != nil && !service.IsWindowExpired(u.Window7dStart, service.RateLimitWindow7d) {
+		t := u.Window7dStart.Add(service.RateLimitWindow7d)
+		out.Reset7dAt = &t
+	}
+	return out
 }
 
 func UserFromService(u *service.User) *User {

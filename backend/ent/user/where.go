@@ -170,6 +170,36 @@ func RpmLimit(v int) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldRpmLimit, v))
 }
 
+// RateLimit5h applies equality check predicate on the "rate_limit_5h" field. It's identical to RateLimit5hEQ.
+func RateLimit5h(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRateLimit5h, v))
+}
+
+// RateLimit7d applies equality check predicate on the "rate_limit_7d" field. It's identical to RateLimit7dEQ.
+func RateLimit7d(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRateLimit7d, v))
+}
+
+// Usage5h applies equality check predicate on the "usage_5h" field. It's identical to Usage5hEQ.
+func Usage5h(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldUsage5h, v))
+}
+
+// Usage7d applies equality check predicate on the "usage_7d" field. It's identical to Usage7dEQ.
+func Usage7d(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldUsage7d, v))
+}
+
+// Window5hStart applies equality check predicate on the "window_5h_start" field. It's identical to Window5hStartEQ.
+func Window5hStart(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldWindow5hStart, v))
+}
+
+// Window7dStart applies equality check predicate on the "window_7d_start" field. It's identical to Window7dStartEQ.
+func Window7dStart(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldWindow7dStart, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldCreatedAt, v))
@@ -1338,6 +1368,266 @@ func RpmLimitLT(v int) predicate.User {
 // RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
 func RpmLimitLTE(v int) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldRpmLimit, v))
+}
+
+// RateLimit5hEQ applies the EQ predicate on the "rate_limit_5h" field.
+func RateLimit5hEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRateLimit5h, v))
+}
+
+// RateLimit5hNEQ applies the NEQ predicate on the "rate_limit_5h" field.
+func RateLimit5hNEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldRateLimit5h, v))
+}
+
+// RateLimit5hIn applies the In predicate on the "rate_limit_5h" field.
+func RateLimit5hIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldIn(FieldRateLimit5h, vs...))
+}
+
+// RateLimit5hNotIn applies the NotIn predicate on the "rate_limit_5h" field.
+func RateLimit5hNotIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldRateLimit5h, vs...))
+}
+
+// RateLimit5hGT applies the GT predicate on the "rate_limit_5h" field.
+func RateLimit5hGT(v float64) predicate.User {
+	return predicate.User(sql.FieldGT(FieldRateLimit5h, v))
+}
+
+// RateLimit5hGTE applies the GTE predicate on the "rate_limit_5h" field.
+func RateLimit5hGTE(v float64) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldRateLimit5h, v))
+}
+
+// RateLimit5hLT applies the LT predicate on the "rate_limit_5h" field.
+func RateLimit5hLT(v float64) predicate.User {
+	return predicate.User(sql.FieldLT(FieldRateLimit5h, v))
+}
+
+// RateLimit5hLTE applies the LTE predicate on the "rate_limit_5h" field.
+func RateLimit5hLTE(v float64) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldRateLimit5h, v))
+}
+
+// RateLimit7dEQ applies the EQ predicate on the "rate_limit_7d" field.
+func RateLimit7dEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRateLimit7d, v))
+}
+
+// RateLimit7dNEQ applies the NEQ predicate on the "rate_limit_7d" field.
+func RateLimit7dNEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldRateLimit7d, v))
+}
+
+// RateLimit7dIn applies the In predicate on the "rate_limit_7d" field.
+func RateLimit7dIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldIn(FieldRateLimit7d, vs...))
+}
+
+// RateLimit7dNotIn applies the NotIn predicate on the "rate_limit_7d" field.
+func RateLimit7dNotIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldRateLimit7d, vs...))
+}
+
+// RateLimit7dGT applies the GT predicate on the "rate_limit_7d" field.
+func RateLimit7dGT(v float64) predicate.User {
+	return predicate.User(sql.FieldGT(FieldRateLimit7d, v))
+}
+
+// RateLimit7dGTE applies the GTE predicate on the "rate_limit_7d" field.
+func RateLimit7dGTE(v float64) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldRateLimit7d, v))
+}
+
+// RateLimit7dLT applies the LT predicate on the "rate_limit_7d" field.
+func RateLimit7dLT(v float64) predicate.User {
+	return predicate.User(sql.FieldLT(FieldRateLimit7d, v))
+}
+
+// RateLimit7dLTE applies the LTE predicate on the "rate_limit_7d" field.
+func RateLimit7dLTE(v float64) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldRateLimit7d, v))
+}
+
+// Usage5hEQ applies the EQ predicate on the "usage_5h" field.
+func Usage5hEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldUsage5h, v))
+}
+
+// Usage5hNEQ applies the NEQ predicate on the "usage_5h" field.
+func Usage5hNEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldUsage5h, v))
+}
+
+// Usage5hIn applies the In predicate on the "usage_5h" field.
+func Usage5hIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldIn(FieldUsage5h, vs...))
+}
+
+// Usage5hNotIn applies the NotIn predicate on the "usage_5h" field.
+func Usage5hNotIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldUsage5h, vs...))
+}
+
+// Usage5hGT applies the GT predicate on the "usage_5h" field.
+func Usage5hGT(v float64) predicate.User {
+	return predicate.User(sql.FieldGT(FieldUsage5h, v))
+}
+
+// Usage5hGTE applies the GTE predicate on the "usage_5h" field.
+func Usage5hGTE(v float64) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldUsage5h, v))
+}
+
+// Usage5hLT applies the LT predicate on the "usage_5h" field.
+func Usage5hLT(v float64) predicate.User {
+	return predicate.User(sql.FieldLT(FieldUsage5h, v))
+}
+
+// Usage5hLTE applies the LTE predicate on the "usage_5h" field.
+func Usage5hLTE(v float64) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldUsage5h, v))
+}
+
+// Usage7dEQ applies the EQ predicate on the "usage_7d" field.
+func Usage7dEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldUsage7d, v))
+}
+
+// Usage7dNEQ applies the NEQ predicate on the "usage_7d" field.
+func Usage7dNEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldUsage7d, v))
+}
+
+// Usage7dIn applies the In predicate on the "usage_7d" field.
+func Usage7dIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldIn(FieldUsage7d, vs...))
+}
+
+// Usage7dNotIn applies the NotIn predicate on the "usage_7d" field.
+func Usage7dNotIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldUsage7d, vs...))
+}
+
+// Usage7dGT applies the GT predicate on the "usage_7d" field.
+func Usage7dGT(v float64) predicate.User {
+	return predicate.User(sql.FieldGT(FieldUsage7d, v))
+}
+
+// Usage7dGTE applies the GTE predicate on the "usage_7d" field.
+func Usage7dGTE(v float64) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldUsage7d, v))
+}
+
+// Usage7dLT applies the LT predicate on the "usage_7d" field.
+func Usage7dLT(v float64) predicate.User {
+	return predicate.User(sql.FieldLT(FieldUsage7d, v))
+}
+
+// Usage7dLTE applies the LTE predicate on the "usage_7d" field.
+func Usage7dLTE(v float64) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldUsage7d, v))
+}
+
+// Window5hStartEQ applies the EQ predicate on the "window_5h_start" field.
+func Window5hStartEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldWindow5hStart, v))
+}
+
+// Window5hStartNEQ applies the NEQ predicate on the "window_5h_start" field.
+func Window5hStartNEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldWindow5hStart, v))
+}
+
+// Window5hStartIn applies the In predicate on the "window_5h_start" field.
+func Window5hStartIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldIn(FieldWindow5hStart, vs...))
+}
+
+// Window5hStartNotIn applies the NotIn predicate on the "window_5h_start" field.
+func Window5hStartNotIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldWindow5hStart, vs...))
+}
+
+// Window5hStartGT applies the GT predicate on the "window_5h_start" field.
+func Window5hStartGT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGT(FieldWindow5hStart, v))
+}
+
+// Window5hStartGTE applies the GTE predicate on the "window_5h_start" field.
+func Window5hStartGTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldWindow5hStart, v))
+}
+
+// Window5hStartLT applies the LT predicate on the "window_5h_start" field.
+func Window5hStartLT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLT(FieldWindow5hStart, v))
+}
+
+// Window5hStartLTE applies the LTE predicate on the "window_5h_start" field.
+func Window5hStartLTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldWindow5hStart, v))
+}
+
+// Window5hStartIsNil applies the IsNil predicate on the "window_5h_start" field.
+func Window5hStartIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldWindow5hStart))
+}
+
+// Window5hStartNotNil applies the NotNil predicate on the "window_5h_start" field.
+func Window5hStartNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldWindow5hStart))
+}
+
+// Window7dStartEQ applies the EQ predicate on the "window_7d_start" field.
+func Window7dStartEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldWindow7dStart, v))
+}
+
+// Window7dStartNEQ applies the NEQ predicate on the "window_7d_start" field.
+func Window7dStartNEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldWindow7dStart, v))
+}
+
+// Window7dStartIn applies the In predicate on the "window_7d_start" field.
+func Window7dStartIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldIn(FieldWindow7dStart, vs...))
+}
+
+// Window7dStartNotIn applies the NotIn predicate on the "window_7d_start" field.
+func Window7dStartNotIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldWindow7dStart, vs...))
+}
+
+// Window7dStartGT applies the GT predicate on the "window_7d_start" field.
+func Window7dStartGT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGT(FieldWindow7dStart, v))
+}
+
+// Window7dStartGTE applies the GTE predicate on the "window_7d_start" field.
+func Window7dStartGTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldWindow7dStart, v))
+}
+
+// Window7dStartLT applies the LT predicate on the "window_7d_start" field.
+func Window7dStartLT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLT(FieldWindow7dStart, v))
+}
+
+// Window7dStartLTE applies the LTE predicate on the "window_7d_start" field.
+func Window7dStartLTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldWindow7dStart, v))
+}
+
+// Window7dStartIsNil applies the IsNil predicate on the "window_7d_start" field.
+func Window7dStartIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldWindow7dStart))
+}
+
+// Window7dStartNotNil applies the NotNil predicate on the "window_7d_start" field.
+func Window7dStartNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldWindow7dStart))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

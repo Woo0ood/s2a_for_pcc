@@ -339,6 +339,90 @@ func (_c *UserCreate) SetNillableRpmLimit(v *int) *UserCreate {
 	return _c
 }
 
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (_c *UserCreate) SetRateLimit5h(v float64) *UserCreate {
+	_c.mutation.SetRateLimit5h(v)
+	return _c
+}
+
+// SetNillableRateLimit5h sets the "rate_limit_5h" field if the given value is not nil.
+func (_c *UserCreate) SetNillableRateLimit5h(v *float64) *UserCreate {
+	if v != nil {
+		_c.SetRateLimit5h(*v)
+	}
+	return _c
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (_c *UserCreate) SetRateLimit7d(v float64) *UserCreate {
+	_c.mutation.SetRateLimit7d(v)
+	return _c
+}
+
+// SetNillableRateLimit7d sets the "rate_limit_7d" field if the given value is not nil.
+func (_c *UserCreate) SetNillableRateLimit7d(v *float64) *UserCreate {
+	if v != nil {
+		_c.SetRateLimit7d(*v)
+	}
+	return _c
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (_c *UserCreate) SetUsage5h(v float64) *UserCreate {
+	_c.mutation.SetUsage5h(v)
+	return _c
+}
+
+// SetNillableUsage5h sets the "usage_5h" field if the given value is not nil.
+func (_c *UserCreate) SetNillableUsage5h(v *float64) *UserCreate {
+	if v != nil {
+		_c.SetUsage5h(*v)
+	}
+	return _c
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (_c *UserCreate) SetUsage7d(v float64) *UserCreate {
+	_c.mutation.SetUsage7d(v)
+	return _c
+}
+
+// SetNillableUsage7d sets the "usage_7d" field if the given value is not nil.
+func (_c *UserCreate) SetNillableUsage7d(v *float64) *UserCreate {
+	if v != nil {
+		_c.SetUsage7d(*v)
+	}
+	return _c
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (_c *UserCreate) SetWindow5hStart(v time.Time) *UserCreate {
+	_c.mutation.SetWindow5hStart(v)
+	return _c
+}
+
+// SetNillableWindow5hStart sets the "window_5h_start" field if the given value is not nil.
+func (_c *UserCreate) SetNillableWindow5hStart(v *time.Time) *UserCreate {
+	if v != nil {
+		_c.SetWindow5hStart(*v)
+	}
+	return _c
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (_c *UserCreate) SetWindow7dStart(v time.Time) *UserCreate {
+	_c.mutation.SetWindow7dStart(v)
+	return _c
+}
+
+// SetNillableWindow7dStart sets the "window_7d_start" field if the given value is not nil.
+func (_c *UserCreate) SetNillableWindow7dStart(v *time.Time) *UserCreate {
+	if v != nil {
+		_c.SetWindow7dStart(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *UserCreate) AddAPIKeyIDs(ids ...int64) *UserCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -622,6 +706,22 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
+	if _, ok := _c.mutation.RateLimit5h(); !ok {
+		v := user.DefaultRateLimit5h
+		_c.mutation.SetRateLimit5h(v)
+	}
+	if _, ok := _c.mutation.RateLimit7d(); !ok {
+		v := user.DefaultRateLimit7d
+		_c.mutation.SetRateLimit7d(v)
+	}
+	if _, ok := _c.mutation.Usage5h(); !ok {
+		v := user.DefaultUsage5h
+		_c.mutation.SetUsage5h(v)
+	}
+	if _, ok := _c.mutation.Usage7d(); !ok {
+		v := user.DefaultUsage7d
+		_c.mutation.SetUsage7d(v)
+	}
 	return nil
 }
 
@@ -707,6 +807,18 @@ func (_c *UserCreate) check() error {
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "User.rpm_limit"`)}
+	}
+	if _, ok := _c.mutation.RateLimit5h(); !ok {
+		return &ValidationError{Name: "rate_limit_5h", err: errors.New(`ent: missing required field "User.rate_limit_5h"`)}
+	}
+	if _, ok := _c.mutation.RateLimit7d(); !ok {
+		return &ValidationError{Name: "rate_limit_7d", err: errors.New(`ent: missing required field "User.rate_limit_7d"`)}
+	}
+	if _, ok := _c.mutation.Usage5h(); !ok {
+		return &ValidationError{Name: "usage_5h", err: errors.New(`ent: missing required field "User.usage_5h"`)}
+	}
+	if _, ok := _c.mutation.Usage7d(); !ok {
+		return &ValidationError{Name: "usage_7d", err: errors.New(`ent: missing required field "User.usage_7d"`)}
 	}
 	return nil
 }
@@ -826,6 +938,30 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(user.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if value, ok := _c.mutation.RateLimit5h(); ok {
+		_spec.SetField(user.FieldRateLimit5h, field.TypeFloat64, value)
+		_node.RateLimit5h = value
+	}
+	if value, ok := _c.mutation.RateLimit7d(); ok {
+		_spec.SetField(user.FieldRateLimit7d, field.TypeFloat64, value)
+		_node.RateLimit7d = value
+	}
+	if value, ok := _c.mutation.Usage5h(); ok {
+		_spec.SetField(user.FieldUsage5h, field.TypeFloat64, value)
+		_node.Usage5h = value
+	}
+	if value, ok := _c.mutation.Usage7d(); ok {
+		_spec.SetField(user.FieldUsage7d, field.TypeFloat64, value)
+		_node.Usage7d = value
+	}
+	if value, ok := _c.mutation.Window5hStart(); ok {
+		_spec.SetField(user.FieldWindow5hStart, field.TypeTime, value)
+		_node.Window5hStart = &value
+	}
+	if value, ok := _c.mutation.Window7dStart(); ok {
+		_spec.SetField(user.FieldWindow7dStart, field.TypeTime, value)
+		_node.Window7dStart = &value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1405,6 +1541,114 @@ func (u *UserUpsert) AddRpmLimit(v int) *UserUpsert {
 	return u
 }
 
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (u *UserUpsert) SetRateLimit5h(v float64) *UserUpsert {
+	u.Set(user.FieldRateLimit5h, v)
+	return u
+}
+
+// UpdateRateLimit5h sets the "rate_limit_5h" field to the value that was provided on create.
+func (u *UserUpsert) UpdateRateLimit5h() *UserUpsert {
+	u.SetExcluded(user.FieldRateLimit5h)
+	return u
+}
+
+// AddRateLimit5h adds v to the "rate_limit_5h" field.
+func (u *UserUpsert) AddRateLimit5h(v float64) *UserUpsert {
+	u.Add(user.FieldRateLimit5h, v)
+	return u
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (u *UserUpsert) SetRateLimit7d(v float64) *UserUpsert {
+	u.Set(user.FieldRateLimit7d, v)
+	return u
+}
+
+// UpdateRateLimit7d sets the "rate_limit_7d" field to the value that was provided on create.
+func (u *UserUpsert) UpdateRateLimit7d() *UserUpsert {
+	u.SetExcluded(user.FieldRateLimit7d)
+	return u
+}
+
+// AddRateLimit7d adds v to the "rate_limit_7d" field.
+func (u *UserUpsert) AddRateLimit7d(v float64) *UserUpsert {
+	u.Add(user.FieldRateLimit7d, v)
+	return u
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (u *UserUpsert) SetUsage5h(v float64) *UserUpsert {
+	u.Set(user.FieldUsage5h, v)
+	return u
+}
+
+// UpdateUsage5h sets the "usage_5h" field to the value that was provided on create.
+func (u *UserUpsert) UpdateUsage5h() *UserUpsert {
+	u.SetExcluded(user.FieldUsage5h)
+	return u
+}
+
+// AddUsage5h adds v to the "usage_5h" field.
+func (u *UserUpsert) AddUsage5h(v float64) *UserUpsert {
+	u.Add(user.FieldUsage5h, v)
+	return u
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (u *UserUpsert) SetUsage7d(v float64) *UserUpsert {
+	u.Set(user.FieldUsage7d, v)
+	return u
+}
+
+// UpdateUsage7d sets the "usage_7d" field to the value that was provided on create.
+func (u *UserUpsert) UpdateUsage7d() *UserUpsert {
+	u.SetExcluded(user.FieldUsage7d)
+	return u
+}
+
+// AddUsage7d adds v to the "usage_7d" field.
+func (u *UserUpsert) AddUsage7d(v float64) *UserUpsert {
+	u.Add(user.FieldUsage7d, v)
+	return u
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (u *UserUpsert) SetWindow5hStart(v time.Time) *UserUpsert {
+	u.Set(user.FieldWindow5hStart, v)
+	return u
+}
+
+// UpdateWindow5hStart sets the "window_5h_start" field to the value that was provided on create.
+func (u *UserUpsert) UpdateWindow5hStart() *UserUpsert {
+	u.SetExcluded(user.FieldWindow5hStart)
+	return u
+}
+
+// ClearWindow5hStart clears the value of the "window_5h_start" field.
+func (u *UserUpsert) ClearWindow5hStart() *UserUpsert {
+	u.SetNull(user.FieldWindow5hStart)
+	return u
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (u *UserUpsert) SetWindow7dStart(v time.Time) *UserUpsert {
+	u.Set(user.FieldWindow7dStart, v)
+	return u
+}
+
+// UpdateWindow7dStart sets the "window_7d_start" field to the value that was provided on create.
+func (u *UserUpsert) UpdateWindow7dStart() *UserUpsert {
+	u.SetExcluded(user.FieldWindow7dStart)
+	return u
+}
+
+// ClearWindow7dStart clears the value of the "window_7d_start" field.
+func (u *UserUpsert) ClearWindow7dStart() *UserUpsert {
+	u.SetNull(user.FieldWindow7dStart)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1832,6 +2076,132 @@ func (u *UserUpsertOne) AddRpmLimit(v int) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateRpmLimit() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (u *UserUpsertOne) SetRateLimit5h(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRateLimit5h(v)
+	})
+}
+
+// AddRateLimit5h adds v to the "rate_limit_5h" field.
+func (u *UserUpsertOne) AddRateLimit5h(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRateLimit5h(v)
+	})
+}
+
+// UpdateRateLimit5h sets the "rate_limit_5h" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateRateLimit5h() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRateLimit5h()
+	})
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (u *UserUpsertOne) SetRateLimit7d(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRateLimit7d(v)
+	})
+}
+
+// AddRateLimit7d adds v to the "rate_limit_7d" field.
+func (u *UserUpsertOne) AddRateLimit7d(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRateLimit7d(v)
+	})
+}
+
+// UpdateRateLimit7d sets the "rate_limit_7d" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateRateLimit7d() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRateLimit7d()
+	})
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (u *UserUpsertOne) SetUsage5h(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetUsage5h(v)
+	})
+}
+
+// AddUsage5h adds v to the "usage_5h" field.
+func (u *UserUpsertOne) AddUsage5h(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddUsage5h(v)
+	})
+}
+
+// UpdateUsage5h sets the "usage_5h" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateUsage5h() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateUsage5h()
+	})
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (u *UserUpsertOne) SetUsage7d(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetUsage7d(v)
+	})
+}
+
+// AddUsage7d adds v to the "usage_7d" field.
+func (u *UserUpsertOne) AddUsage7d(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddUsage7d(v)
+	})
+}
+
+// UpdateUsage7d sets the "usage_7d" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateUsage7d() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateUsage7d()
+	})
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (u *UserUpsertOne) SetWindow5hStart(v time.Time) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetWindow5hStart(v)
+	})
+}
+
+// UpdateWindow5hStart sets the "window_5h_start" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateWindow5hStart() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateWindow5hStart()
+	})
+}
+
+// ClearWindow5hStart clears the value of the "window_5h_start" field.
+func (u *UserUpsertOne) ClearWindow5hStart() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearWindow5hStart()
+	})
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (u *UserUpsertOne) SetWindow7dStart(v time.Time) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetWindow7dStart(v)
+	})
+}
+
+// UpdateWindow7dStart sets the "window_7d_start" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateWindow7dStart() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateWindow7dStart()
+	})
+}
+
+// ClearWindow7dStart clears the value of the "window_7d_start" field.
+func (u *UserUpsertOne) ClearWindow7dStart() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearWindow7dStart()
 	})
 }
 
@@ -2428,6 +2798,132 @@ func (u *UserUpsertBulk) AddRpmLimit(v int) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateRpmLimit() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (u *UserUpsertBulk) SetRateLimit5h(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRateLimit5h(v)
+	})
+}
+
+// AddRateLimit5h adds v to the "rate_limit_5h" field.
+func (u *UserUpsertBulk) AddRateLimit5h(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRateLimit5h(v)
+	})
+}
+
+// UpdateRateLimit5h sets the "rate_limit_5h" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateRateLimit5h() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRateLimit5h()
+	})
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (u *UserUpsertBulk) SetRateLimit7d(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRateLimit7d(v)
+	})
+}
+
+// AddRateLimit7d adds v to the "rate_limit_7d" field.
+func (u *UserUpsertBulk) AddRateLimit7d(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRateLimit7d(v)
+	})
+}
+
+// UpdateRateLimit7d sets the "rate_limit_7d" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateRateLimit7d() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRateLimit7d()
+	})
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (u *UserUpsertBulk) SetUsage5h(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetUsage5h(v)
+	})
+}
+
+// AddUsage5h adds v to the "usage_5h" field.
+func (u *UserUpsertBulk) AddUsage5h(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddUsage5h(v)
+	})
+}
+
+// UpdateUsage5h sets the "usage_5h" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateUsage5h() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateUsage5h()
+	})
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (u *UserUpsertBulk) SetUsage7d(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetUsage7d(v)
+	})
+}
+
+// AddUsage7d adds v to the "usage_7d" field.
+func (u *UserUpsertBulk) AddUsage7d(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddUsage7d(v)
+	})
+}
+
+// UpdateUsage7d sets the "usage_7d" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateUsage7d() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateUsage7d()
+	})
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (u *UserUpsertBulk) SetWindow5hStart(v time.Time) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetWindow5hStart(v)
+	})
+}
+
+// UpdateWindow5hStart sets the "window_5h_start" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateWindow5hStart() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateWindow5hStart()
+	})
+}
+
+// ClearWindow5hStart clears the value of the "window_5h_start" field.
+func (u *UserUpsertBulk) ClearWindow5hStart() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearWindow5hStart()
+	})
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (u *UserUpsertBulk) SetWindow7dStart(v time.Time) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetWindow7dStart(v)
+	})
+}
+
+// UpdateWindow7dStart sets the "window_7d_start" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateWindow7dStart() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateWindow7dStart()
+	})
+}
+
+// ClearWindow7dStart clears the value of the "window_7d_start" field.
+func (u *UserUpsertBulk) ClearWindow7dStart() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearWindow7dStart()
 	})
 }
 

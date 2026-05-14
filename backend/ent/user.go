@@ -63,6 +63,18 @@ type User struct {
 	TotalRecharged float64 `json:"total_recharged,omitempty"`
 	// RpmLimit holds the value of the "rpm_limit" field.
 	RpmLimit int `json:"rpm_limit,omitempty"`
+	// User-level rate limit in USD per 5 hours (0 = unlimited)
+	RateLimit5h float64 `json:"rate_limit_5h,omitempty"`
+	// User-level rate limit in USD per 7 days (0 = unlimited)
+	RateLimit7d float64 `json:"rate_limit_7d,omitempty"`
+	// User-level used amount in USD for the current 5h window
+	Usage5h float64 `json:"usage_5h,omitempty"`
+	// User-level used amount in USD for the current 7d window
+	Usage7d float64 `json:"usage_7d,omitempty"`
+	// Start time of the current 5h rate limit window
+	Window5hStart *time.Time `json:"window_5h_start,omitempty"`
+	// Start time of the current 7d rate limit window
+	Window7dStart *time.Time `json:"window_7d_start,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -226,13 +238,13 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldTotpEnabled, user.FieldBalanceNotifyEnabled:
 			values[i] = new(sql.NullBool)
-		case user.FieldBalance, user.FieldBalanceNotifyThreshold, user.FieldTotalRecharged:
+		case user.FieldBalance, user.FieldBalanceNotifyThreshold, user.FieldTotalRecharged, user.FieldRateLimit5h, user.FieldRateLimit7d, user.FieldUsage5h, user.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
 		case user.FieldID, user.FieldConcurrency, user.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
 		case user.FieldEmail, user.FieldPasswordHash, user.FieldRole, user.FieldStatus, user.FieldUsername, user.FieldNotes, user.FieldTotpSecretEncrypted, user.FieldSignupSource, user.FieldBalanceNotifyThresholdType, user.FieldBalanceNotifyExtraEmails:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldTotpEnabledAt, user.FieldLastLoginAt, user.FieldLastActiveAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldTotpEnabledAt, user.FieldLastLoginAt, user.FieldLastActiveAt, user.FieldWindow5hStart, user.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -398,6 +410,44 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field rpm_limit", values[i])
 			} else if value.Valid {
 				_m.RpmLimit = int(value.Int64)
+			}
+		case user.FieldRateLimit5h:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field rate_limit_5h", values[i])
+			} else if value.Valid {
+				_m.RateLimit5h = value.Float64
+			}
+		case user.FieldRateLimit7d:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field rate_limit_7d", values[i])
+			} else if value.Valid {
+				_m.RateLimit7d = value.Float64
+			}
+		case user.FieldUsage5h:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field usage_5h", values[i])
+			} else if value.Valid {
+				_m.Usage5h = value.Float64
+			}
+		case user.FieldUsage7d:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field usage_7d", values[i])
+			} else if value.Valid {
+				_m.Usage7d = value.Float64
+			}
+		case user.FieldWindow5hStart:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field window_5h_start", values[i])
+			} else if value.Valid {
+				_m.Window5hStart = new(time.Time)
+				*_m.Window5hStart = value.Time
+			}
+		case user.FieldWindow7dStart:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field window_7d_start", values[i])
+			} else if value.Valid {
+				_m.Window7dStart = new(time.Time)
+				*_m.Window7dStart = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -580,6 +630,28 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rpm_limit=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RpmLimit))
+	builder.WriteString(", ")
+	builder.WriteString("rate_limit_5h=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RateLimit5h))
+	builder.WriteString(", ")
+	builder.WriteString("rate_limit_7d=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RateLimit7d))
+	builder.WriteString(", ")
+	builder.WriteString("usage_5h=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Usage5h))
+	builder.WriteString(", ")
+	builder.WriteString("usage_7d=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Usage7d))
+	builder.WriteString(", ")
+	if v := _m.Window5hStart; v != nil {
+		builder.WriteString("window_5h_start=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.Window7dStart; v != nil {
+		builder.WriteString("window_7d_start=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

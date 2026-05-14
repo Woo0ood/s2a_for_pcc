@@ -297,6 +297,16 @@ export async function bindUserAuthIdentity(
   return data
 }
 
+/**
+ * Reset user-level 5h/7d rate limit windows
+ * @param id - User ID
+ * @returns Updated user with usage_5h/7d zeroed and windows cleared
+ */
+export async function resetRateLimits(id: number): Promise<AdminUser> {
+  const { data } = await apiClient.post<AdminUser>(`/admin/users/${id}/reset-rate-limits`)
+  return data
+}
+
 export const usersAPI = {
   list,
   getById,
@@ -310,7 +320,8 @@ export const usersAPI = {
   getUserUsageStats,
   getUserBalanceHistory,
   replaceGroup,
-  bindUserAuthIdentity
+  bindUserAuthIdentity,
+  resetRateLimits
 }
 
 export default usersAPI

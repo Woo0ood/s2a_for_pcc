@@ -29,6 +29,16 @@ type User struct {
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
 	RPMLimit int `json:"rpm_limit"`
 
+	// 用户级 5h/7d USD 限额（跨所有 API Key 聚合；0 = 不限制）
+	RateLimit5h   float64    `json:"rate_limit_5h"`
+	RateLimit7d   float64    `json:"rate_limit_7d"`
+	Usage5h       float64    `json:"usage_5h"`
+	Usage7d       float64    `json:"usage_7d"`
+	Window5hStart *time.Time `json:"window_5h_start,omitempty"`
+	Window7dStart *time.Time `json:"window_7d_start,omitempty"`
+	Reset5hAt     *time.Time `json:"reset_5h_at,omitempty"`
+	Reset7dAt     *time.Time `json:"reset_7d_at,omitempty"`
+
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`
 }

@@ -144,3 +144,4 @@ output/
 /.installed
 /config.yaml
 /data/
+/.localdata/

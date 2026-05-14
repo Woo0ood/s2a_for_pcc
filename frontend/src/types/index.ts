@@ -88,6 +88,15 @@ export interface User {
   balance: number // User balance for API usage
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
+  // 用户级 5h/7d USD 限额（跨所有 API Key 聚合；0 = 不限制）
+  rate_limit_5h?: number
+  rate_limit_7d?: number
+  usage_5h?: number
+  usage_7d?: number
+  window_5h_start?: string | null
+  window_7d_start?: string | null
+  reset_5h_at?: string | null
+  reset_7d_at?: string | null
   status: 'active' | 'disabled' // Account status
   allowed_groups: number[] | null // Allowed group IDs (null = all non-exclusive groups)
   balance_notify_enabled: boolean
@@ -1461,6 +1470,9 @@ export interface UpdateUserRequest {
   role?: 'admin' | 'user'
   balance?: number
   concurrency?: number
+  rpm_limit?: number
+  rate_limit_5h?: number
+  rate_limit_7d?: number
   status?: 'active' | 'disabled'
   allowed_groups?: number[] | null
   // 用户专属分组倍率配置 (group_id -> rate_multiplier | null)

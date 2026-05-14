@@ -410,6 +410,130 @@ func (_u *UserUpdate) AddRpmLimit(v int) *UserUpdate {
 	return _u
 }
 
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (_u *UserUpdate) SetRateLimit5h(v float64) *UserUpdate {
+	_u.mutation.ResetRateLimit5h()
+	_u.mutation.SetRateLimit5h(v)
+	return _u
+}
+
+// SetNillableRateLimit5h sets the "rate_limit_5h" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableRateLimit5h(v *float64) *UserUpdate {
+	if v != nil {
+		_u.SetRateLimit5h(*v)
+	}
+	return _u
+}
+
+// AddRateLimit5h adds value to the "rate_limit_5h" field.
+func (_u *UserUpdate) AddRateLimit5h(v float64) *UserUpdate {
+	_u.mutation.AddRateLimit5h(v)
+	return _u
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (_u *UserUpdate) SetRateLimit7d(v float64) *UserUpdate {
+	_u.mutation.ResetRateLimit7d()
+	_u.mutation.SetRateLimit7d(v)
+	return _u
+}
+
+// SetNillableRateLimit7d sets the "rate_limit_7d" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableRateLimit7d(v *float64) *UserUpdate {
+	if v != nil {
+		_u.SetRateLimit7d(*v)
+	}
+	return _u
+}
+
+// AddRateLimit7d adds value to the "rate_limit_7d" field.
+func (_u *UserUpdate) AddRateLimit7d(v float64) *UserUpdate {
+	_u.mutation.AddRateLimit7d(v)
+	return _u
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (_u *UserUpdate) SetUsage5h(v float64) *UserUpdate {
+	_u.mutation.ResetUsage5h()
+	_u.mutation.SetUsage5h(v)
+	return _u
+}
+
+// SetNillableUsage5h sets the "usage_5h" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableUsage5h(v *float64) *UserUpdate {
+	if v != nil {
+		_u.SetUsage5h(*v)
+	}
+	return _u
+}
+
+// AddUsage5h adds value to the "usage_5h" field.
+func (_u *UserUpdate) AddUsage5h(v float64) *UserUpdate {
+	_u.mutation.AddUsage5h(v)
+	return _u
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (_u *UserUpdate) SetUsage7d(v float64) *UserUpdate {
+	_u.mutation.ResetUsage7d()
+	_u.mutation.SetUsage7d(v)
+	return _u
+}
+
+// SetNillableUsage7d sets the "usage_7d" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableUsage7d(v *float64) *UserUpdate {
+	if v != nil {
+		_u.SetUsage7d(*v)
+	}
+	return _u
+}
+
+// AddUsage7d adds value to the "usage_7d" field.
+func (_u *UserUpdate) AddUsage7d(v float64) *UserUpdate {
+	_u.mutation.AddUsage7d(v)
+	return _u
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (_u *UserUpdate) SetWindow5hStart(v time.Time) *UserUpdate {
+	_u.mutation.SetWindow5hStart(v)
+	return _u
+}
+
+// SetNillableWindow5hStart sets the "window_5h_start" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableWindow5hStart(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetWindow5hStart(*v)
+	}
+	return _u
+}
+
+// ClearWindow5hStart clears the value of the "window_5h_start" field.
+func (_u *UserUpdate) ClearWindow5hStart() *UserUpdate {
+	_u.mutation.ClearWindow5hStart()
+	return _u
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (_u *UserUpdate) SetWindow7dStart(v time.Time) *UserUpdate {
+	_u.mutation.SetWindow7dStart(v)
+	return _u
+}
+
+// SetNillableWindow7dStart sets the "window_7d_start" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableWindow7dStart(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetWindow7dStart(*v)
+	}
+	return _u
+}
+
+// ClearWindow7dStart clears the value of the "window_7d_start" field.
+func (_u *UserUpdate) ClearWindow7dStart() *UserUpdate {
+	_u.mutation.ClearWindow7dStart()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdate) AddAPIKeyIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1034,6 +1158,42 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RateLimit5h(); ok {
+		_spec.SetField(user.FieldRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateLimit5h(); ok {
+		_spec.AddField(user.FieldRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RateLimit7d(); ok {
+		_spec.SetField(user.FieldRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateLimit7d(); ok {
+		_spec.AddField(user.FieldRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Usage5h(); ok {
+		_spec.SetField(user.FieldUsage5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedUsage5h(); ok {
+		_spec.AddField(user.FieldUsage5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Usage7d(); ok {
+		_spec.SetField(user.FieldUsage7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedUsage7d(); ok {
+		_spec.AddField(user.FieldUsage7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Window5hStart(); ok {
+		_spec.SetField(user.FieldWindow5hStart, field.TypeTime, value)
+	}
+	if _u.mutation.Window5hStartCleared() {
+		_spec.ClearField(user.FieldWindow5hStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Window7dStart(); ok {
+		_spec.SetField(user.FieldWindow7dStart, field.TypeTime, value)
+	}
+	if _u.mutation.Window7dStartCleared() {
+		_spec.ClearField(user.FieldWindow7dStart, field.TypeTime)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1978,6 +2138,130 @@ func (_u *UserUpdateOne) AddRpmLimit(v int) *UserUpdateOne {
 	return _u
 }
 
+// SetRateLimit5h sets the "rate_limit_5h" field.
+func (_u *UserUpdateOne) SetRateLimit5h(v float64) *UserUpdateOne {
+	_u.mutation.ResetRateLimit5h()
+	_u.mutation.SetRateLimit5h(v)
+	return _u
+}
+
+// SetNillableRateLimit5h sets the "rate_limit_5h" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableRateLimit5h(v *float64) *UserUpdateOne {
+	if v != nil {
+		_u.SetRateLimit5h(*v)
+	}
+	return _u
+}
+
+// AddRateLimit5h adds value to the "rate_limit_5h" field.
+func (_u *UserUpdateOne) AddRateLimit5h(v float64) *UserUpdateOne {
+	_u.mutation.AddRateLimit5h(v)
+	return _u
+}
+
+// SetRateLimit7d sets the "rate_limit_7d" field.
+func (_u *UserUpdateOne) SetRateLimit7d(v float64) *UserUpdateOne {
+	_u.mutation.ResetRateLimit7d()
+	_u.mutation.SetRateLimit7d(v)
+	return _u
+}
+
+// SetNillableRateLimit7d sets the "rate_limit_7d" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableRateLimit7d(v *float64) *UserUpdateOne {
+	if v != nil {
+		_u.SetRateLimit7d(*v)
+	}
+	return _u
+}
+
+// AddRateLimit7d adds value to the "rate_limit_7d" field.
+func (_u *UserUpdateOne) AddRateLimit7d(v float64) *UserUpdateOne {
+	_u.mutation.AddRateLimit7d(v)
+	return _u
+}
+
+// SetUsage5h sets the "usage_5h" field.
+func (_u *UserUpdateOne) SetUsage5h(v float64) *UserUpdateOne {
+	_u.mutation.ResetUsage5h()
+	_u.mutation.SetUsage5h(v)
+	return _u
+}
+
+// SetNillableUsage5h sets the "usage_5h" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableUsage5h(v *float64) *UserUpdateOne {
+	if v != nil {
+		_u.SetUsage5h(*v)
+	}
+	return _u
+}
+
+// AddUsage5h adds value to the "usage_5h" field.
+func (_u *UserUpdateOne) AddUsage5h(v float64) *UserUpdateOne {
+	_u.mutation.AddUsage5h(v)
+	return _u
+}
+
+// SetUsage7d sets the "usage_7d" field.
+func (_u *UserUpdateOne) SetUsage7d(v float64) *UserUpdateOne {
+	_u.mutation.ResetUsage7d()
+	_u.mutation.SetUsage7d(v)
+	return _u
+}
+
+// SetNillableUsage7d sets the "usage_7d" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableUsage7d(v *float64) *UserUpdateOne {
+	if v != nil {
+		_u.SetUsage7d(*v)
+	}
+	return _u
+}
+
+// AddUsage7d adds value to the "usage_7d" field.
+func (_u *UserUpdateOne) AddUsage7d(v float64) *UserUpdateOne {
+	_u.mutation.AddUsage7d(v)
+	return _u
+}
+
+// SetWindow5hStart sets the "window_5h_start" field.
+func (_u *UserUpdateOne) SetWindow5hStart(v time.Time) *UserUpdateOne {
+	_u.mutation.SetWindow5hStart(v)
+	return _u
+}
+
+// SetNillableWindow5hStart sets the "window_5h_start" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableWindow5hStart(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetWindow5hStart(*v)
+	}
+	return _u
+}
+
+// ClearWindow5hStart clears the value of the "window_5h_start" field.
+func (_u *UserUpdateOne) ClearWindow5hStart() *UserUpdateOne {
+	_u.mutation.ClearWindow5hStart()
+	return _u
+}
+
+// SetWindow7dStart sets the "window_7d_start" field.
+func (_u *UserUpdateOne) SetWindow7dStart(v time.Time) *UserUpdateOne {
+	_u.mutation.SetWindow7dStart(v)
+	return _u
+}
+
+// SetNillableWindow7dStart sets the "window_7d_start" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableWindow7dStart(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetWindow7dStart(*v)
+	}
+	return _u
+}
+
+// ClearWindow7dStart clears the value of the "window_7d_start" field.
+func (_u *UserUpdateOne) ClearWindow7dStart() *UserUpdateOne {
+	_u.mutation.ClearWindow7dStart()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdateOne) AddAPIKeyIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2632,6 +2916,42 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RateLimit5h(); ok {
+		_spec.SetField(user.FieldRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateLimit5h(); ok {
+		_spec.AddField(user.FieldRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RateLimit7d(); ok {
+		_spec.SetField(user.FieldRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateLimit7d(); ok {
+		_spec.AddField(user.FieldRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Usage5h(); ok {
+		_spec.SetField(user.FieldUsage5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedUsage5h(); ok {
+		_spec.AddField(user.FieldUsage5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Usage7d(); ok {
+		_spec.SetField(user.FieldUsage7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedUsage7d(); ok {
+		_spec.AddField(user.FieldUsage7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Window5hStart(); ok {
+		_spec.SetField(user.FieldWindow5hStart, field.TypeTime, value)
+	}
+	if _u.mutation.Window5hStartCleared() {
+		_spec.ClearField(user.FieldWindow5hStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Window7dStart(); ok {
+		_spec.SetField(user.FieldWindow7dStart, field.TypeTime, value)
+	}
+	if _u.mutation.Window7dStartCleared() {
+		_spec.ClearField(user.FieldWindow7dStart, field.TypeTime)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

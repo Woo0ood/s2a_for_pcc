@@ -66,6 +66,18 @@ func (s *billingCacheMissStub) UpdateAPIKeyRateLimitUsage(ctx context.Context, k
 func (s *billingCacheMissStub) InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error {
 	return nil
 }
+func (s *billingCacheMissStub) GetUserRateLimit(context.Context, int64) (*UserRateLimitCacheData, error) {
+	return nil, nil
+}
+func (s *billingCacheMissStub) SetUserRateLimit(context.Context, int64, *UserRateLimitCacheData) error {
+	return nil
+}
+func (s *billingCacheMissStub) UpdateUserRateLimitUsage(context.Context, int64, float64) error {
+	return nil
+}
+func (s *billingCacheMissStub) InvalidateUserRateLimit(context.Context, int64) error {
+	return nil
+}
 
 type balanceLoadUserRepoStub struct {
 	mockUserRepo

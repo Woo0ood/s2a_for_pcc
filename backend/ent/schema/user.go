@@ -112,6 +112,33 @@ func (User) Fields() []ent.Field {
 		// 用户级每分钟请求数上限（0 = 不限制）。仅当所在分组未设置 rpm_limit 时作为兜底生效。
 		field.Int("rpm_limit").
 			Default(0),
+
+		// 用户级 5h/7d USD 限额（跨所有 API Key 聚合；0 = 不限制）。
+		// 与 APIKey 自身的 rate_limit_5h/7d 取最严格并行检查。
+		field.Float("rate_limit_5h").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0).
+			Comment("User-level rate limit in USD per 5 hours (0 = unlimited)"),
+		field.Float("rate_limit_7d").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0).
+			Comment("User-level rate limit in USD per 7 days (0 = unlimited)"),
+		field.Float("usage_5h").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0).
+			Comment("User-level used amount in USD for the current 5h window"),
+		field.Float("usage_7d").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0).
+			Comment("User-level used amount in USD for the current 7d window"),
+		field.Time("window_5h_start").
+			Optional().
+			Nillable().
+			Comment("Start time of the current 5h rate limit window"),
+		field.Time("window_7d_start").
+			Optional().
+			Nillable().
+			Comment("Start time of the current 7d rate limit window"),
 	}
 }
 

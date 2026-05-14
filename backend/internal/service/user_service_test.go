@@ -217,6 +217,10 @@ func (m *mockUserRepo) GetLatestUsedAtByUserID(context.Context, int64) (*time.Ti
 func (m *mockUserRepo) UpdateTotpSecret(context.Context, int64, *string) error { return nil }
 func (m *mockUserRepo) EnableTotp(context.Context, int64) error                { return nil }
 func (m *mockUserRepo) DisableTotp(context.Context, int64) error               { return nil }
+func (m *mockUserRepo) GetUserRateLimitData(context.Context, int64) (*UserRateLimitData, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) ResetUserRateLimitWindows(context.Context, int64) error { return nil }
 func (m *mockUserRepo) RemoveGroupFromUserAllowedGroups(context.Context, int64, int64) error {
 	return nil
 }
@@ -312,6 +316,18 @@ func (m *mockBillingCache) UpdateAPIKeyRateLimitUsage(context.Context, int64, fl
 	return nil
 }
 func (m *mockBillingCache) InvalidateAPIKeyRateLimit(context.Context, int64) error {
+	return nil
+}
+func (m *mockBillingCache) GetUserRateLimit(context.Context, int64) (*UserRateLimitCacheData, error) {
+	return nil, nil
+}
+func (m *mockBillingCache) SetUserRateLimit(context.Context, int64, *UserRateLimitCacheData) error {
+	return nil
+}
+func (m *mockBillingCache) UpdateUserRateLimitUsage(context.Context, int64, float64) error {
+	return nil
+}
+func (m *mockBillingCache) InvalidateUserRateLimit(context.Context, int64) error {
 	return nil
 }
 
