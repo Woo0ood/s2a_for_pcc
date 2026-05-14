@@ -79,7 +79,7 @@
           {{ t('admin.users.form.currentUsage7d', { usage: (user.usage_7d ?? 0).toFixed(4), reset: user.reset_7d_at ? new Date(user.reset_7d_at).toLocaleString() : '—' }) }}
         </p>
       </div>
-      <div v-if="user && ((user.usage_5h ?? 0) > 0 || (user.usage_7d ?? 0) > 0)">
+      <div v-if="user && ((user.rate_limit_5h ?? 0) > 0 || (user.rate_limit_7d ?? 0) > 0)">
         <button
           type="button"
           :disabled="resetting"

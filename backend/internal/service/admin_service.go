@@ -623,6 +623,12 @@ func (s *adminServiceImpl) ListUsers(ctx context.Context, page, pageSize int, fi
 			s.loadUserGroupRatesOneByOne(ctx, users)
 		}
 	}
+	// 从 Redis 拉实时 5h/7d 用量（usage 字段仅在 cache 累加，不写 DB）
+	if s.billingCacheService != nil {
+		for i := range users {
+			s.billingCacheService.HydrateUserRateLimitUsage(ctx, &users[i])
+		}
+	}
 	return users, result.Total, nil
 }
 
@@ -659,6 +665,10 @@ func (s *adminServiceImpl) GetUser(ctx context.Context, id int64) (*User, error)
 		} else {
 			user.GroupRates = rates
 		}
+	}
+	// 从 Redis 拉实时 5h/7d 用量（DB 里 usage_5h/7d 不更新，只在 cache 累加）
+	if s.billingCacheService != nil {
+		s.billingCacheService.HydrateUserRateLimitUsage(ctx, user)
 	}
 	return user, nil
 }

@@ -430,6 +430,31 @@
             </div>
           </template>
 
+          <template #cell-rate_limits="{ row }">
+            <div
+              v-if="(row.rate_limit_5h ?? 0) > 0 || (row.rate_limit_7d ?? 0) > 0"
+              class="space-y-1"
+            >
+              <UsageProgressBar
+                v-if="(row.rate_limit_5h ?? 0) > 0"
+                label="5h"
+                :utilization="(row.rate_limit_5h ?? 0) > 0 ? ((row.usage_5h ?? 0) / row.rate_limit_5h!) * 100 : 0"
+                :resets-at="row.reset_5h_at"
+                color="amber"
+                :show-now-when-idle="true"
+              />
+              <UsageProgressBar
+                v-if="(row.rate_limit_7d ?? 0) > 0"
+                label="7d"
+                :utilization="(row.rate_limit_7d ?? 0) > 0 ? ((row.usage_7d ?? 0) / row.rate_limit_7d!) * 100 : 0"
+                :resets-at="row.reset_7d_at"
+                color="emerald"
+                :show-now-when-idle="true"
+              />
+            </div>
+            <span v-else class="text-xs text-gray-400 dark:text-gray-500">—</span>
+          </template>
+
           <template #cell-concurrency="{ row }">
             <UserConcurrencyCell
               :current="row.current_concurrency ?? 0"
@@ -641,6 +666,7 @@ import GroupBadge from '@/components/common/GroupBadge.vue'
 import Select from '@/components/common/Select.vue'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
+import UsageProgressBar from '@/components/account/UsageProgressBar.vue'
 import UserCreateModal from '@/components/admin/user/UserCreateModal.vue'
 import UserEditModal from '@/components/admin/user/UserEditModal.vue'
 import UserApiKeysModal from '@/components/admin/user/UserApiKeysModal.vue'
@@ -710,6 +736,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
   { key: 'usage', label: t('admin.users.columns.usage'), sortable: false },
+  { key: 'rate_limits', label: t('admin.users.columns.rateLimits'), sortable: false },
   { key: 'concurrency', label: t('admin.users.columns.concurrency'), sortable: true },
   { key: 'status', label: t('admin.users.columns.status'), sortable: true },
   { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },

@@ -1763,6 +1763,7 @@ export default {
         subscriptions: '订阅分组',
         balance: '余额',
         usage: '用量',
+        rateLimits: '限额用量',
         concurrency: '并发数',
         status: '状态',
         lastActive: '最后活跃时间',

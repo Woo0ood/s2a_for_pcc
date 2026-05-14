@@ -234,6 +234,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			BalanceNotifyExtraEmails:   apiKey.User.BalanceNotifyExtraEmails,
 			TotalRecharged:             apiKey.User.TotalRecharged,
 			RPMLimit:                   apiKey.User.RPMLimit,
+			RateLimit5h:                apiKey.User.RateLimit5h,
+			RateLimit7d:                apiKey.User.RateLimit7d,
 		},
 	}
 
@@ -312,6 +314,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			TotalRecharged:             snapshot.User.TotalRecharged,
 			RPMLimit:                   snapshot.User.RPMLimit,
 			UserGroupRPMOverride:       snapshot.User.UserGroupRPMOverride,
+			RateLimit5h:                snapshot.User.RateLimit5h,
+			RateLimit7d:                snapshot.User.RateLimit7d,
 		},
 	}
 	if snapshot.Group != nil {

@@ -221,7 +221,13 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 		SetNillableBalanceNotifyThreshold(userIn.BalanceNotifyThreshold).
 		SetBalanceNotifyExtraEmails(marshalExtraEmails(userIn.BalanceNotifyExtraEmails)).
 		SetTotalRecharged(userIn.TotalRecharged).
-		SetRpmLimit(userIn.RPMLimit)
+		SetRpmLimit(userIn.RPMLimit).
+		SetRateLimit5h(userIn.RateLimit5h).
+		SetRateLimit7d(userIn.RateLimit7d).
+		SetUsage5h(userIn.Usage5h).
+		SetUsage7d(userIn.Usage7d).
+		SetNillableWindow5hStart(userIn.Window5hStart).
+		SetNillableWindow7dStart(userIn.Window7dStart)
 	if userIn.SignupSource != "" {
 		updateOp = updateOp.SetSignupSource(userIn.SignupSource)
 	}
@@ -233,6 +239,12 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 	}
 	if userIn.BalanceNotifyThreshold == nil {
 		updateOp = updateOp.ClearBalanceNotifyThreshold()
+	}
+	if userIn.Window5hStart == nil {
+		updateOp = updateOp.ClearWindow5hStart()
+	}
+	if userIn.Window7dStart == nil {
+		updateOp = updateOp.ClearWindow7dStart()
 	}
 	updated, err := updateOp.Save(txCtx)
 	if err != nil {

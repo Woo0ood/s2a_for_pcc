@@ -537,6 +537,29 @@ func (s *BillingCacheService) InvalidateAPIKeyRateLimit(ctx context.Context, key
 	return nil
 }
 
+// HydrateUserRateLimitUsage 从 Redis 把实时 5h/7d usage 和 window 填到 user 对象上。
+// 设计上 usage 只在 Redis 累加（不写 DB），所以 list/detail 接口要展示当前用量必须显式调此方法。
+// Cache miss / Redis 不可用时静默不填（user.Usage5h/7d 保持 DB 加载时的 0 值）。
+func (s *BillingCacheService) HydrateUserRateLimitUsage(ctx context.Context, user *User) {
+	if user == nil || s.cache == nil {
+		return
+	}
+	data, err := s.cache.GetUserRateLimit(ctx, user.ID)
+	if err != nil || data == nil {
+		return
+	}
+	user.Usage5h = data.Usage5h
+	user.Usage7d = data.Usage7d
+	if data.Window5h > 0 {
+		t := time.Unix(data.Window5h, 0)
+		user.Window5hStart = &t
+	}
+	if data.Window7d > 0 {
+		t := time.Unix(data.Window7d, 0)
+		user.Window7dStart = &t
+	}
+}
+
 // InvalidateUserRateLimit invalidates the Redis rate-limit usage cache for a user.
 func (s *BillingCacheService) InvalidateUserRateLimit(ctx context.Context, userID int64) error {
 	if s.cache == nil {
@@ -727,13 +750,15 @@ func (s *BillingCacheService) checkUserRateLimits(ctx context.Context, user *Use
 }
 
 // evaluateUserRateLimits 检查用量是否超限；过期窗口异步重置。
+// nil 窗口表示"尚未激活",由首次 RecordUsage 时的 Lua 脚本自动开窗，不在此处当作过期处理，
+// 否则会触发 InvalidateUserRateLimit，DEL 掉刚 SetUserRateLimit 建好的 cache。
 func (s *BillingCacheService) evaluateUserRateLimits(ctx context.Context, user *User, usage5h, usage7d float64, w5h, w7d *time.Time) error {
 	needsReset := false
-	if IsWindowExpired(w5h, RateLimitWindow5h) {
+	if w5h != nil && IsWindowExpired(w5h, RateLimitWindow5h) {
 		usage5h = 0
 		needsReset = true
 	}
-	if IsWindowExpired(w7d, RateLimitWindow7d) {
+	if w7d != nil && IsWindowExpired(w7d, RateLimitWindow7d) {
 		usage7d = 0
 		needsReset = true
 	}

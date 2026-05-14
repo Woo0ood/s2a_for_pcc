@@ -1755,6 +1755,7 @@ export default {
         subscriptions: 'Subscriptions',
         balance: 'Balance',
         usage: 'Usage',
+        rateLimits: 'Rate Limits',
         concurrency: 'Concurrency',
         status: 'Status',
         lastActive: 'Last Active',
