@@ -35,6 +35,7 @@ type OpenAIGatewayHandler struct {
 	contentModerationService *service.ContentModerationService
 	payloadAuditSvc          *service.PayloadAuditService
 	payloadAuditSink         *service.PayloadAuditSink
+	settingService           *service.SettingService
 	concurrencyHelper        *ConcurrencyHelper
 	imageLimiter             *imageConcurrencyLimiter
 	maxAccountSwitches       int
@@ -59,6 +60,7 @@ func NewOpenAIGatewayHandler(
 	contentModerationService *service.ContentModerationService,
 	payloadAuditSvc *service.PayloadAuditService,
 	payloadAuditSink *service.PayloadAuditSink,
+	settingService *service.SettingService,
 	cfg *config.Config,
 ) *OpenAIGatewayHandler {
 	pingInterval := time.Duration(0)
@@ -78,6 +80,7 @@ func NewOpenAIGatewayHandler(
 		contentModerationService: contentModerationService,
 		payloadAuditSvc:          payloadAuditSvc,
 		payloadAuditSink:         payloadAuditSink,
+		settingService:           settingService,
 		concurrencyHelper:        NewConcurrencyHelper(concurrencyService, SSEPingFormatComment, pingInterval),
 		imageLimiter:             &imageConcurrencyLimiter{},
 		maxAccountSwitches:       maxAccountSwitches,
