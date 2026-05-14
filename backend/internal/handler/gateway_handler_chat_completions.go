@@ -140,9 +140,17 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	}
 
 	// 2. Re-check billing
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
-		reqLog.Info("gateway.cc.billing_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
+	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription)
+	{
+		platform := ""
+		if apiKey.Group != nil {
+			platform = apiKey.Group.Platform
+		}
+		body, reqModel, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+	}
+	if billingErr != nil {
+		reqLog.Info("gateway.cc.billing_check_failed", zap.Error(billingErr))
+		status, code, message, retryAfter := billingErrorDetails(billingErr)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
 		}
