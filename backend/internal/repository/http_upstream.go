@@ -17,12 +17,12 @@ import (
 
 	"github.com/andybalholm/brotli"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyurl"
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/proxyutil"
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/tlsfingerprint"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
-	"github.com/Woo0ood/s2a_for_pcc/internal/util/urlvalidator"
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/proxyurl"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/proxyutil"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
+	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 )
 
 // 默认配置常量

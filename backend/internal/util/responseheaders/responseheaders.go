@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 // defaultAllowed 定义允许透传的响应头白名单

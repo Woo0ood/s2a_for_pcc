@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	openaiwsv2 "github.com/Woo0ood/s2a_for_pcc/internal/service/openai_ws_v2"
+	openaiwsv2 "github.com/Wei-Shaw/sub2api/internal/service/openai_ws_v2"
 	coderws "github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )

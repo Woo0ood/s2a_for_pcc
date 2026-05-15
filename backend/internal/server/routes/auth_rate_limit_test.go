@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/handler"
-	servermiddleware "github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/handler"
+	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"

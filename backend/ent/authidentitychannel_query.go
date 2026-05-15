@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/s2a_for_pcc/ent/authidentity"
-	"github.com/Woo0ood/s2a_for_pcc/ent/authidentitychannel"
-	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/authidentity"
+	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
 // AuthIdentityChannelQuery is the builder for querying AuthIdentityChannel entities.

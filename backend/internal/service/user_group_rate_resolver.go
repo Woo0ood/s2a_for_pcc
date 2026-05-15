@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	gocache "github.com/patrickmn/go-cache"
 	"golang.org/x/sync/singleflight"
 )

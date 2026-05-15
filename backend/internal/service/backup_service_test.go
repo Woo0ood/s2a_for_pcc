@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 // ─── Mocks ───

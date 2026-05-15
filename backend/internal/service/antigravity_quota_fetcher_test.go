@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 )
 
 // ---------------------------------------------------------------------------

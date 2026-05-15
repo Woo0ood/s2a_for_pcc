@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/s2a_for_pcc/ent/idempotencyrecord"
-	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
 // IdempotencyRecordUpdate is the builder for updating IdempotencyRecord entities.

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 )
 
 func TestInstanceSupportsType(t *testing.T) {

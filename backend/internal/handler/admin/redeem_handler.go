@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/handler/dto"
-	infraerrors "github.com/Woo0ood/s2a_for_pcc/internal/pkg/errors"
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/response"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

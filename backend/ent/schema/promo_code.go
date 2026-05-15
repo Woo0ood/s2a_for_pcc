@@ -3,7 +3,7 @@ package schema
 import (
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

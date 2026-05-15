@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/Woo0ood/s2a_for_pcc/ent"
+	"github.com/Wei-Shaw/sub2api/ent"
 	// required by schema hooks.
-	_ "github.com/Woo0ood/s2a_for_pcc/ent/runtime"
+	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/Woo0ood/s2a_for_pcc/ent/migrate"
+	"github.com/Wei-Shaw/sub2api/ent/migrate"
 )
 
 type (

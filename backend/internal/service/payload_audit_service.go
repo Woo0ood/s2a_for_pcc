@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/util/audittoken"
+	"github.com/Wei-Shaw/sub2api/internal/util/audittoken"
 	"github.com/redis/go-redis/v9" //nolint:depguard // payload audit owns redis interaction
 )
 

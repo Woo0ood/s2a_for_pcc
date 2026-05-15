@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/usagestats"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
 
 var (

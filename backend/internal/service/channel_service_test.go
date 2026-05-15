@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
 

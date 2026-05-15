@@ -1,10 +1,10 @@
 package routes
 
 import (
-	"github.com/Woo0ood/s2a_for_pcc/internal/handler"
-	"github.com/Woo0ood/s2a_for_pcc/internal/handler/admin"
-	"github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

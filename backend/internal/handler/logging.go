@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

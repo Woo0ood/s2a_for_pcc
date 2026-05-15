@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/util/audittoken"
+	"github.com/Wei-Shaw/sub2api/internal/util/audittoken"
 )
 
 // ErrInvalidPayloadAuditConfig is returned when payload audit config fails validation.

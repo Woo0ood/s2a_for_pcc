@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"strings"
 
-	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/google/wire"
 )
 

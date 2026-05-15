@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/Woo0ood/s2a_for_pcc/ent/announcement"
-	"github.com/Woo0ood/s2a_for_pcc/internal/domain"
+	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // Announcement is the model entity for the Announcement schema.

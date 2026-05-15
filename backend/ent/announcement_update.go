@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/s2a_for_pcc/ent/announcement"
-	"github.com/Woo0ood/s2a_for_pcc/ent/announcementread"
-	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
-	"github.com/Woo0ood/s2a_for_pcc/internal/domain"
+	"github.com/Wei-Shaw/sub2api/ent/announcement"
+	"github.com/Wei-Shaw/sub2api/ent/announcementread"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // AnnouncementUpdate is the builder for updating Announcement entities.

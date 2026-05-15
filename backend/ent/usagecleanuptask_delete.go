@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
-	"github.com/Woo0ood/s2a_for_pcc/ent/usagecleanuptask"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 )
 
 // UsageCleanupTaskDelete is the builder for deleting a UsageCleanupTask entity.

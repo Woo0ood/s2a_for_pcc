@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/oauth"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/oauth"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

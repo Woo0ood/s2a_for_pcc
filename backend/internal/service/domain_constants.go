@@ -1,6 +1,6 @@
 package service
 
-import "github.com/Woo0ood/s2a_for_pcc/internal/domain"
+import "github.com/Wei-Shaw/sub2api/internal/domain"
 
 // Status constants
 const (

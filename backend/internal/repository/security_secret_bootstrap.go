@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/ent"
-	"github.com/Woo0ood/s2a_for_pcc/ent/securitysecret"
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
+	"github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 const (

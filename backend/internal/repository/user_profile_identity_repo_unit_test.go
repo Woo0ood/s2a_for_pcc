@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	dbent "github.com/Woo0ood/s2a_for_pcc/ent"
-	"github.com/Woo0ood/s2a_for_pcc/ent/authidentity"
-	"github.com/Woo0ood/s2a_for_pcc/ent/authidentitychannel"
-	"github.com/Woo0ood/s2a_for_pcc/ent/identityadoptiondecision"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/authidentity"
+	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 

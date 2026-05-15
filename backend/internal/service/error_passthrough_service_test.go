@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/model"
+	"github.com/Wei-Shaw/sub2api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

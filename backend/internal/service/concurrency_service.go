@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 )
 
 // ConcurrencyCache 定义并发控制的缓存接口

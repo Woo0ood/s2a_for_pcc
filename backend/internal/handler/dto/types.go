@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 type User struct {

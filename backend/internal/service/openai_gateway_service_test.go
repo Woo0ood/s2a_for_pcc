@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/cespare/xxhash/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"

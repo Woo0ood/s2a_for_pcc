@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/payment"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/smartwalle/alipay/v3"
 )
 

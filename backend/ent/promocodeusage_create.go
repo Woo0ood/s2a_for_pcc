@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/s2a_for_pcc/ent/promocode"
-	"github.com/Woo0ood/s2a_for_pcc/ent/promocodeusage"
-	"github.com/Woo0ood/s2a_for_pcc/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/promocode"
+	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
+	"github.com/Wei-Shaw/sub2api/ent/user"
 )
 
 // PromoCodeUsageCreate is the builder for creating a PromoCodeUsage entity.

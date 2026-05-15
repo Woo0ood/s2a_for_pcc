@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/Woo0ood/s2a_for_pcc/ent/payloadauditlog"
-	"github.com/Woo0ood/s2a_for_pcc/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/payloadauditlog"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
 // PayloadAuditLogDelete is the builder for deleting a PayloadAuditLog entity.

@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/claude"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 
 	"github.com/stretchr/testify/require"
 )

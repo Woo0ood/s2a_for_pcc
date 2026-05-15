@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/oauth"
-	"github.com/Woo0ood/s2a_for_pcc/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/oauth"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
 // OpenAIOAuthClient interface for OpenAI OAuth operations

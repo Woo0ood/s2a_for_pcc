@@ -6,7 +6,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
-	"github.com/Woo0ood/s2a_for_pcc/ent/schema/mixins"
+	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 )
 
 type PayloadAuditLog struct{ ent.Schema }

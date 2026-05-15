@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/repository"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/repository"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Woo0ood/s2a_for_pcc/internal/repository" //nolint:depguard // export API uses repo filter/cursor types
-	"github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/repository" //nolint:depguard // export API uses repo filter/cursor types
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 

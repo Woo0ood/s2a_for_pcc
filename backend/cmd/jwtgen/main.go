@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	_ "github.com/Woo0ood/s2a_for_pcc/ent/runtime"
-	"github.com/Woo0ood/s2a_for_pcc/internal/config"
-	"github.com/Woo0ood/s2a_for_pcc/internal/repository"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/repository"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
 func main() {

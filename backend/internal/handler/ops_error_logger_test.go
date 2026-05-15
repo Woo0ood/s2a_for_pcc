@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	middleware2 "github.com/Woo0ood/s2a_for_pcc/internal/server/middleware"
-	"github.com/Woo0ood/s2a_for_pcc/internal/service"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

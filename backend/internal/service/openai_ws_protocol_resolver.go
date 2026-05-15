@@ -1,6 +1,6 @@
 package service
 
-import "github.com/Woo0ood/s2a_for_pcc/internal/config"
+import "github.com/Wei-Shaw/sub2api/internal/config"
 
 // OpenAIUpstreamTransport 表示 OpenAI 上游传输协议。
 type OpenAIUpstreamTransport string
