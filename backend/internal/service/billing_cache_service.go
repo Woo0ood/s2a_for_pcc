@@ -750,8 +750,8 @@ func (s *BillingCacheService) checkUserRateLimits(ctx context.Context, user *Use
 }
 
 // evaluateUserRateLimits 检查用量是否超限；过期窗口异步重置。
-// nil 窗口表示"尚未激活",由首次 RecordUsage 时的 Lua 脚本自动开窗，不在此处当作过期处理，
-// 否则会触发 InvalidateUserRateLimit，DEL 掉刚 SetUserRateLimit 建好的 cache。
+// nil 窗口表示"尚未激活"，由首次 RecordUsage 时的 Lua 脚本自动开窗，不在此处当作过期处理，
+// 否则会触发 InvalidateUserRateLimit（原子重置 cache 计数与窗口），徒增一次 Redis 写。
 func (s *BillingCacheService) evaluateUserRateLimits(ctx context.Context, user *User, usage5h, usage7d float64, w5h, w7d *time.Time) error {
 	needsReset := false
 	if w5h != nil && IsWindowExpired(w5h, RateLimitWindow5h) {

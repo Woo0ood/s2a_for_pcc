@@ -431,7 +431,20 @@ func (c *billingCache) UpdateUserRateLimitUsage(ctx context.Context, userID int6
 	return nil
 }
 
+// InvalidateUserRateLimit 原子重置用户级限流 cache 的所有计数与窗口为 0，并续 TTL。
+// 不删除 key：保证与并发执行的 UpdateUserRateLimitUsage（Lua 脚本依赖 EXISTS==1）不发生竞态——
+// 否则窗口过期触发的异步 DEL 会和请求结算后的累加任务发生 race，导致一次请求的 cost 丢失。
 func (c *billingCache) InvalidateUserRateLimit(ctx context.Context, userID int64) error {
 	key := billingUserRateLimitKey(userID)
-	return c.rdb.Del(ctx, key).Err()
+	fields := map[string]any{
+		userRateLimitFieldUsage5h:  0,
+		userRateLimitFieldUsage7d:  0,
+		userRateLimitFieldWindow5h: 0,
+		userRateLimitFieldWindow7d: 0,
+	}
+	pipe := c.rdb.Pipeline()
+	pipe.HSet(ctx, key, fields)
+	pipe.Expire(ctx, key, rateLimitCacheTTL)
+	_, err := pipe.Exec(ctx)
+	return err
 }
