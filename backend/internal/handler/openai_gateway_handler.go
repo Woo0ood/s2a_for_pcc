@@ -304,6 +304,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
 		if fallbackEngaged {
 			channelMapping.BillingModelSource = service.BillingModelSourceRequested
+			channelMapping.Mapped = false
+			channelMapping.MappedModel = reqModel
+			// Invalidate the cached parsed-body map so service.Forward re-parses
+			// the rewritten body bytes (model now points at the fallback target).
+			c.Set(service.OpenAIParsedRequestBodyKey, nil)
 		}
 	}
 	if billingErr != nil {
@@ -747,6 +752,11 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
 		if fallbackEngaged {
 			channelMappingMsg.BillingModelSource = service.BillingModelSourceRequested
+			channelMappingMsg.Mapped = false
+			channelMappingMsg.MappedModel = reqModel
+			// Invalidate the cached parsed-body map so service.Forward re-parses
+			// the rewritten body bytes (model now points at the fallback target).
+			c.Set(service.OpenAIParsedRequestBodyKey, nil)
 		}
 	}
 	if billingErr != nil {

@@ -156,6 +156,11 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
 		if fallbackEngaged {
 			channelMapping.BillingModelSource = service.BillingModelSourceRequested
+			channelMapping.Mapped = false
+			channelMapping.MappedModel = reqModel
+			// Invalidate the cached parsed-body map so service.Forward re-parses
+			// the rewritten body bytes (model now points at the fallback target).
+			c.Set(service.OpenAIParsedRequestBodyKey, nil)
 		}
 	if billingErr != nil {
 		reqLog.Info("openai_chat_completions.billing_eligibility_check_failed", zap.Error(billingErr))
