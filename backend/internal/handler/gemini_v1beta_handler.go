@@ -299,6 +299,8 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
 		if fallbackEngaged {
 			channelMapping.BillingModelSource = service.BillingModelSourceRequested
+			channelMapping.Mapped = false
+			channelMapping.MappedModel = reqModel
 		}
 	}
 	if billingErr != nil {
