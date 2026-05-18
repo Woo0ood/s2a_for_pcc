@@ -8,8 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"image"
 	"image/color"
 	stddraw "image/draw"
@@ -23,6 +21,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/sync/singleflight"
@@ -42,8 +43,8 @@ var (
 		"IDENTITY_UNBIND_LAST_METHOD",
 		"bind another sign-in method before unbinding this provider",
 	)
-	ErrUserRateLimit5hExceeded = infraerrors.TooManyRequests("USER_RATE_5H_EXCEEDED", "user 5小时限额已用完")
-	ErrUserRateLimit7dExceeded = infraerrors.TooManyRequests("USER_RATE_7D_EXCEEDED", "user 7天限额已用完")
+	ErrUserRateLimit5hExceeded = infraerrors.TooManyRequests("USER_RATE_5H_EXCEEDED", "Rate limit exceeded. Please retry after 30 seconds.")
+	ErrUserRateLimit7dExceeded = infraerrors.TooManyRequests("USER_RATE_7D_EXCEEDED", "Rate limit exceeded. Please retry after 60 seconds.")
 )
 
 const (
