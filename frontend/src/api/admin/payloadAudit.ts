@@ -34,7 +34,7 @@ export interface PayloadAuditConfigEnvelope {
 // PayloadAuditLog fields: the handler returns repository.PayloadAuditRow
 // which has NO json tags, so Go serialises with PascalCase field names.
 export interface PayloadAuditLog {
-  ID: number
+  ID: string
   CreatedAt: string
   RequestID: string
   UserID?: number | null
@@ -83,12 +83,6 @@ export interface PayloadAuditSinkStats {
   DropOnShutdown: number
 }
 
-// PayloadAuditPartition has no json tags → PascalCase
-export interface PayloadAuditPartitionInfo {
-  Name: string
-  End: string
-}
-
 export interface PayloadAuditStatus {
   enabled: boolean
   workers: { configured: number }
@@ -100,10 +94,6 @@ export interface PayloadAuditStatus {
     bytes_max: number
   }
   stats_24h: PayloadAuditSinkStats
-  storage: {
-    current_partition: string
-    partitions: PayloadAuditPartitionInfo[]
-  }
 }
 
 export interface ListPayloadsParams {
@@ -155,10 +145,10 @@ export async function listPayloads(
   return data
 }
 
-export async function getPayload(id: number, createdAt?: string): Promise<PayloadAuditLog> {
+export async function getPayload(id: string, createdAt: string): Promise<PayloadAuditLog> {
   const { data } = await apiClient.get<PayloadAuditLog>(
     `/admin/payload-audit/payloads/${id}`,
-    { params: createdAt ? { created_at: createdAt } : undefined }
+    { params: { created_at: createdAt } }
   )
   return data
 }
