@@ -68,6 +68,7 @@ func TestAPIContracts(t *testing.T) {
 					"linuxdo_bound": false,
 					"oidc_bound": false,
 					"wechat_bound": false,
+					"dingtalk_bound": false,
 					"identities": {
 						"email": {
 							"provider": "email",
@@ -104,6 +105,14 @@ func TestAPIContracts(t *testing.T) {
 							"can_bind": true,
 							"can_unbind": false,
 							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"dingtalk": {
+							"provider": "dingtalk",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/dingtalk/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
 						}
 					},
 					"identity_bindings": {
@@ -142,6 +151,14 @@ func TestAPIContracts(t *testing.T) {
 							"can_bind": true,
 							"can_unbind": false,
 							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"dingtalk": {
+							"provider": "dingtalk",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/dingtalk/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
 						}
 					},
 					"auth_bindings": {
@@ -180,6 +197,14 @@ func TestAPIContracts(t *testing.T) {
 							"can_bind": true,
 							"can_unbind": false,
 							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"dingtalk": {
+							"provider": "dingtalk",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/dingtalk/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
 						}
 					},
 					"rate_limit_5h": 0,
@@ -558,6 +583,10 @@ func TestAPIContracts(t *testing.T) {
 							"first_token_ms": 50,
 							"image_count": 0,
 							"image_size": null,
+							"image_input_size": null,
+							"image_output_size": null,
+							"image_size_source": null,
+							"image_size_breakdown": null,
 							"media_type": null,
 							"cache_ttl_overridden": false,
 							"created_at": "2025-01-02T03:04:05Z",
@@ -676,6 +705,22 @@ func TestAPIContracts(t *testing.T) {
 						"linuxdo_connect_client_id": "",
 						"linuxdo_connect_client_secret_configured": false,
 						"linuxdo_connect_redirect_url": "",
+						"dingtalk_connect_enabled": false,
+						"dingtalk_connect_bypass_registration": false,
+						"dingtalk_connect_client_id": "",
+						"dingtalk_connect_client_secret_configured": false,
+						"dingtalk_connect_redirect_url": "",
+						"dingtalk_connect_internal_corp_id": "",
+						"dingtalk_connect_corp_restriction_policy": "",
+						"dingtalk_connect_sync_corp_email": false,
+						"dingtalk_connect_sync_corp_email_attr_key": "dingtalk_email",
+						"dingtalk_connect_sync_corp_email_attr_name": "钉钉企业邮箱",
+						"dingtalk_connect_sync_dept": false,
+						"dingtalk_connect_sync_dept_attr_key": "dingtalk_department",
+						"dingtalk_connect_sync_dept_attr_name": "钉钉部门",
+						"dingtalk_connect_sync_display_name": false,
+						"dingtalk_connect_sync_display_name_attr_key": "dingtalk_name",
+						"dingtalk_connect_sync_display_name_attr_name": "钉钉姓名",
 						"oidc_connect_enabled": false,
 						"oidc_connect_provider_name": "OIDC",
 						"oidc_connect_client_id": "",
@@ -748,6 +793,11 @@ func TestAPIContracts(t *testing.T) {
 					"auth_source_default_wechat_subscriptions": [],
 					"auth_source_default_wechat_grant_on_signup": false,
 					"auth_source_default_wechat_grant_on_first_bind": false,
+					"auth_source_default_dingtalk_balance": 0,
+					"auth_source_default_dingtalk_concurrency": 5,
+					"auth_source_default_dingtalk_subscriptions": [],
+					"auth_source_default_dingtalk_grant_on_signup": false,
+					"auth_source_default_dingtalk_grant_on_first_bind": false,
 					"force_email_on_third_party_signup": false,
 					"default_concurrency": 5,
 					"default_balance": 1.25,
@@ -788,14 +838,7 @@ func TestAPIContracts(t *testing.T) {
 					"payment_visible_method_wxpay_enabled": false,
 					"openai_advanced_scheduler_enabled": true,
 					"openai_fast_policy_settings": {
-						"rules": [
-							{
-								"service_tier": "priority",
-								"action": "filter",
-								"scope": "all",
-								"fallback_action": "pass"
-							}
-						]
+						"rules": []
 					},
 					"custom_menu_items": [],
 					"custom_endpoints": [],
@@ -921,6 +964,22 @@ func TestAPIContracts(t *testing.T) {
 					"linuxdo_connect_client_id": "",
 					"linuxdo_connect_client_secret_configured": false,
 					"linuxdo_connect_redirect_url": "",
+					"dingtalk_connect_enabled": false,
+					"dingtalk_connect_bypass_registration": false,
+					"dingtalk_connect_client_id": "",
+					"dingtalk_connect_client_secret_configured": false,
+					"dingtalk_connect_redirect_url": "",
+					"dingtalk_connect_internal_corp_id": "",
+					"dingtalk_connect_corp_restriction_policy": "",
+					"dingtalk_connect_sync_corp_email": false,
+					"dingtalk_connect_sync_corp_email_attr_key": "dingtalk_email",
+					"dingtalk_connect_sync_corp_email_attr_name": "钉钉企业邮箱",
+					"dingtalk_connect_sync_dept": false,
+					"dingtalk_connect_sync_dept_attr_key": "dingtalk_department",
+					"dingtalk_connect_sync_dept_attr_name": "钉钉部门",
+					"dingtalk_connect_sync_display_name": false,
+					"dingtalk_connect_sync_display_name_attr_key": "dingtalk_name",
+					"dingtalk_connect_sync_display_name_attr_name": "钉钉姓名",
 					"oidc_connect_enabled": true,
 					"oidc_connect_provider_name": "ConfigOIDC",
 					"oidc_connect_client_id": "oidc-config-client",
@@ -1003,14 +1062,7 @@ func TestAPIContracts(t *testing.T) {
 					"payment_visible_method_wxpay_enabled": false,
 					"openai_advanced_scheduler_enabled": false,
 					"openai_fast_policy_settings": {
-						"rules": [
-							{
-								"service_tier": "priority",
-								"action": "filter",
-								"scope": "all",
-								"fallback_action": "pass"
-							}
-						]
+						"rules": []
 					},
 					"payment_enabled": false,
 					"payment_min_amount": 0,
@@ -1088,6 +1140,11 @@ func TestAPIContracts(t *testing.T) {
 					"auth_source_default_wechat_subscriptions": [],
 					"auth_source_default_wechat_grant_on_signup": false,
 					"auth_source_default_wechat_grant_on_first_bind": false,
+					"auth_source_default_dingtalk_balance": 0,
+					"auth_source_default_dingtalk_concurrency": 5,
+					"auth_source_default_dingtalk_subscriptions": [],
+					"auth_source_default_dingtalk_grant_on_signup": false,
+					"auth_source_default_dingtalk_grant_on_first_bind": false,
 					"force_email_on_third_party_signup": false
 				}
 			}`,
@@ -1198,10 +1255,10 @@ func newContractDeps(t *testing.T) *contractDeps {
 	settingService := service.NewSettingService(settingRepo, cfg)
 
 	adminService := service.NewAdminService(userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
-	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil)
+	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService)
-	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil)
+	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil, nil)
 	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	jwtAuth := func(c *gin.Context) {
