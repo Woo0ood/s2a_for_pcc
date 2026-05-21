@@ -21,6 +21,7 @@ func (a *PayloadAuditSinkAdapter) BatchInsert(ctx context.Context, events []*ser
 	repoEvents := make([]*PayloadAuditEvent, len(events))
 	for i, e := range events {
 		repoEvents[i] = &PayloadAuditEvent{
+			ID:              e.ID,
 			CreatedAt:       e.CreatedAt,
 			RequestID:       e.RequestID,
 			UserID:          e.UserID,

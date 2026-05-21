@@ -15,6 +15,7 @@ import (
 
 // PayloadAuditEvent represents the writable fields of a payload_audit_logs row.
 type PayloadAuditEvent struct {
+	ID                                               int64
 	RequestID                                        string
 	UserID, APIKeyID, GroupID                         *int64
 	UserEmail, APIKeyName, GroupName, ClientIP        string
