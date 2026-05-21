@@ -75,7 +75,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
 	}()
 
-	setOpsRequestContext(c, "", false, body)
+	setOpsRequestContext(c, "", false)
 
 	// Validate JSON
 	if !gjson.ValidBytes(body) {
@@ -119,7 +119,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		c.Set(service.PayloadAuditCollectorCtxKey, auditCol)
 	}
 
-	setOpsRequestContext(c, reqModel, reqStream, body)
+	setOpsRequestContext(c, reqModel, reqStream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 
 	// 解析渠道级模型映射
