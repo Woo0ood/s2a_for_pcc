@@ -41,11 +41,11 @@ func TestAttachCollector_DisabledSnapshotReturnsDisabled(t *testing.T) {
 }
 
 func TestFinalize_NilCollectorIsNoop(t *testing.T) {
-	FinalizePayloadAudit(nil, nil, 200, time.Second, "")
+	FinalizePayloadAudit(nil, nil, nil, 200, time.Second, "")
 }
 
 func TestFinalize_DisabledCollectorIsNoop(t *testing.T) {
 	coll := service.NewPayloadAuditCollector(nil)
-	FinalizePayloadAudit(coll, nil, 200, time.Second, "")
+	FinalizePayloadAudit(coll, nil, nil, 200, time.Second, "")
 	// must not panic
 }

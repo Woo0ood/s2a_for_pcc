@@ -92,6 +92,7 @@ type Config struct {
 	Gemini                  GeminiConfig                  `mapstructure:"gemini"`
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
+	PayloadAuditWorkerID    int64                         `mapstructure:"payload_audit_worker_id"` // snowflake worker id [0,1023]; env: PAYLOAD_AUDIT_WORKER_ID
 }
 
 type LogConfig struct {

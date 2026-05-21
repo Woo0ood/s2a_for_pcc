@@ -90,7 +90,7 @@ func (m *mockSettingsRepo) Delete(_ context.Context, key string) error {
 func newTestPayloadAuditService(t *testing.T) *PayloadAuditService {
 	t.Helper()
 	repo := newMockSettingsRepo()
-	svc, err := ProvidePayloadAuditService(repo, nil)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0)
 	if err != nil {
 		t.Fatalf("ProvidePayloadAuditService: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestLoadFromSettings_InvalidJSON(t *testing.T) {
 	repo := newMockSettingsRepo()
 	_ = repo.Set(context.Background(), settingKeyPayloadAuditConfig, "not-json")
 
-	svc, err := ProvidePayloadAuditService(repo, nil)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0)
 	if err != nil {
 		t.Fatal("ProvidePayloadAuditService should not return error on bad load")
 	}

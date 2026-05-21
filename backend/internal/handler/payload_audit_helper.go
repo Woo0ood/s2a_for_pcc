@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -43,13 +44,21 @@ func AttachPayloadAuditCollector(c *gin.Context, svc *service.PayloadAuditServic
 // FinalizePayloadAudit emits the audit event to the sink on handler exit.
 // No-op when collector is nil, disabled, out-of-scope, or already finalized.
 // Also records per-event Prometheus observations (input/output bytes, truncated).
-func FinalizePayloadAudit(coll *service.PayloadAuditCollector, sink *service.PayloadAuditSink, statusCode int, dur time.Duration, errMsg string) {
+func FinalizePayloadAudit(coll *service.PayloadAuditCollector, svc *service.PayloadAuditService, sink *service.PayloadAuditSink, statusCode int, dur time.Duration, errMsg string) {
 	if coll == nil {
 		return
 	}
 	evt := coll.Finalize(statusCode, dur, errMsg)
 	if evt == nil {
 		return
+	}
+	if svc != nil {
+		id, err := svc.NextID()
+		if err != nil {
+			slog.Warn("payload_audit.id_gen_fail", "err", err)
+			return
+		}
+		evt.ID = id
 	}
 	if sink != nil {
 		if pm := sink.PromMetrics(); pm != nil {

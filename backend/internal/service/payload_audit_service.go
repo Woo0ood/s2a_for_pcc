@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/util/audittoken"
+	"github.com/Wei-Shaw/sub2api/pkg/snowflake"
 	"github.com/redis/go-redis/v9" //nolint:depguard // payload audit owns redis interaction
 )
 
@@ -21,6 +22,10 @@ const (
 	redisKeyExportKeyLastUsed     = "payload_audit:export_key:last_used:%s" // %s = key id
 	exportKeyLastUsedTTL          = 7 * 24 * time.Hour
 )
+
+// PayloadAuditWorkerID is a named int64 used by Wire to disambiguate the
+// snowflake worker-id parameter from other int64 values.
+type PayloadAuditWorkerID int64
 
 // payloadAuditSettingsRepo is the subset of SettingRepository needed by PayloadAuditService.
 type payloadAuditSettingsRepo interface {
@@ -33,6 +38,7 @@ type payloadAuditSettingsRepo interface {
 type PayloadAuditService struct {
 	settings payloadAuditSettingsRepo
 	rdb      *redis.Client
+	idgen    *snowflake.Generator
 	snap     atomic.Pointer[ConfigSnapshot]
 	gen      atomic.Uint64
 	cfgMu    sync.Mutex // serialises read-modify-write of payload_audit_config
@@ -40,13 +46,22 @@ type PayloadAuditService struct {
 
 // ProvidePayloadAuditService loads settings and builds the initial snapshot.
 // On load failure, an empty disabled snapshot is installed so the service can start.
-func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client) (*PayloadAuditService, error) {
-	s := &PayloadAuditService{settings: settings, rdb: rdb}
+func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client, workerID PayloadAuditWorkerID) (*PayloadAuditService, error) {
+	gen, err := snowflake.New(int64(workerID))
+	if err != nil {
+		return nil, fmt.Errorf("payload audit snowflake init: %w", err)
+	}
+	s := &PayloadAuditService{settings: settings, rdb: rdb, idgen: gen}
 	if err := s.LoadFromSettings(context.Background()); err != nil {
 		s.snap.Store(buildSnapshot(false, &PayloadAuditConfig{}, 0))
 		return s, nil
 	}
 	return s, nil
+}
+
+// NextID returns the next snowflake ID for a payload audit event.
+func (s *PayloadAuditService) NextID() (int64, error) {
+	return s.idgen.NextID()
 }
 
 // Snapshot returns the current immutable configuration snapshot.

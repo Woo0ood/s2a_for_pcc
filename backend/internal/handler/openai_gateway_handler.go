@@ -173,7 +173,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		if auditErrMsg == "" && c.Writer.Status() >= 500 {
 			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
 		}
-		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+		FinalizePayloadAudit(auditCol, h.payloadAuditSvc, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
 	}()
 
 	// 使用 gjson 只读提取字段做校验，避免完整 Unmarshal
@@ -679,7 +679,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		if auditErrMsg == "" && c.Writer.Status() >= 500 {
 			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
 		}
-		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+		FinalizePayloadAudit(auditCol, h.payloadAuditSvc, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
 	}()
 
 	modelResult := gjson.GetBytes(body, "model")

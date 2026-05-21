@@ -119,7 +119,7 @@ func (r *fakePartRepo) CreatePartition(_ context.Context, monthStart time.Time) 
 func newTestCleanupService(t *testing.T, retentionDays int) *PayloadAuditService {
 	t.Helper()
 	repo := newMockSettingsRepo()
-	svc, err := ProvidePayloadAuditService(repo, nil)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0)
 	if err != nil {
 		t.Fatalf("ProvidePayloadAuditService: %v", err)
 	}

@@ -239,7 +239,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	affiliateHandler := admin.NewAffiliateHandler(affiliateService, adminService)
 	payloadAuditRepo := repository.NewPayloadAuditRepo(db)
 	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditRepo)
-	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient)
+	payloadAuditWorkerID := repository.ProvidePayloadAuditWorkerID(configConfig)
+	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID)
 	if err != nil {
 		return nil, err
 	}

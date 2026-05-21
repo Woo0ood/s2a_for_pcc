@@ -143,6 +143,7 @@ var ProviderSet = wire.NewSet(
 	NewGeminiDriveClient,
 
 	// Payload audit
+	ProvidePayloadAuditWorkerID,
 	NewPayloadAuditRepo,
 	NewPayloadAuditSinkAdapter,
 	wire.Bind(new(service.PayloadAuditRepository), new(*PayloadAuditSinkAdapter)),
@@ -155,6 +156,11 @@ var ProviderSet = wire.NewSet(
 	ProvideSQLDB,
 	ProvideRedis,
 )
+
+// ProvidePayloadAuditWorkerID extracts the snowflake worker ID from config.
+func ProvidePayloadAuditWorkerID(cfg *config.Config) service.PayloadAuditWorkerID {
+	return service.PayloadAuditWorkerID(cfg.PayloadAuditWorkerID)
+}
 
 // ProvideEnt 为依赖注入提供 Ent 客户端。
 //

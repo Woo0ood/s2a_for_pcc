@@ -170,7 +170,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		if auditErrMsg == "" && c.Writer.Status() >= 500 {
 			auditErrMsg = fmt.Sprintf("upstream error status=%d", c.Writer.Status())
 		}
-		FinalizePayloadAudit(auditCol, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
+		FinalizePayloadAudit(auditCol, h.payloadAuditSvc, h.payloadAuditSink, c.Writer.Status(), time.Since(requestStart), auditErrMsg)
 	}()
 
 	setOpsRequestContext(c, "", false)
