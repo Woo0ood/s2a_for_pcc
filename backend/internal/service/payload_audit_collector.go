@@ -28,6 +28,8 @@ func GetPayloadAuditCollector(c interface{ Get(string) (any, bool) }) *PayloadAu
 // PayloadAuditEvent is the service-layer representation of an audit event.
 // It mirrors repository.PayloadAuditEvent; the sink layer converts between the two.
 type PayloadAuditEvent struct {
+	// populated by handler before TryEnqueue
+	ID                                             int64
 	RequestID                                      string
 	UserID, APIKeyID, GroupID                       *int64
 	UserEmail, APIKeyName, GroupName, ClientIP      string
