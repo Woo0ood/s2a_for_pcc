@@ -790,72 +790,6 @@ var (
 			},
 		},
 	}
-	// PayloadAuditLogsColumns holds the columns for the "payload_audit_logs" table.
-	PayloadAuditLogsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt64, Increment: true},
-		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
-		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
-		{Name: "request_id", Type: field.TypeString, Size: 64, Default: ""},
-		{Name: "user_id", Type: field.TypeInt64, Nullable: true},
-		{Name: "user_email", Type: field.TypeString, Size: 255, Default: ""},
-		{Name: "api_key_id", Type: field.TypeInt64, Nullable: true},
-		{Name: "api_key_name", Type: field.TypeString, Size: 100, Default: ""},
-		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
-		{Name: "group_name", Type: field.TypeString, Size: 255, Default: ""},
-		{Name: "client_ip", Type: field.TypeString, Size: 45, Default: ""},
-		{Name: "endpoint", Type: field.TypeString, Size: 128, Default: ""},
-		{Name: "provider", Type: field.TypeString, Size: 64, Default: ""},
-		{Name: "model", Type: field.TypeString, Size: 255, Default: ""},
-		{Name: "upstream_model", Type: field.TypeString, Size: 255, Default: ""},
-		{Name: "stream", Type: field.TypeBool, Default: false},
-		{Name: "status_code", Type: field.TypeInt, Default: 0},
-		{Name: "duration_ms", Type: field.TypeInt, Default: 0},
-		{Name: "input_excerpt", Type: field.TypeString, Size: 2048, Default: ""},
-		{Name: "output_excerpt", Type: field.TypeString, Size: 2048, Default: ""},
-		{Name: "input_body", Type: field.TypeString, Size: 2147483647, Default: ""},
-		{Name: "output_body", Type: field.TypeString, Size: 2147483647, Default: ""},
-		{Name: "input_format", Type: field.TypeString, Size: 16, Default: "json"},
-		{Name: "output_format", Type: field.TypeString, Size: 16, Default: "text"},
-		{Name: "input_bytes", Type: field.TypeInt, Default: 0},
-		{Name: "output_bytes", Type: field.TypeInt, Default: 0},
-		{Name: "input_truncated", Type: field.TypeBool, Default: false},
-		{Name: "output_truncated", Type: field.TypeBool, Default: false},
-		{Name: "output_omitted", Type: field.TypeBool, Default: false},
-		{Name: "error_message", Type: field.TypeString, Size: 2147483647, Default: ""},
-	}
-	// PayloadAuditLogsTable holds the schema information for the "payload_audit_logs" table.
-	PayloadAuditLogsTable = &schema.Table{
-		Name:       "payload_audit_logs",
-		Columns:    PayloadAuditLogsColumns,
-		PrimaryKey: []*schema.Column{PayloadAuditLogsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "payloadauditlog_created_at_id",
-				Unique:  false,
-				Columns: []*schema.Column{PayloadAuditLogsColumns[1], PayloadAuditLogsColumns[0]},
-			},
-			{
-				Name:    "payloadauditlog_user_id_created_at",
-				Unique:  false,
-				Columns: []*schema.Column{PayloadAuditLogsColumns[4], PayloadAuditLogsColumns[1]},
-			},
-			{
-				Name:    "payloadauditlog_group_id_created_at",
-				Unique:  false,
-				Columns: []*schema.Column{PayloadAuditLogsColumns[8], PayloadAuditLogsColumns[1]},
-			},
-			{
-				Name:    "payloadauditlog_api_key_id_created_at",
-				Unique:  false,
-				Columns: []*schema.Column{PayloadAuditLogsColumns[6], PayloadAuditLogsColumns[1]},
-			},
-			{
-				Name:    "payloadauditlog_request_id",
-				Unique:  false,
-				Columns: []*schema.Column{PayloadAuditLogsColumns[3]},
-			},
-		},
-	}
 	// PaymentAuditLogsColumns holds the columns for the "payment_audit_logs" table.
 	PaymentAuditLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1790,7 +1724,6 @@ var (
 		GroupsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
-		PayloadAuditLogsTable,
 		PaymentAuditLogsTable,
 		PaymentOrdersTable,
 		PaymentProviderInstancesTable,
@@ -1872,9 +1805,6 @@ func init() {
 	IdentityAdoptionDecisionsTable.ForeignKeys[1].RefTable = PendingAuthSessionsTable
 	IdentityAdoptionDecisionsTable.Annotation = &entsql.Annotation{
 		Table: "identity_adoption_decisions",
-	}
-	PayloadAuditLogsTable.Annotation = &entsql.Annotation{
-		Table: "payload_audit_logs",
 	}
 	PaymentAuditLogsTable.Annotation = &entsql.Annotation{
 		Table: "payment_audit_logs",

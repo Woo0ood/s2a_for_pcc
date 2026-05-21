@@ -144,6 +144,16 @@ func ProvideAuditExportHandler(repo AuditExportRepo) *AuditExportHandler {
 	return NewAuditExportHandler(repo, NewSlogAuditExportOpsLogger())
 }
 
+// ProvideAuditExportRepo adapts the CH repo to the AuditExportRepo interface.
+func ProvideAuditExportRepo(repo *repository.PayloadAuditCHRepo) AuditExportRepo {
+	return repo
+}
+
+// ProvidePayloadAuditAdminRepo adapts the CH repo to the PayloadAuditAdminRepo interface.
+func ProvidePayloadAuditAdminRepo(repo *repository.PayloadAuditCHRepo) admin.PayloadAuditAdminRepo {
+	return repo
+}
+
 // ProviderSet is the Wire provider set for all handlers
 var ProviderSet = wire.NewSet(
 	// Top-level handlers
@@ -163,7 +173,7 @@ var ProviderSet = wire.NewSet(
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
 	ProvideAuditExportHandler,
-	wire.Bind(new(AuditExportRepo), new(*repository.PayloadAuditRepo)),
+	ProvideAuditExportRepo,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
@@ -197,7 +207,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
 	admin.NewPayloadAuditAdminHandler,
-	wire.Bind(new(admin.PayloadAuditAdminRepo), new(*repository.PayloadAuditRepo)),
+	ProvidePayloadAuditAdminRepo,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

@@ -93,6 +93,7 @@ type Config struct {
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	PayloadAuditWorkerID    int64                         `mapstructure:"payload_audit_worker_id"` // snowflake worker id [0,1023]; env: PAYLOAD_AUDIT_WORKER_ID
+	ClickHouseDSN           string                        `mapstructure:"clickhouse_dsn"`           // clickhouse DSN; env: CLICKHOUSE_DSN
 }
 
 type LogConfig struct {

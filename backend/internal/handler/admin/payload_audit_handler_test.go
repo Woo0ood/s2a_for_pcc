@@ -23,8 +23,6 @@ type mockPayloadAuditRepo struct {
 	listErr    error
 	getRow     *repository.PayloadAuditRow
 	getErr     error
-	partitions []repository.PayloadAuditPartition
-	partErr    error
 }
 
 func (m *mockPayloadAuditRepo) List(_ context.Context, _ repository.PayloadAuditListFilter) ([]*repository.PayloadAuditRow, *repository.PayloadAuditCursor, error) {
@@ -35,32 +33,12 @@ func (m *mockPayloadAuditRepo) Get(_ context.Context, _ int64, _ time.Time) (*re
 	return m.getRow, m.getErr
 }
 
-func (m *mockPayloadAuditRepo) ListPartitionsBefore(_ context.Context, _ time.Time) ([]repository.PayloadAuditPartition, error) {
-	return m.partitions, m.partErr
-}
-
 // --------------- mock cleanup repo ---------------
 
 type mockPayloadAuditCleanupRepo struct{}
 
-func (m *mockPayloadAuditCleanupRepo) ListPartitionsBefore(_ context.Context, _ time.Time) ([]service.PayloadAuditPartition, error) {
+func (m *mockPayloadAuditCleanupRepo) DropExpiredMonthlyPartitions(_ context.Context, _ time.Time) ([]string, error) {
 	return nil, nil
-}
-
-func (m *mockPayloadAuditCleanupRepo) PartitionState(_ context.Context, _ string) (string, error) {
-	return "", nil
-}
-
-func (m *mockPayloadAuditCleanupRepo) DetachPartitionConcurrently(_ context.Context, _ string) error {
-	return nil
-}
-
-func (m *mockPayloadAuditCleanupRepo) FinalizePartitionDetach(_ context.Context, _ string) error {
-	return nil
-}
-
-func (m *mockPayloadAuditCleanupRepo) DropPartition(_ context.Context, _ string) error {
-	return nil
 }
 
 // --------------- helpers ---------------
@@ -281,11 +259,7 @@ func TestPayloadAuditAdmin_UpdateConfig_BadExcerpt(t *testing.T) {
 }
 
 func TestPayloadAuditAdmin_GetStatus(t *testing.T) {
-	repo := &mockPayloadAuditRepo{
-		partitions: []repository.PayloadAuditPartition{
-			{Name: "payload_audit_logs_2025_05", End: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)},
-		},
-	}
+	repo := &mockPayloadAuditRepo{}
 	cfgJSON := `{"all_groups":true,"excerpt_bytes":256,"retention_days":90,"worker_count":4,"queue_size":1024,"batch_size":50,"batch_flush_ms":100}`
 	h := buildTestPayloadAuditHandler("true", cfgJSON, repo)
 	r := newPayloadAuditTestRouter(h)
@@ -305,9 +279,6 @@ func TestPayloadAuditAdmin_GetStatus(t *testing.T) {
 	}
 	if resp.Workers.Configured != 4 {
 		t.Errorf("workers.configured=%d, want 4", resp.Workers.Configured)
-	}
-	if len(resp.Storage.Partitions) != 1 {
-		t.Errorf("partitions=%d, want 1", len(resp.Storage.Partitions))
 	}
 }
 

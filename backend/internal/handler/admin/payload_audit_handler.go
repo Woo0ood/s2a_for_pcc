@@ -16,12 +16,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// PayloadAuditAdminRepo is the subset of repository.PayloadAuditRepo
-// needed by the admin handler.
+// PayloadAuditAdminRepo is the subset of repository methods needed by the admin handler.
 type PayloadAuditAdminRepo interface {
 	List(ctx context.Context, filter repository.PayloadAuditListFilter) ([]*repository.PayloadAuditRow, *repository.PayloadAuditCursor, error)
 	Get(ctx context.Context, id int64, createdAt time.Time) (*repository.PayloadAuditRow, error)
-	ListPartitionsBefore(ctx context.Context, cutoff time.Time) ([]repository.PayloadAuditPartition, error)
 }
 
 // PayloadAuditAdminHandler exposes payload audit management endpoints.
@@ -179,11 +177,10 @@ func (h *PayloadAuditAdminHandler) UpdateConfig(c *gin.Context) {
 // --------------- GetStatus ---------------
 
 type payloadAuditStatusResponse struct {
-	Enabled bool                      `json:"enabled"`
-	Workers payloadAuditWorkerStatus  `json:"workers"`
-	Queue   payloadAuditQueueStatus   `json:"queue"`
-	Stats   service.SinkStats         `json:"stats_24h"`
-	Storage payloadAuditStorageStatus `json:"storage"`
+	Enabled bool                     `json:"enabled"`
+	Workers payloadAuditWorkerStatus `json:"workers"`
+	Queue   payloadAuditQueueStatus  `json:"queue"`
+	Stats   service.SinkStats        `json:"stats_24h"`
 }
 
 type payloadAuditWorkerStatus struct {
@@ -191,16 +188,11 @@ type payloadAuditWorkerStatus struct {
 }
 
 type payloadAuditQueueStatus struct {
-	Size      int   `json:"size"`
-	Depth     int64 `json:"depth"`
+	Size      int     `json:"size"`
+	Depth     int64   `json:"depth"`
 	UsagePct  float64 `json:"usage_pct"`
-	BytesUsed int64 `json:"bytes_used"`
-	BytesMax  int   `json:"bytes_max"`
-}
-
-type payloadAuditStorageStatus struct {
-	CurrentPartition string                        `json:"current_partition"`
-	Partitions       []repository.PayloadAuditPartition `json:"partitions"`
+	BytesUsed int64   `json:"bytes_used"`
+	BytesMax  int     `json:"bytes_max"`
 }
 
 // GetStatus returns runtime status of the payload audit system.
@@ -226,17 +218,6 @@ func (h *PayloadAuditAdminHandler) GetStatus(c *gin.Context) {
 		usagePct = float64(stats.QueueDepth) / float64(queueSize) * 100
 	}
 
-	// Current partition name.
-	now := time.Now().UTC()
-	currentPartition := fmt.Sprintf("payload_audit_logs_%04d_%02d", now.Year(), now.Month())
-
-	// Fetch all known partitions (look ahead 1 year).
-	cutoff := now.Add(365 * 24 * time.Hour)
-	partitions, _ := h.repo.ListPartitionsBefore(c.Request.Context(), cutoff)
-	if partitions == nil {
-		partitions = []repository.PayloadAuditPartition{}
-	}
-
 	response.Success(c, payloadAuditStatusResponse{
 		Enabled: enabled,
 		Workers: payloadAuditWorkerStatus{
@@ -249,11 +230,7 @@ func (h *PayloadAuditAdminHandler) GetStatus(c *gin.Context) {
 			BytesUsed: stats.QueueBytesUsed,
 			BytesMax:  queueMaxBytes,
 		},
-		Stats:   stats,
-		Storage: payloadAuditStorageStatus{
-			CurrentPartition: currentPartition,
-			Partitions:       partitions,
-		},
+		Stats: stats,
 	})
 }
 

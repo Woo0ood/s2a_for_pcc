@@ -524,12 +524,11 @@ var ProviderSet = wire.NewSet(
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorRequestTemplateService,
 
-	// Payload audit
+	// Payload audit (ClickHouse)
 	ProvidePayloadAuditService,
 	ProvidePayloadAuditSink,
 	NewPayloadAuditRedisBuffer,
 	NewPayloadAuditCleanup,
-	NewPayloadAuditPartitionMaintainer,
 	ProvidePayloadAuditCronService,
 )
 
@@ -581,14 +580,12 @@ func ProvideChannelMonitorRunner(svc *ChannelMonitorService, settingService *Set
 }
 
 // ProvidePayloadAuditSink creates the sink, recovers any events from the Redis
-// shutdown buffer, enqueues them, starts the worker pool, and triggers an
-// immediate partition-maintenance run to ensure the current month's partition
-// exists before the first INSERT.
+// shutdown buffer, enqueues them, and starts the worker pool.
+// ClickHouse partitions are created automatically (no pre-creation needed).
 func ProvidePayloadAuditSink(
 	repo PayloadAuditRepository,
 	svc *PayloadAuditService,
 	redisBuf *PayloadAuditRedisBuffer,
-	partMaint *PayloadAuditPartitionMaintainer,
 	tokenFn SinkTokenFn,
 ) *PayloadAuditSink {
 	snap := svc.Snapshot()
@@ -620,13 +617,6 @@ func ProvidePayloadAuditSink(
 	pm := RegisterPayloadAuditMetrics(nil, sink) // nil → prometheus.DefaultRegisterer
 	sink.SetPromMetrics(pm)
 
-	// Ensure current+next month partitions exist (non-blocking).
-	go func() {
-		if err := partMaint.RunOnce(context.Background(), 60*24*time.Hour); err != nil {
-			logger.LegacyPrintf("service.payload_audit", "Warning: startup partition create: %v", err)
-		}
-	}()
-
 	return sink
 }
 
@@ -636,26 +626,15 @@ type PayloadAuditCronService struct {
 }
 
 // ProvidePayloadAuditCronService sets up daily cron jobs:
-//   - 02:00 UTC: partition maintenance (60-day lookahead)
-//   - 03:00 UTC: old partition cleanup
+//   - 03:00 UTC: expired CH partition cleanup
 func ProvidePayloadAuditCronService(
-	partMaint *PayloadAuditPartitionMaintainer,
 	cleanup *PayloadAuditCleanup,
 ) *PayloadAuditCronService {
 	c := cron.New(cron.WithParser(
 		cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow),
 	))
 
-	// 02:00 UTC daily — partition maintenance
-	_, _ = c.AddFunc("0 2 * * *", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-		if err := partMaint.RunOnce(ctx, 60*24*time.Hour); err != nil {
-			logger.LegacyPrintf("service.payload_audit", "cron partition maintain error: %v", err)
-		}
-	})
-
-	// 03:00 UTC daily — partition cleanup
+	// 03:00 UTC daily — expired partition cleanup
 	_, _ = c.AddFunc("0 3 * * *", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()

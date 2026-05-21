@@ -1,9 +1,13 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"log/slog"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -142,16 +146,14 @@ var ProviderSet = wire.NewSet(
 	NewGeminiCliCodeAssistClient,
 	NewGeminiDriveClient,
 
-	// Payload audit
+	// Payload audit (ClickHouse)
+	ProvideClickHouse,
 	ProvidePayloadAuditWorkerID,
 	ProvideSinkTokenFn,
-	NewPayloadAuditRepo,
+	NewPayloadAuditCHRepo,
 	NewPayloadAuditSinkAdapter,
 	wire.Bind(new(service.PayloadAuditRepository), new(*PayloadAuditSinkAdapter)),
-	NewPayloadAuditCleanupAdapter,
-	wire.Bind(new(service.PayloadAuditCleanupRepo), new(*PayloadAuditCleanupAdapter)),
-	NewPayloadAuditPartitionMaintainerAdapter,
-	wire.Bind(new(service.PayloadAuditPartitionMaintainerRepo), new(*PayloadAuditPartitionMaintainerAdapter)),
+	wire.Bind(new(service.PayloadAuditCleanupRepo), new(*PayloadAuditCHRepo)),
 
 	ProvideEnt,
 	ProvideSQLDB,
@@ -173,6 +175,28 @@ func ProvideSinkTokenFn() service.SinkTokenFn {
 		}
 		return BatchToken(repoEvents)
 	}
+}
+
+// ProvideClickHouse opens a ClickHouse connection from the DSN in config.
+// If the DSN is empty the repo will still be created with a nil conn; callers
+// that need a working connection should check ClickHouseDSN at startup.
+func ProvideClickHouse(cfg *config.Config) (clickhouse.Conn, error) {
+	if cfg.ClickHouseDSN == "" {
+		slog.Warn("clickhouse_dsn is empty; payload audit writes will fail until configured")
+		return nil, nil
+	}
+	opts, err := clickhouse.ParseDSN(cfg.ClickHouseDSN)
+	if err != nil {
+		return nil, fmt.Errorf("parse clickhouse dsn: %w", err)
+	}
+	conn, err := clickhouse.Open(opts)
+	if err != nil {
+		return nil, fmt.Errorf("open clickhouse: %w", err)
+	}
+	if err := conn.Ping(context.Background()); err != nil {
+		slog.Warn("clickhouse ping failed at startup", "err", err)
+	}
+	return conn, nil
 }
 
 // ProvideEnt 为依赖注入提供 Ent 客户端。

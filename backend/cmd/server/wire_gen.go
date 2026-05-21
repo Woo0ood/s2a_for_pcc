@@ -237,21 +237,23 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	contentModerationHandler := admin.NewContentModerationHandler(contentModerationService)
 	paymentHandler := admin.NewPaymentHandler(paymentService, paymentConfigService)
 	affiliateHandler := admin.NewAffiliateHandler(affiliateService, adminService)
-	payloadAuditRepo := repository.NewPayloadAuditRepo(db)
-	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditRepo)
 	payloadAuditWorkerID := repository.ProvidePayloadAuditWorkerID(configConfig)
-	sinkTokenFn := repository.ProvideSinkTokenFn()
 	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID)
 	if err != nil {
 		return nil, err
 	}
+	conn, err := repository.ProvideClickHouse(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	payloadAuditCHRepo := repository.NewPayloadAuditCHRepo(conn)
+	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditCHRepo)
 	payloadAuditRedisBuffer := service.NewPayloadAuditRedisBuffer(redisClient)
-	payloadAuditPartitionMaintainerAdapter := repository.NewPayloadAuditPartitionMaintainerAdapter(payloadAuditRepo)
-	payloadAuditPartitionMaintainer := service.NewPayloadAuditPartitionMaintainer(payloadAuditPartitionMaintainerAdapter)
-	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, payloadAuditPartitionMaintainer, sinkTokenFn)
-	payloadAuditCleanupAdapter := repository.NewPayloadAuditCleanupAdapter(payloadAuditRepo)
-	payloadAuditCleanup := service.NewPayloadAuditCleanup(payloadAuditCleanupAdapter, payloadAuditService)
-	payloadAuditAdminHandler := admin.NewPayloadAuditAdminHandler(payloadAuditService, payloadAuditSink, payloadAuditCleanup, payloadAuditRepo)
+	sinkTokenFn := repository.ProvideSinkTokenFn()
+	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, sinkTokenFn)
+	payloadAuditCleanup := service.NewPayloadAuditCleanup(payloadAuditCHRepo, payloadAuditService)
+	payloadAuditAdminRepo := handler.ProvidePayloadAuditAdminRepo(payloadAuditCHRepo)
+	payloadAuditAdminHandler := admin.NewPayloadAuditAdminHandler(payloadAuditService, payloadAuditSink, payloadAuditCleanup, payloadAuditAdminRepo)
 	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, paymentHandler, affiliateHandler, payloadAuditAdminHandler)
 	usageRecordWorkerPool := service.NewUsageRecordWorkerPool(configConfig)
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)
@@ -263,7 +265,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	handlerPaymentHandler := handler.NewPaymentHandler(paymentService, paymentConfigService, channelService)
 	paymentWebhookHandler := handler.NewPaymentWebhookHandler(paymentService, registry)
 	availableChannelHandler := handler.NewAvailableChannelHandler(channelService, apiKeyService, settingService)
-	auditExportHandler := handler.ProvideAuditExportHandler(payloadAuditRepo)
+	auditExportRepo := handler.ProvideAuditExportRepo(payloadAuditCHRepo)
+	auditExportHandler := handler.ProvideAuditExportHandler(auditExportRepo)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
 	handlers := handler.ProvideHandlers(authHandler, userHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, auditExportHandler, idempotencyCoordinator, idempotencyCleanupService)
@@ -283,7 +286,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	payloadAuditCronService := service.ProvidePayloadAuditCronService(payloadAuditPartitionMaintainer, payloadAuditCleanup)
+	payloadAuditCronService := service.ProvidePayloadAuditCronService(payloadAuditCleanup)
 	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, payloadAuditSink, payloadAuditRedisBuffer, payloadAuditCronService)
 	application := &Application{
 		Server:  httpServer,

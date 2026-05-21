@@ -51,9 +51,6 @@ type IdempotencyRecord func(*sql.Selector)
 // IdentityAdoptionDecision is the predicate function for identityadoptiondecision builders.
 type IdentityAdoptionDecision func(*sql.Selector)
 
-// PayloadAuditLog is the predicate function for payloadauditlog builders.
-type PayloadAuditLog func(*sql.Selector)
-
 // PaymentAuditLog is the predicate function for paymentauditlog builders.
 type PaymentAuditLog func(*sql.Selector)
 

@@ -8,12 +8,12 @@ import (
 
 // PayloadAuditSinkAdapter implements service.PayloadAuditRepository.
 // It converts service.PayloadAuditEvent → repository.PayloadAuditEvent
-// and delegates to the real PayloadAuditRepo.BatchInsert.
+// and delegates to the ClickHouse repo.
 type PayloadAuditSinkAdapter struct {
-	repo *PayloadAuditRepo
+	repo *PayloadAuditCHRepo
 }
 
-func NewPayloadAuditSinkAdapter(repo *PayloadAuditRepo) *PayloadAuditSinkAdapter {
+func NewPayloadAuditSinkAdapter(repo *PayloadAuditCHRepo) *PayloadAuditSinkAdapter {
 	return &PayloadAuditSinkAdapter{repo: repo}
 }
 
