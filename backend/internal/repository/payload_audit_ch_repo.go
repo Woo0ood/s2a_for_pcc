@@ -309,5 +309,8 @@ func (r *PayloadAuditCHRepo) EnsureSchema(ctx context.Context, retentionDays int
 }
 
 func (r *PayloadAuditCHRepo) Ping(ctx context.Context) error {
+	if r.conn == nil {
+		return errors.New("payload_audit ch: conn is nil (CLICKHOUSE_DSN not configured)")
+	}
 	return r.conn.Ping(ctx)
 }

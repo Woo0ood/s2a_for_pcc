@@ -357,31 +357,28 @@ func (h *PayloadAuditAdminHandler) ListPayloads(c *gin.Context) {
 		filter.Limit = 500
 	}
 
+	includeBody := strings.TrimSpace(c.DefaultQuery("include_body", includeBodyExcerpt))
+	switch includeBody {
+	case includeBodyNone, includeBodyExcerpt, "":
+		// repo skips body columns (default)
+	case includeBodyFull:
+		filter.IncludeBody = true
+	default:
+		response.BadRequest(c, "Invalid include_body: must be none, excerpt, or full")
+		return
+	}
+
 	rows, nextCursor, err := h.repo.List(c.Request.Context(), filter)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	includeBody := strings.TrimSpace(c.DefaultQuery("include_body", includeBodyExcerpt))
-	switch includeBody {
-	case includeBodyNone:
+	if includeBody == includeBodyNone {
 		for _, r := range rows {
 			r.InputExcerpt = ""
 			r.OutputExcerpt = ""
-			r.InputBody = ""
-			r.OutputBody = ""
 		}
-	case includeBodyExcerpt, "":
-		for _, r := range rows {
-			r.InputBody = ""
-			r.OutputBody = ""
-		}
-	case includeBodyFull:
-		// return as-is
-	default:
-		response.BadRequest(c, "Invalid include_body: must be none, excerpt, or full")
-		return
 	}
 
 	var nextCursorStr string
