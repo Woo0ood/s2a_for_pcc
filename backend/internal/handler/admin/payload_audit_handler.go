@@ -234,6 +234,27 @@ func (h *PayloadAuditAdminHandler) GetStatus(c *gin.Context) {
 	})
 }
 
+// --------------- payloadAuditRowResponse ---------------
+
+// payloadAuditRowResponse wraps PayloadAuditRow so that the ID field is
+// serialised as a JSON string (avoiding precision loss in JS Number).
+type payloadAuditRowResponse struct {
+	ID int64 `json:"ID,string"`
+	repository.PayloadAuditEvent
+}
+
+func toRowResponse(r *repository.PayloadAuditRow) payloadAuditRowResponse {
+	return payloadAuditRowResponse{ID: r.ID, PayloadAuditEvent: r.PayloadAuditEvent}
+}
+
+func toRowResponseSlice(rows []*repository.PayloadAuditRow) []payloadAuditRowResponse {
+	out := make([]payloadAuditRowResponse, len(rows))
+	for i, r := range rows {
+		out[i] = toRowResponse(r)
+	}
+	return out
+}
+
 // --------------- ListPayloads ---------------
 
 const (
@@ -369,7 +390,7 @@ func (h *PayloadAuditAdminHandler) ListPayloads(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"data":        rows,
+		"data":        toRowResponseSlice(rows),
 		"next_cursor": nextCursorStr,
 	})
 }
@@ -386,14 +407,15 @@ func (h *PayloadAuditAdminHandler) GetPayload(c *gin.Context) {
 		return
 	}
 
-	var createdAt time.Time
-	if v := strings.TrimSpace(c.Query("created_at")); v != "" {
-		t, err := parsePayloadAuditTime(v)
-		if err != nil {
-			response.BadRequest(c, "Invalid created_at: "+err.Error())
-			return
-		}
-		createdAt = t
+	createdAtStr := strings.TrimSpace(c.Query("created_at"))
+	if createdAtStr == "" {
+		response.BadRequest(c, "created_at query parameter is required")
+		return
+	}
+	createdAt, err := parsePayloadAuditTime(createdAtStr)
+	if err != nil {
+		response.BadRequest(c, "Invalid created_at: "+err.Error())
+		return
 	}
 
 	row, err := h.repo.Get(c.Request.Context(), id, createdAt)
@@ -405,7 +427,7 @@ func (h *PayloadAuditAdminHandler) GetPayload(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "Payload not found")
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, toRowResponse(row))
 }
 
 // --------------- ListExportKeys ---------------

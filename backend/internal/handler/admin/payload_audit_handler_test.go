@@ -109,7 +109,7 @@ func buildTestPayloadAuditHandler(
 		"payload_audit_enabled": enabledStr,
 		"payload_audit_config":  cfgJSON,
 	}}
-	svc, _ := service.ProvidePayloadAuditService(settings, nil, 0)
+	svc, _ := service.ProvidePayloadAuditService(settings, nil, 0, nil)
 
 	sink := service.NewPayloadAuditSink(nil, service.SinkConfig{
 		WorkerCount: 4, QueueSize: 1024, QueueMaxBytes: 1 << 20,
@@ -311,6 +311,7 @@ func TestPayloadAuditAdmin_ListPayloads_Default(t *testing.T) {
 	data := unmarshalData(t, w)
 	var resp struct {
 		Data []struct {
+			ID            string `json:"ID"`
 			InputExcerpt  string `json:"InputExcerpt"`
 			OutputExcerpt string `json:"OutputExcerpt"`
 			InputBody     string `json:"InputBody"`
@@ -320,6 +321,10 @@ func TestPayloadAuditAdmin_ListPayloads_Default(t *testing.T) {
 	_ = json.Unmarshal(data, &resp)
 	if len(resp.Data) != 1 {
 		t.Fatalf("data len=%d, want 1", len(resp.Data))
+	}
+	// ID should be serialised as a JSON string.
+	if resp.Data[0].ID != "1" {
+		t.Errorf("ID=%q, want '1' (string)", resp.Data[0].ID)
 	}
 	// Default include_body=excerpt: body fields should be empty, excerpts preserved.
 	if resp.Data[0].InputExcerpt != "hello" {
@@ -441,19 +446,20 @@ func TestPayloadAuditAdmin_GetPayload(t *testing.T) {
 	h := buildTestPayloadAuditHandler("true", `{"retention_days":90,"batch_size":50,"batch_flush_ms":100}`, repo)
 	r := newPayloadAuditTestRouter(h)
 
-	w := doRequest(r, http.MethodGet, "/payload-audit/payloads/42", nil)
+	createdAt := now.Format(time.RFC3339Nano)
+	w := doRequest(r, http.MethodGet, "/payload-audit/payloads/42?created_at="+createdAt, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status=%d, want 200, body: %s", w.Code, w.Body.String())
 	}
 
 	data := unmarshalData(t, w)
 	var row struct {
-		ID        int64  `json:"ID"`
+		ID        string `json:"ID"`
 		InputBody string `json:"InputBody"`
 	}
 	_ = json.Unmarshal(data, &row)
-	if row.ID != 42 {
-		t.Errorf("ID=%d, want 42", row.ID)
+	if row.ID != "42" {
+		t.Errorf("ID=%q, want '42' (string)", row.ID)
 	}
 }
 
@@ -465,9 +471,20 @@ func TestPayloadAuditAdmin_GetPayload_NotFound(t *testing.T) {
 	h := buildTestPayloadAuditHandler("true", `{"retention_days":90,"batch_size":50,"batch_flush_ms":100}`, repo)
 	r := newPayloadAuditTestRouter(h)
 
-	w := doRequest(r, http.MethodGet, "/payload-audit/payloads/999", nil)
+	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
+	w := doRequest(r, http.MethodGet, "/payload-audit/payloads/999?created_at="+createdAt, nil)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status=%d, want 404, body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPayloadAuditAdmin_GetPayload_MissingCreatedAt(t *testing.T) {
+	h := buildTestPayloadAuditHandler("true", `{"retention_days":90,"batch_size":50,"batch_flush_ms":100}`, &mockPayloadAuditRepo{})
+	r := newPayloadAuditTestRouter(h)
+
+	w := doRequest(r, http.MethodGet, "/payload-audit/payloads/42", nil)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d, want 400 for missing created_at, body: %s", w.Code, w.Body.String())
 	}
 }
 
