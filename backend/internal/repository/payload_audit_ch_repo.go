@@ -2,7 +2,10 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -222,4 +225,80 @@ func scanCHRow(rows interface {
 		row.GroupID = &groupID
 	}
 	return &row, nil
+}
+
+var ErrCreatedAtRequired = errors.New("payload_audit ch: created_at is required for Get")
+
+func (r *PayloadAuditCHRepo) Get(ctx context.Context, id int64, createdAt time.Time) (*PayloadAuditRow, error) {
+	if createdAt.IsZero() {
+		return nil, ErrCreatedAtRequired
+	}
+	query := fmt.Sprintf(
+		"SELECT %s FROM %s WHERE id = ? AND toUnixTimestamp64Milli(created_at) = ? LIMIT 1",
+		payloadAuditFullCols, r.table,
+	)
+	rows, err := r.conn.Query(ctx, query, id, createdAt.UnixMilli())
+	if err != nil {
+		return nil, fmt.Errorf("payload_audit ch get: %w", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, sql.ErrNoRows
+	}
+	return scanCHRow(rows, true)
+}
+
+func (r *PayloadAuditCHRepo) AlterTTL(ctx context.Context, retentionDays int) error {
+	if retentionDays < 1 {
+		retentionDays = 180
+	}
+	q := fmt.Sprintf("ALTER TABLE %s MODIFY TTL created_at + INTERVAL %d DAY", r.table, retentionDays)
+	if err := r.conn.Exec(ctx, q); err != nil {
+		return fmt.Errorf("payload_audit ch alter ttl: %w", err)
+	}
+	return nil
+}
+
+// DropExpiredMonthlyPartitions drops every fully-expired month partition (partition < toYYYYMM(cutoff))
+// and returns the list of dropped partition ids.
+func (r *PayloadAuditCHRepo) DropExpiredMonthlyPartitions(ctx context.Context, cutoff time.Time) ([]string, error) {
+	cutoffMonth := uint32(cutoff.Year()*100 + int(cutoff.Month()))
+	// Query distinct YYYYMM months from the table itself (avoids needing system.parts privilege).
+	q := fmt.Sprintf(
+		"SELECT DISTINCT toYYYYMM(created_at) AS m FROM %s WHERE toYYYYMM(created_at) < %d ORDER BY m",
+		r.table, cutoffMonth,
+	)
+	rows, err := r.conn.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("payload_audit ch list expired partitions: %w", err)
+	}
+	defer rows.Close()
+	var parts []string
+	for rows.Next() {
+		var m uint32
+		if err := rows.Scan(&m); err != nil {
+			return nil, err
+		}
+		parts = append(parts, fmt.Sprintf("%d", m))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	dropped := make([]string, 0, len(parts))
+	for _, p := range parts {
+		dq := fmt.Sprintf("ALTER TABLE %s DROP PARTITION %s", r.table, p)
+		if err := r.conn.Exec(ctx, dq); err != nil {
+			slog.Error("payload_audit ch drop partition fail", "partition", p, "err", err)
+			continue
+		}
+		dropped = append(dropped, p)
+	}
+	return dropped, nil
+}
+
+func (r *PayloadAuditCHRepo) Ping(ctx context.Context) error {
+	return r.conn.Ping(ctx)
 }

@@ -194,3 +194,77 @@ func TestCHRepoListKeyword(t *testing.T) {
 		t.Fatalf("keyword match failed: %v", rows)
 	}
 }
+
+func TestCHRepoGet(t *testing.T) {
+	conn := testCHConn(t)
+	table := tempTableName(t)
+	t.Cleanup(func() { _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS "+table) })
+	_ = EnsureSchema(context.Background(), conn, table, 30)
+	repo := NewPayloadAuditCHRepoWithTable(conn, table)
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	_ = repo.BatchInsertWithToken(context.Background(),
+		[]*PayloadAuditEvent{{ID: 555, CreatedAt: now, RequestID: "r5", InputBody: "FULL"}}, "g")
+
+	row, err := repo.Get(context.Background(), 555, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.InputBody != "FULL" {
+		t.Fatalf("body missing: %q", row.InputBody)
+	}
+}
+
+func TestCHRepoGetRequiresCreatedAt(t *testing.T) {
+	conn := testCHConn(t)
+	repo := NewPayloadAuditCHRepoWithTable(conn, "irrelevant")
+	if _, err := repo.Get(context.Background(), 1, time.Time{}); err == nil {
+		t.Fatal("want error when createdAt is zero")
+	}
+}
+
+func TestCHRepoAlterTTL(t *testing.T) {
+	conn := testCHConn(t)
+	table := tempTableName(t)
+	t.Cleanup(func() { _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS "+table) })
+	_ = EnsureSchema(context.Background(), conn, table, 30)
+	repo := NewPayloadAuditCHRepoWithTable(conn, table)
+	if err := repo.AlterTTL(context.Background(), 90); err != nil {
+		t.Fatal(err)
+	}
+	var ef string
+	_ = conn.QueryRow(context.Background(),
+		"SELECT engine_full FROM system.tables WHERE database = currentDatabase() AND name = ?", table).Scan(&ef)
+	// ClickHouse may report TTL as "INTERVAL 90 DAY" or "toIntervalDay(90)".
+	if !contains(ef, "90") {
+		t.Fatalf("want TTL with 90 days, got: %s", ef)
+	}
+}
+
+func TestCHRepoDropExpiredPartitions(t *testing.T) {
+	conn := testCHConn(t)
+	table := tempTableName(t)
+	t.Cleanup(func() { _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS "+table) })
+	// Use a very long TTL so the old row is not auto-expired by MergeTree TTL.
+	_ = EnsureSchema(context.Background(), conn, table, 3650)
+	repo := NewPayloadAuditCHRepoWithTable(conn, table)
+
+	old := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
+	_ = repo.BatchInsertWithToken(context.Background(), []*PayloadAuditEvent{
+		{ID: 1, CreatedAt: old},
+		{ID: 2, CreatedAt: now},
+	}, "drop-test")
+
+	dropped, err := repo.DropExpiredMonthlyPartitions(context.Background(), now.AddDate(0, -1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dropped) == 0 || dropped[0] != "202401" {
+		t.Fatalf("expected partition 202401 dropped, got %v", dropped)
+	}
+	var count uint64
+	_ = conn.QueryRow(context.Background(), "SELECT count() FROM "+table+" WHERE id = 1").Scan(&count)
+	if count != 0 {
+		t.Fatalf("old row not dropped")
+	}
+}
