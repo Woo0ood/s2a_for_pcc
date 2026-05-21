@@ -154,6 +154,9 @@ var ProviderSet = wire.NewSet(
 	NewPayloadAuditSinkAdapter,
 	wire.Bind(new(service.PayloadAuditRepository), new(*PayloadAuditSinkAdapter)),
 	wire.Bind(new(service.PayloadAuditCleanupRepo), new(*PayloadAuditCHRepo)),
+	wire.Bind(new(service.PayloadAuditTTLSyncer), new(*PayloadAuditCHRepo)),
+	wire.Bind(new(service.PayloadAuditSchemaEnsurer), new(*PayloadAuditCHRepo)),
+	wire.Bind(new(service.CHPinger), new(*PayloadAuditCHRepo)),
 
 	ProvideEnt,
 	ProvideSQLDB,

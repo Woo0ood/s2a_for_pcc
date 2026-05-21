@@ -587,6 +587,8 @@ func ProvidePayloadAuditSink(
 	svc *PayloadAuditService,
 	redisBuf *PayloadAuditRedisBuffer,
 	tokenFn SinkTokenFn,
+	schemaEnsurer PayloadAuditSchemaEnsurer,
+	pinger CHPinger,
 ) *PayloadAuditSink {
 	snap := svc.Snapshot()
 	cfg := SinkConfig{
@@ -600,6 +602,19 @@ func ProvidePayloadAuditSink(
 	sink := NewPayloadAuditSink(repo, cfg)
 
 	ctx := context.Background()
+
+	// Ensure ClickHouse schema exists with the current retention setting.
+	if schemaEnsurer != nil {
+		retention := 180
+		if snap != nil && snap.RetentionDays > 0 {
+			retention = snap.RetentionDays
+		}
+		ensureCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		if err := schemaEnsurer.EnsureSchema(ensureCtx, retention); err != nil {
+			logger.LegacyPrintf("service.payload_audit", "Warning: ensure clickhouse schema: %v", err)
+		}
+		cancel()
+	}
 
 	// Recover events buffered to Redis during previous shutdown.
 	recovered, err := redisBuf.Recover(ctx)
@@ -616,6 +631,9 @@ func ProvidePayloadAuditSink(
 	// Register Prometheus metrics for the payload audit subsystem.
 	pm := RegisterPayloadAuditMetrics(nil, sink) // nil → prometheus.DefaultRegisterer
 	sink.SetPromMetrics(pm)
+
+	// Start ClickHouse health-check loop (updates payload_audit_clickhouse_up gauge).
+	StartCHHealthLoop(ctx, pinger, pm)
 
 	return sink
 }

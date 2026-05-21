@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +24,12 @@ const (
 	exportKeyLastUsedTTL          = 7 * 24 * time.Hour
 )
 
+// PayloadAuditTTLSyncer is called when RetentionDays changes so the
+// underlying storage can adjust its TTL (e.g. ALTER TABLE … MODIFY TTL).
+type PayloadAuditTTLSyncer interface {
+	AlterTTL(ctx context.Context, retentionDays int) error
+}
+
 // PayloadAuditWorkerID is a named int64 used by Wire to disambiguate the
 // snowflake worker-id parameter from other int64 values.
 type PayloadAuditWorkerID int64
@@ -36,22 +43,23 @@ type payloadAuditSettingsRepo interface {
 // PayloadAuditService manages payload audit configuration lifecycle,
 // including hot-reload of ConfigSnapshot and export key CRUD.
 type PayloadAuditService struct {
-	settings payloadAuditSettingsRepo
-	rdb      *redis.Client
-	idgen    *snowflake.Generator
-	snap     atomic.Pointer[ConfigSnapshot]
-	gen      atomic.Uint64
-	cfgMu    sync.Mutex // serialises read-modify-write of payload_audit_config
+	settings  payloadAuditSettingsRepo
+	rdb       *redis.Client
+	idgen     *snowflake.Generator
+	ttlSyncer PayloadAuditTTLSyncer
+	snap      atomic.Pointer[ConfigSnapshot]
+	gen       atomic.Uint64
+	cfgMu     sync.Mutex // serialises read-modify-write of payload_audit_config
 }
 
 // ProvidePayloadAuditService loads settings and builds the initial snapshot.
 // On load failure, an empty disabled snapshot is installed so the service can start.
-func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client, workerID PayloadAuditWorkerID) (*PayloadAuditService, error) {
+func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client, workerID PayloadAuditWorkerID, ttlSyncer PayloadAuditTTLSyncer) (*PayloadAuditService, error) {
 	gen, err := snowflake.New(int64(workerID))
 	if err != nil {
 		return nil, fmt.Errorf("payload audit snowflake init: %w", err)
 	}
-	s := &PayloadAuditService{settings: settings, rdb: rdb, idgen: gen}
+	s := &PayloadAuditService{settings: settings, rdb: rdb, idgen: gen, ttlSyncer: ttlSyncer}
 	if err := s.LoadFromSettings(context.Background()); err != nil {
 		s.snap.Store(buildSnapshot(false, &PayloadAuditConfig{}, 0))
 		return s, nil
@@ -111,6 +119,14 @@ func (s *PayloadAuditService) UpdateConfig(ctx context.Context, enabled bool, cf
 		return false, err
 	}
 	s.snap.Store(buildSnapshot(enabled, &cfg, s.gen.Add(1)))
+
+	// Sync TTL to ClickHouse when retention_days changes (non-blocking).
+	if s.ttlSyncer != nil && old != nil && old.RetentionDays != cfg.RetentionDays {
+		if err := s.ttlSyncer.AlterTTL(ctx, cfg.RetentionDays); err != nil {
+			slog.Error("payload_audit.alter_ttl_fail", "err", err)
+		}
+	}
+
 	return needRebuildSink, nil
 }
 

@@ -26,7 +26,7 @@ func (r *fakeCleanupRepo) DropExpiredMonthlyPartitions(_ context.Context, _ time
 func newTestCleanupService(t *testing.T, retentionDays int) *PayloadAuditService {
 	t.Helper()
 	repo := newMockSettingsRepo()
-	svc, err := ProvidePayloadAuditService(repo, nil, 0)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0, nil)
 	if err != nil {
 		t.Fatalf("ProvidePayloadAuditService: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestCleanup_RepoError(t *testing.T) {
 func TestCleanup_DefaultRetention(t *testing.T) {
 	// When no retention is configured, default to 180 days.
 	repo := newMockSettingsRepo()
-	svc, err := ProvidePayloadAuditService(repo, nil, 0)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0, nil)
 	if err != nil {
 		t.Fatalf("ProvidePayloadAuditService: %v", err)
 	}

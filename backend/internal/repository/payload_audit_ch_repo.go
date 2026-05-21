@@ -299,6 +299,15 @@ func (r *PayloadAuditCHRepo) DropExpiredMonthlyPartitions(ctx context.Context, c
 	return dropped, nil
 }
 
+// EnsureSchema delegates to the standalone EnsureSchema function using the
+// repo's connection and the production table name.
+func (r *PayloadAuditCHRepo) EnsureSchema(ctx context.Context, retentionDays int) error {
+	if r.conn == nil {
+		return nil
+	}
+	return EnsureSchema(ctx, r.conn, "payload_audit_logs", retentionDays)
+}
+
 func (r *PayloadAuditCHRepo) Ping(ctx context.Context) error {
 	return r.conn.Ping(ctx)
 }

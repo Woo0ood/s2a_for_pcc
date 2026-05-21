@@ -28,6 +28,8 @@ type PayloadAuditMetrics struct {
 	ExportRequests *prometheus.CounterVec // payload_audit_export_request_total{key_name,status}
 	ExportRows     prometheus.Histogram   // payload_audit_export_rows_returned
 
+	CHUp prometheus.Gauge // payload_audit_clickhouse_up (1 = healthy, 0 = down)
+
 	// collectors keeps references so we can unregister in tests if needed.
 	collectors []prometheus.Collector
 }
@@ -126,6 +128,11 @@ func RegisterPayloadAuditMetrics(reg prometheus.Registerer, sink *PayloadAuditSi
 		Buckets:   prometheus.ExponentialBuckets(1, 4, 8), // 1, 4, 16, 64, 256, 1024, 4096, 16384
 	})
 
+	m.CHUp = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "payload_audit_clickhouse_up",
+		Help: "1 if the payload audit ClickHouse connection is healthy, 0 otherwise",
+	})
+
 	// ---------------------------------------------------------------
 	// 3. Register all
 	// ---------------------------------------------------------------
@@ -141,6 +148,7 @@ func RegisterPayloadAuditMetrics(reg prometheus.Registerer, sink *PayloadAuditSi
 		m.CleanupDuration,
 		m.ExportRequests,
 		m.ExportRows,
+		m.CHUp,
 	}
 
 	all := make([]prometheus.Collector, 0, 1+len(eventCollectors))

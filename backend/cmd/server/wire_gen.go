@@ -238,19 +238,19 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentHandler := admin.NewPaymentHandler(paymentService, paymentConfigService)
 	affiliateHandler := admin.NewAffiliateHandler(affiliateService, adminService)
 	payloadAuditWorkerID := repository.ProvidePayloadAuditWorkerID(configConfig)
-	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID)
+	v, err := repository.ProvideClickHouse(configConfig)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := repository.ProvideClickHouse(configConfig)
+	payloadAuditCHRepo := repository.NewPayloadAuditCHRepo(v)
+	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID, payloadAuditCHRepo)
 	if err != nil {
 		return nil, err
 	}
-	payloadAuditCHRepo := repository.NewPayloadAuditCHRepo(conn)
 	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditCHRepo)
 	payloadAuditRedisBuffer := service.NewPayloadAuditRedisBuffer(redisClient)
 	sinkTokenFn := repository.ProvideSinkTokenFn()
-	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, sinkTokenFn)
+	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, sinkTokenFn, payloadAuditCHRepo, payloadAuditCHRepo)
 	payloadAuditCleanup := service.NewPayloadAuditCleanup(payloadAuditCHRepo, payloadAuditService)
 	payloadAuditAdminRepo := handler.ProvidePayloadAuditAdminRepo(payloadAuditCHRepo)
 	payloadAuditAdminHandler := admin.NewPayloadAuditAdminHandler(payloadAuditService, payloadAuditSink, payloadAuditCleanup, payloadAuditAdminRepo)
@@ -287,10 +287,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
 	payloadAuditCronService := service.ProvidePayloadAuditCronService(payloadAuditCleanup)
-	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, payloadAuditSink, payloadAuditRedisBuffer, payloadAuditCronService)
+	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, payloadAuditSink, payloadAuditRedisBuffer, payloadAuditCronService)
 	application := &Application{
 		Server:  httpServer,
-		Cleanup: v,
+		Cleanup: v2,
 	}
 	return application, nil
 }
