@@ -18,6 +18,10 @@ func NewPayloadAuditSinkAdapter(repo *PayloadAuditRepo) *PayloadAuditSinkAdapter
 }
 
 func (a *PayloadAuditSinkAdapter) BatchInsert(ctx context.Context, events []*service.PayloadAuditEvent) error {
+	return a.BatchInsertWithToken(ctx, events, "")
+}
+
+func (a *PayloadAuditSinkAdapter) BatchInsertWithToken(ctx context.Context, events []*service.PayloadAuditEvent, token string) error {
 	repoEvents := make([]*PayloadAuditEvent, len(events))
 	for i, e := range events {
 		repoEvents[i] = &PayloadAuditEvent{
@@ -52,5 +56,5 @@ func (a *PayloadAuditSinkAdapter) BatchInsert(ctx context.Context, events []*ser
 			ErrorMessage:    e.ErrorMessage,
 		}
 	}
-	return a.repo.BatchInsert(ctx, repoEvents)
+	return a.repo.BatchInsertWithToken(ctx, repoEvents, token)
 }

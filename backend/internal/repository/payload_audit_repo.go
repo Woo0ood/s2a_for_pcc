@@ -111,6 +111,13 @@ type PayloadAuditRepo struct{ db *sql.DB }
 
 func NewPayloadAuditRepo(db *sql.DB) *PayloadAuditRepo { return &PayloadAuditRepo{db: db} }
 
+// BatchInsertWithToken inserts events, ignoring the dedup token (PG does not
+// support ClickHouse-style insert dedup). This stub satisfies the interface;
+// the PG repo will be removed in Task 13.
+func (r *PayloadAuditRepo) BatchInsertWithToken(ctx context.Context, events []*PayloadAuditEvent, _ string) error {
+	return r.BatchInsert(ctx, events)
+}
+
 // BatchInsert inserts events in a single multi-value INSERT within a transaction.
 func (r *PayloadAuditRepo) BatchInsert(ctx context.Context, events []*PayloadAuditEvent) error {
 	if len(events) == 0 {

@@ -92,3 +92,7 @@ type noopBenchRepo struct{}
 func (r *noopBenchRepo) BatchInsert(_ context.Context, _ []*PayloadAuditEvent) error {
 	return nil
 }
+
+func (r *noopBenchRepo) BatchInsertWithToken(_ context.Context, _ []*PayloadAuditEvent, _ string) error {
+	return nil
+}

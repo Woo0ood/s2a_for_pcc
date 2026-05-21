@@ -40,6 +40,10 @@ type fakeRepo struct {
 }
 
 func (r *fakeRepo) BatchInsert(_ context.Context, events []*PayloadAuditEvent) error {
+	return r.BatchInsertWithToken(nil, events, "")
+}
+
+func (r *fakeRepo) BatchInsertWithToken(_ context.Context, events []*PayloadAuditEvent, _ string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.batches = append(r.batches, len(events))
@@ -71,7 +75,11 @@ func (r *fakeRepo) TotalInserted() int {
 // alwaysPanicRepo always panics on BatchInsert.
 type alwaysPanicRepo struct{}
 
-func (r *alwaysPanicRepo) BatchInsert(_ context.Context, _ []*PayloadAuditEvent) error {
+func (r *alwaysPanicRepo) BatchInsert(_ context.Context, events []*PayloadAuditEvent) error {
+	return r.BatchInsertWithToken(nil, events, "")
+}
+
+func (r *alwaysPanicRepo) BatchInsertWithToken(_ context.Context, _ []*PayloadAuditEvent, _ string) error {
 	panic("always panic")
 }
 
@@ -83,6 +91,10 @@ type panickyRepo struct {
 }
 
 func (r *panickyRepo) BatchInsert(_ context.Context, events []*PayloadAuditEvent) error {
+	return r.BatchInsertWithToken(nil, events, "")
+}
+
+func (r *panickyRepo) BatchInsertWithToken(_ context.Context, events []*PayloadAuditEvent, _ string) error {
 	n := r.calls.Add(1)
 	if n < r.successAt {
 		panic("intentional test panic")

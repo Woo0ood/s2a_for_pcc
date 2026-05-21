@@ -240,6 +240,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	payloadAuditRepo := repository.NewPayloadAuditRepo(db)
 	payloadAuditSinkAdapter := repository.NewPayloadAuditSinkAdapter(payloadAuditRepo)
 	payloadAuditWorkerID := repository.ProvidePayloadAuditWorkerID(configConfig)
+	sinkTokenFn := repository.ProvideSinkTokenFn()
 	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID)
 	if err != nil {
 		return nil, err
@@ -247,7 +248,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	payloadAuditRedisBuffer := service.NewPayloadAuditRedisBuffer(redisClient)
 	payloadAuditPartitionMaintainerAdapter := repository.NewPayloadAuditPartitionMaintainerAdapter(payloadAuditRepo)
 	payloadAuditPartitionMaintainer := service.NewPayloadAuditPartitionMaintainer(payloadAuditPartitionMaintainerAdapter)
-	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, payloadAuditPartitionMaintainer)
+	payloadAuditSink := service.ProvidePayloadAuditSink(payloadAuditSinkAdapter, payloadAuditService, payloadAuditRedisBuffer, payloadAuditPartitionMaintainer, sinkTokenFn)
 	payloadAuditCleanupAdapter := repository.NewPayloadAuditCleanupAdapter(payloadAuditRepo)
 	payloadAuditCleanup := service.NewPayloadAuditCleanup(payloadAuditCleanupAdapter, payloadAuditService)
 	payloadAuditAdminHandler := admin.NewPayloadAuditAdminHandler(payloadAuditService, payloadAuditSink, payloadAuditCleanup, payloadAuditRepo)

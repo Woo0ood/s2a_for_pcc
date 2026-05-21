@@ -144,6 +144,7 @@ var ProviderSet = wire.NewSet(
 
 	// Payload audit
 	ProvidePayloadAuditWorkerID,
+	ProvideSinkTokenFn,
 	NewPayloadAuditRepo,
 	NewPayloadAuditSinkAdapter,
 	wire.Bind(new(service.PayloadAuditRepository), new(*PayloadAuditSinkAdapter)),
@@ -160,6 +161,18 @@ var ProviderSet = wire.NewSet(
 // ProvidePayloadAuditWorkerID extracts the snowflake worker ID from config.
 func ProvidePayloadAuditWorkerID(cfg *config.Config) service.PayloadAuditWorkerID {
 	return service.PayloadAuditWorkerID(cfg.PayloadAuditWorkerID)
+}
+
+// ProvideSinkTokenFn returns a SinkTokenFn that bridges service-layer events
+// to repository.BatchToken (which only reads event IDs).
+func ProvideSinkTokenFn() service.SinkTokenFn {
+	return func(events []*service.PayloadAuditEvent) string {
+		repoEvents := make([]*PayloadAuditEvent, len(events))
+		for i, e := range events {
+			repoEvents[i] = &PayloadAuditEvent{ID: e.ID}
+		}
+		return BatchToken(repoEvents)
+	}
 }
 
 // ProvideEnt 为依赖注入提供 Ent 客户端。

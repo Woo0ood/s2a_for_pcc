@@ -10,18 +10,28 @@ import (
 
 // PayloadAuditRepository is the interface the sink uses to persist events.
 // The wire layer provides an adapter that converts service.PayloadAuditEvent →
-// repository.PayloadAuditEvent and delegates to repository.PayloadAuditRepo.BatchInsert.
+// repository.PayloadAuditEvent and delegates to the real repo.
 type PayloadAuditRepository interface {
 	BatchInsert(ctx context.Context, events []*PayloadAuditEvent) error
+	BatchInsertWithToken(ctx context.Context, events []*PayloadAuditEvent, dedupToken string) error
 }
+
+// SinkTokenFn derives a dedup token from a batch of events.
+// Injected by the wire layer; wraps repository.BatchToken.
+type SinkTokenFn func([]*PayloadAuditEvent) string
 
 // SinkConfig controls the behaviour of PayloadAuditSink.
 type SinkConfig struct {
-	WorkerCount   int   // number of consumer goroutines (default 4)
+	WorkerCount   int   // number of consumer goroutines (default 2)
 	QueueSize     int   // channel capacity — count-based bound (default 32768)
 	QueueMaxBytes int64 // total byte budget across all queued events (default 1 GiB)
-	BatchSize     int   // max events per batch INSERT (default 100)
-	BatchFlushMs  int   // max ms before a partial batch is flushed (default 200)
+	BatchSize     int   // max events per batch INSERT (default 2000)
+	BatchFlushMs  int   // max ms before a partial batch is flushed (default 2000)
+
+	// TokenFn derives a dedup token from a batch of events.
+	// The returned string is passed to BatchInsertWithToken; an empty string
+	// means "no dedup". Set by the wire layer to repository.BatchToken.
+	TokenFn func([]*PayloadAuditEvent) string
 }
 
 // SinkMetrics exposes live counters for observability.
@@ -78,7 +88,7 @@ func eventSize(e *PayloadAuditEvent) int64 {
 // NewPayloadAuditSink creates a new sink. Call Start to launch workers.
 func NewPayloadAuditSink(repo PayloadAuditRepository, cfg SinkConfig) *PayloadAuditSink {
 	if cfg.WorkerCount <= 0 {
-		cfg.WorkerCount = 4
+		cfg.WorkerCount = 2
 	}
 	if cfg.QueueSize <= 0 {
 		cfg.QueueSize = 32768
@@ -87,10 +97,13 @@ func NewPayloadAuditSink(repo PayloadAuditRepository, cfg SinkConfig) *PayloadAu
 		cfg.QueueMaxBytes = 1 << 30 // 1 GiB
 	}
 	if cfg.BatchSize <= 0 {
-		cfg.BatchSize = 100
+		cfg.BatchSize = 2000
 	}
 	if cfg.BatchFlushMs <= 0 {
-		cfg.BatchFlushMs = 200
+		cfg.BatchFlushMs = 2000
+	}
+	if cfg.TokenFn == nil {
+		cfg.TokenFn = func([]*PayloadAuditEvent) string { return "" }
 	}
 	return &PayloadAuditSink{
 		repo:   repo,
@@ -168,11 +181,12 @@ func (s *PayloadAuditSink) workerLoop(ctx context.Context, id int) {
 		if len(batch) == 0 {
 			return
 		}
-		if err := s.flushBatch(ctx, batch); err != nil {
+		token := s.cfg.TokenFn(batch)
+		if err := s.flushBatch(ctx, batch, token); err != nil {
 			if ctx.Err() != nil {
 				// parent ctx cancelled (shutdown) — last-ditch attempt with background ctx
 				cctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				if err2 := s.repo.BatchInsert(cctx, batch); err2 != nil {
+				if err2 := s.repo.BatchInsertWithToken(cctx, batch, token); err2 != nil {
 					slog.Warn("payload_audit.batch_failed_on_shutdown", "n", len(batch), "err", err2)
 					s.metrics.BatchFailed.Add(int64(len(batch)))
 				} else {
@@ -182,7 +196,7 @@ func (s *PayloadAuditSink) workerLoop(ctx context.Context, id int) {
 			} else {
 				// retry once
 				time.Sleep(100 * time.Millisecond)
-				if err2 := s.flushBatch(ctx, batch); err2 != nil {
+				if err2 := s.flushBatch(ctx, batch, token); err2 != nil {
 					slog.Warn("payload_audit.batch_failed", "n", len(batch), "err", err2)
 					s.metrics.BatchFailed.Add(int64(len(batch)))
 				}
@@ -239,11 +253,11 @@ func (s *PayloadAuditSink) PromMetrics() *PayloadAuditMetrics {
 	return s.promMetrics
 }
 
-func (s *PayloadAuditSink) flushBatch(ctx context.Context, batch []*PayloadAuditEvent) error {
+func (s *PayloadAuditSink) flushBatch(ctx context.Context, batch []*PayloadAuditEvent, token string) error {
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	start := time.Now()
-	if err := s.repo.BatchInsert(cctx, batch); err != nil {
+	if err := s.repo.BatchInsertWithToken(cctx, batch, token); err != nil {
 		return err
 	}
 	s.metrics.BatchInserted.Add(int64(len(batch)))

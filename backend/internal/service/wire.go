@@ -589,6 +589,7 @@ func ProvidePayloadAuditSink(
 	svc *PayloadAuditService,
 	redisBuf *PayloadAuditRedisBuffer,
 	partMaint *PayloadAuditPartitionMaintainer,
+	tokenFn SinkTokenFn,
 ) *PayloadAuditSink {
 	snap := svc.Snapshot()
 	cfg := SinkConfig{
@@ -597,6 +598,7 @@ func ProvidePayloadAuditSink(
 		QueueMaxBytes: int64(snap.QueueMaxBytes),
 		BatchSize:     snap.BatchSize,
 		BatchFlushMs:  snap.BatchFlushMs,
+		TokenFn:       tokenFn,
 	}
 	sink := NewPayloadAuditSink(repo, cfg)
 
