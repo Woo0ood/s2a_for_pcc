@@ -44,6 +44,7 @@ type PayloadAuditListFilter struct {
 	Cursor                *PayloadAuditCursor
 	Limit                 int
 	KeywordILike          string
+	IncludeBody           bool
 }
 
 // PayloadAuditCursor is a keyset-pagination cursor serialised as base64(JSON).
