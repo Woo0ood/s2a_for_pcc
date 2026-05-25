@@ -9,6 +9,22 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
+// payloadAuditSchemaSQL 表 DDL。
+//
+// ClickHouse 版本要求：>= 26.x。
+// 该 DDL 让 DateTime64(3,'UTC') 直接出现在 PARTITION BY / TTL 表达式中。
+// CH 26 起放宽了 TTL 表达式类型校验，接受 DateTime64；22 / 23 / 24 / 25 会拒绝
+// 并返回 BAD_TTL_EXPRESSION (Code: 450) "TTL expression result column should
+// have DateTime or Date type, but has DateTime64(3, 'UTC')"。
+//
+// 若部署目标 CH 版本低于 26，需把 created_at 出现在 PARTITION BY / TTL 处包裹
+// 成 toDateTime(created_at)（语义等价，天级别 TTL 不受秒以下精度影响）。注意：
+// 修改后，已有线上表会在下一次 retention 漂移触发 AlterTTL 时被改写表达式，
+// 引起一次全分区的 TTL 重评估 mutation。
+//
+// 同步要求：本常量、EnsureSchema 中的 ALTER 语句、以及
+// PayloadAuditCHRepo.AlterTTL 三处的 TTL 表达式必须保持一致，否则 EnsureSchema
+// 的 TTL 漂移检测 (ttlIntervalRe) 会因表达式不同而误报漂移。
 const payloadAuditSchemaSQL = `
 CREATE TABLE IF NOT EXISTS %s
 (
