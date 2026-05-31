@@ -147,21 +147,21 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
-	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription)
+	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey))
 	platform := ""
 	if apiKey.Group != nil {
 		platform = apiKey.Group.Platform
 	}
 	var fallbackEngaged bool
-		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
-		if fallbackEngaged {
-			channelMapping.BillingModelSource = service.BillingModelSourceRequested
-			channelMapping.Mapped = false
-			channelMapping.MappedModel = reqModel
-			// Invalidate the cached parsed-body map so service.Forward re-parses
-			// the rewritten body bytes (model now points at the fallback target).
-			c.Set(service.OpenAIParsedRequestBodyKey, nil)
-		}
+	body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
+	if fallbackEngaged {
+		channelMapping.BillingModelSource = service.BillingModelSourceRequested
+		channelMapping.Mapped = false
+		channelMapping.MappedModel = reqModel
+		// Invalidate the cached parsed-body map so service.Forward re-parses
+		// the rewritten body bytes (model now points at the fallback target).
+		c.Set(service.OpenAIParsedRequestBodyKey, nil)
+	}
 	if billingErr != nil {
 		reqLog.Info("openai_chat_completions.billing_eligibility_check_failed", zap.Error(billingErr))
 		status, code, message, retryAfter := billingErrorDetails(billingErr)
@@ -183,7 +183,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 
 	for {
 		reqLog.Debug("openai_chat_completions.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithScheduler(
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
@@ -191,6 +191,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			reqModel,
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportAny,
+			service.OpenAIEndpointCapabilityChatCompletions,
 			false,
 		)
 		if err != nil {
@@ -329,7 +330,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveRawCCUpstreamEndpoint(c, account)
 
-		h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
