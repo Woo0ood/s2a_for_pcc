@@ -84,7 +84,7 @@
               getStickyColumnClass(column, index),
               column.class,
               isMovableColumn(column) ? 'col-movable' : 'col-pinned',
-              { 'cursor-move': isMovableColumn(column) }
+              { 'cursor-move': reorderable && isMovableColumn(column) }
             ]"
             @click="column.sortable && handleSort(column.key)"
           >
@@ -95,6 +95,8 @@
               :sort-order="sortOrder"
             >
               <div class="flex items-center space-x-1">
+                <!-- Drag handle lives in the DEFAULT header slot; a table that supplies a
+                     custom header-<key> slot for a movable column won't show a handle there. -->
                 <span
                   v-if="reorderable && isMovableColumn(column)"
                   class="col-drag-handle"
@@ -449,13 +451,18 @@ const persistColumnOrderFromRender = () => {
   if (storageKey) writeColumnOrder(storageKey, movableKeys)
 }
 
+// Column reordering relies on every direct child of the header <tr> being exactly one
+// <th> per renderColumns entry, so Sortable's draggable index maps 1:1 to renderColumns.
+// Do NOT add conditional (v-if) or non-<th> children to that row.
 useDraggable(headerRowRef, renderColumns, {
   handle: '.col-drag-handle',
   draggable: 'th',
   filter: '.col-pinned',
   animation: 150,
   onMove: (event: any) => {
-    // Never let a movable column cross a pinned (select/actions) column.
+    // Keep select first / actions last: a movable column can only reach the far side of a
+    // pinned column by swapping with it, at which point `related` is that pinned <th> and we
+    // reject the move. (Pinned <th> themselves are immovable via filter: '.col-pinned'.)
     if (event?.related?.classList?.contains('col-pinned')) return false
     return true
   },
