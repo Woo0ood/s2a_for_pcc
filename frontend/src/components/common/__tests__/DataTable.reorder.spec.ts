@@ -65,4 +65,21 @@ describe('DataTable column order', () => {
     const wrapper = mountTable({ reorderable: false })
     expect(headerKeys(wrapper)).toEqual(['name', 'status', 'usage', 'actions'])
   })
+
+  it('shows a drag handle on movable columns but not on pinned (actions) or when disabled', () => {
+    const wrapper = mountTable()
+    const movable = wrapper.find('thead th[data-col-key="name"]')
+    const actions = wrapper.find('thead th[data-col-key="actions"]')
+    expect(movable.find('.col-drag-handle').exists()).toBe(true)
+    expect(actions.find('.col-drag-handle').exists()).toBe(false)
+
+    const disabled = mountTable({ reorderable: false })
+    expect(disabled.find('.col-drag-handle').exists()).toBe(false)
+  })
+
+  it('marks pinned columns with col-pinned and movable with col-movable', () => {
+    const wrapper = mountTable()
+    expect(wrapper.find('thead th[data-col-key="actions"]').classes()).toContain('col-pinned')
+    expect(wrapper.find('thead th[data-col-key="name"]').classes()).toContain('col-movable')
+  })
 })

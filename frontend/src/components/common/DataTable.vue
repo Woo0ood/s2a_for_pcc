@@ -71,7 +71,7 @@
   >
     <table class="w-full min-w-max divide-y divide-gray-200 dark:divide-dark-700">
       <thead class="table-header bg-gray-50 dark:bg-dark-800">
-        <tr>
+        <tr ref="headerRowRef">
           <th
             v-for="(column, index) in renderColumns"
             :key="column.key"
@@ -82,7 +82,9 @@
               getAdaptivePaddingClass(),
               { 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700': column.sortable },
               getStickyColumnClass(column, index),
-              column.class
+              column.class,
+              isMovableColumn(column) ? 'col-movable' : 'col-pinned',
+              { 'cursor-move': isMovableColumn(column) }
             ]"
             @click="column.sortable && handleSort(column.key)"
           >
@@ -93,6 +95,19 @@
               :sort-order="sortOrder"
             >
               <div class="flex items-center space-x-1">
+                <span
+                  v-if="reorderable && isMovableColumn(column)"
+                  class="col-drag-handle"
+                  :title="t('common.dragToReorderColumn')"
+                  :aria-label="t('common.dragToReorderColumn')"
+                  @click.stop
+                >
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <circle cx="7" cy="5" r="1.5" /><circle cx="13" cy="5" r="1.5" />
+                    <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
+                    <circle cx="7" cy="15" r="1.5" /><circle cx="13" cy="15" r="1.5" />
+                  </svg>
+                </span>
                 <span>{{ column.label }}</span>
                 <span v-if="column.sortable" class="text-gray-400 dark:text-dark-500">
                   <svg
@@ -203,10 +218,12 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import type { Column } from './types'
 import Icon from '@/components/icons/Icon.vue'
+import { useDraggable } from 'vue-draggable-plus'
 import {
   applyColumnOrder,
   buildColumnOrderStorageKey,
   readColumnOrder,
+  writeColumnOrder,
 } from '@/utils/columnOrder'
 
 const { t } = useI18n()
@@ -416,6 +433,36 @@ rebuildRenderColumns()
 // reorderability is toggled. Note: the drag handler mutates renderColumns/columnOrder
 // directly, neither of which is observed here, so there is no feedback loop.
 watch(() => [props.columns, props.reorderable], rebuildRenderColumns, { deep: true })
+
+const headerRowRef = ref<HTMLElement | null>(null)
+
+const isMovableColumn = (column: Column) => {
+  if (column.key === 'actions') return false
+  if (hasSelectColumn.value && column.key === 'select') return false
+  return true
+}
+
+const persistColumnOrderFromRender = () => {
+  const movableKeys = renderColumns.value.filter(isMovableColumn).map((column) => column.key)
+  columnOrder.value = movableKeys
+  const storageKey = columnOrderStorageKey.value
+  if (storageKey) writeColumnOrder(storageKey, movableKeys)
+}
+
+useDraggable(headerRowRef, renderColumns, {
+  handle: '.col-drag-handle',
+  draggable: 'th',
+  filter: '.col-pinned',
+  animation: 150,
+  onMove: (event: any) => {
+    // Never let a movable column cross a pinned (select/actions) column.
+    if (event?.related?.classList?.contains('col-pinned')) return false
+    return true
+  },
+  onUpdate: () => {
+    persistColumnOrderFromRender()
+  },
+})
 
 const sortKey = ref<string>('')
 const sortOrder = ref<'asc' | 'desc'>('asc')
@@ -888,6 +935,27 @@ tbody tr:hover .sticky-col {
 
 .dark .is-scrollable .sticky-col-right::before {
   background: linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent);
+}
+
+/* 列拖动手柄：默认隐藏，hover/聚焦表头时显现 */
+.col-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2px;
+  cursor: grab;
+  color: rgb(156 163 175);
+  opacity: 0;
+  transition: opacity 0.12s ease-in-out;
+}
+.col-drag-handle:active {
+  cursor: grabbing;
+}
+th:hover .col-drag-handle,
+.col-drag-handle:focus-visible {
+  opacity: 1;
+}
+.dark .col-drag-handle {
+  color: rgb(107 114 128);
 }
 </style>
 
