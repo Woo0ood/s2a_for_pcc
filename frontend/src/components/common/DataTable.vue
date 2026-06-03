@@ -73,9 +73,10 @@
       <thead class="table-header bg-gray-50 dark:bg-dark-800">
         <tr>
           <th
-            v-for="(column, index) in columns"
+            v-for="(column, index) in renderColumns"
             :key="column.key"
             scope="col"
+            :data-col-key="column.key"
             :class="[
               'sticky-header-cell py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-dark-400',
               getAdaptivePaddingClass(),
@@ -121,7 +122,7 @@
       <tbody class="table-body divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-900">
         <!-- Loading skeleton -->
         <tr v-if="loading" v-for="i in 5" :key="i">
-          <td v-for="column in columns" :key="column.key" :class="['whitespace-nowrap py-4', getAdaptivePaddingClass()]">
+          <td v-for="column in renderColumns" :key="column.key" :class="['whitespace-nowrap py-4', getAdaptivePaddingClass()]">
             <div class="animate-pulse">
               <div class="h-4 w-3/4 rounded bg-gray-200 dark:bg-dark-700"></div>
             </div>
@@ -131,7 +132,7 @@
         <!-- Empty state -->
         <tr v-else-if="!data || data.length === 0">
           <td
-            :colspan="columns.length"
+            :colspan="renderColumns.length"
             :class="['py-12 text-center text-gray-500 dark:text-dark-400', getAdaptivePaddingClass()]"
           >
             <slot name="empty">
@@ -152,7 +153,7 @@
         <!-- Data rows (virtual scroll) -->
         <template v-else>
           <tr v-if="virtualPaddingTop > 0" aria-hidden="true">
-            <td :colspan="columns.length"
+            <td :colspan="renderColumns.length"
                 :style="{ height: virtualPaddingTop + 'px', padding: 0, border: 'none' }">
             </td>
           </tr>
@@ -165,7 +166,7 @@
             class="hover:bg-gray-50 dark:hover:bg-dark-800"
           >
             <td
-              v-for="(column, colIndex) in columns"
+              v-for="(column, colIndex) in renderColumns"
               :key="column.key"
               :class="[
                 'whitespace-nowrap py-4 text-sm text-gray-900 dark:text-gray-100',
@@ -185,7 +186,7 @@
             </td>
           </tr>
           <tr v-if="virtualPaddingBottom > 0" aria-hidden="true">
-            <td :colspan="columns.length"
+            <td :colspan="renderColumns.length"
                 :style="{ height: virtualPaddingBottom + 'px', padding: 0, border: 'none' }">
             </td>
           </tr>
@@ -199,8 +200,14 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import type { Column } from './types'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  applyColumnOrder,
+  buildColumnOrderStorageKey,
+  readColumnOrder,
+} from '@/utils/columnOrder'
 
 const { t } = useI18n()
 
@@ -361,6 +368,10 @@ interface Props {
   estimateRowHeight?: number
   /** Number of rows to render beyond the visible area (default 5) */
   overscan?: number
+  /** Enable drag-to-reorder of column headers (default true). */
+  reorderable?: boolean
+  /** Explicit persistence id for column order; defaults to the route name/path. */
+  tableId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -369,8 +380,35 @@ const props = withDefaults(defineProps<Props>(), {
   stickyActionsColumn: true,
   expandableActions: true,
   defaultSortOrder: 'asc',
-  serverSideSort: false
+  serverSideSort: false,
+  reorderable: true,
 })
+
+const route = useRoute() // undefined when no router is installed (e.g. unit tests)
+
+const columnOrderStorageKey = computed<string | null>(() => {
+  if (!props.reorderable) return null
+  if (props.tableId) return buildColumnOrderStorageKey(props.tableId)
+  const id = route?.name ? String(route.name) : route?.path
+  return id ? buildColumnOrderStorageKey(id) : null
+})
+
+const columnOrder = ref<string[]>([])
+const renderColumns = ref<Column[]>([])
+
+const rebuildRenderColumns = () => {
+  renderColumns.value = props.reorderable
+    ? applyColumnOrder(props.columns, columnOrder.value)
+    : [...props.columns]
+}
+
+// Build synchronously during setup so first paint already reflects saved order.
+if (columnOrderStorageKey.value) {
+  columnOrder.value = readColumnOrder(columnOrderStorageKey.value)
+}
+rebuildRenderColumns()
+
+watch(() => props.columns, rebuildRenderColumns)
 
 const sortKey = ref<string>('')
 const sortOrder = ref<'asc' | 'desc'>('asc')
@@ -502,7 +540,7 @@ const resolveRowKey = (row: any, index: number) => {
   return key ?? index
 }
 
-const dataColumns = computed(() => props.columns.filter((column) => column.key !== 'actions'))
+const dataColumns = computed(() => renderColumns.value.filter((column) => column.key !== 'actions'))
 const columnsSignature = computed(() =>
   props.columns.map((column) => `${column.key}:${column.sortable ? '1' : '0'}`).join('|')
 )
