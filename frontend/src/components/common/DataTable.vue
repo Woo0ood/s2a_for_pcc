@@ -370,7 +370,10 @@ interface Props {
   overscan?: number
   /** Enable drag-to-reorder of column headers (default true). */
   reorderable?: boolean
-  /** Explicit persistence id for column order; defaults to the route name/path. */
+  /**
+   * Explicit persistence id for column order; defaults to the route name/path.
+   * Persistence is disabled when both tableId and route are absent.
+   */
   tableId?: string
 }
 
@@ -393,6 +396,7 @@ const columnOrderStorageKey = computed<string | null>(() => {
   return id ? buildColumnOrderStorageKey(id) : null
 })
 
+// Persisted column-key order (movable columns only); written by the drag handler in a later task.
 const columnOrder = ref<string[]>([])
 const renderColumns = ref<Column[]>([])
 
@@ -408,7 +412,10 @@ if (columnOrderStorageKey.value) {
 }
 rebuildRenderColumns()
 
-watch(() => props.columns, rebuildRenderColumns)
+// Rebuild when the column set changes (replacement or in-place mutation) or when
+// reorderability is toggled. Note: the drag handler mutates renderColumns/columnOrder
+// directly, neither of which is observed here, so there is no feedback loop.
+watch(() => [props.columns, props.reorderable], rebuildRenderColumns, { deep: true })
 
 const sortKey = ref<string>('')
 const sortOrder = ref<'asc' | 'desc'>('asc')

@@ -8,6 +8,10 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: ref('en') }),
 }))
 
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ name: undefined, path: undefined }),
+}))
+
 // DataTable calls window.matchMedia on mount; jsdom lacks it.
 beforeEach(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
