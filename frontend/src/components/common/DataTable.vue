@@ -94,22 +94,7 @@
               :sort-key="sortKey"
               :sort-order="sortOrder"
             >
-              <div class="flex items-center space-x-1">
-                <!-- Drag handle lives in the DEFAULT header slot; a table that supplies a
-                     custom header-<key> slot for a movable column won't show a handle there. -->
-                <span
-                  v-if="reorderable && isMovableColumn(column)"
-                  class="col-drag-handle"
-                  :title="t('common.dragToReorderColumn')"
-                  :aria-label="t('common.dragToReorderColumn')"
-                  @click.stop
-                >
-                  <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <circle cx="7" cy="5" r="1.5" /><circle cx="13" cy="5" r="1.5" />
-                    <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
-                    <circle cx="7" cy="15" r="1.5" /><circle cx="13" cy="15" r="1.5" />
-                  </svg>
-                </span>
+              <div class="relative flex items-center space-x-1">
                 <span>{{ column.label }}</span>
                 <span v-if="column.sortable" class="text-gray-400 dark:text-dark-500">
                   <svg
@@ -129,6 +114,22 @@
                     <path
                       d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
                     />
+                  </svg>
+                </span>
+                <!-- Drag handle floats (absolute) to the left of the header text so it never
+                     occupies layout width. Lives in the DEFAULT header slot; a table that
+                     supplies a custom header-<key> slot won't show a handle there. -->
+                <span
+                  v-if="reorderable && isMovableColumn(column)"
+                  class="col-drag-handle"
+                  :title="t('common.dragToReorderColumn')"
+                  :aria-label="t('common.dragToReorderColumn')"
+                  @click.stop
+                >
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <circle cx="7" cy="5" r="1.5" /><circle cx="13" cy="5" r="1.5" />
+                    <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
+                    <circle cx="7" cy="15" r="1.5" /><circle cx="13" cy="15" r="1.5" />
                   </svg>
                 </span>
               </div>
@@ -946,9 +947,15 @@ tbody tr:hover .sticky-col {
 
 /* 列拖动手柄：默认隐藏，hover/聚焦表头时显现 */
 .col-drag-handle {
+  /* Float just outside the left edge of the header text; absolute so it never
+     occupies layout width (the label stays at its natural position). */
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 2px;
   display: inline-flex;
   align-items: center;
-  margin-right: 2px;
   cursor: grab;
   color: rgb(156 163 175);
   opacity: 0;
