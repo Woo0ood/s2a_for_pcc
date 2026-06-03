@@ -71,17 +71,20 @@
   >
     <table class="w-full min-w-max divide-y divide-gray-200 dark:divide-dark-700">
       <thead class="table-header bg-gray-50 dark:bg-dark-800">
-        <tr>
+        <tr ref="headerRowRef">
           <th
-            v-for="(column, index) in columns"
+            v-for="(column, index) in renderColumns"
             :key="column.key"
             scope="col"
+            :data-col-key="column.key"
             :class="[
               'sticky-header-cell py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-dark-400',
               getAdaptivePaddingClass(),
               { 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700': column.sortable },
               getStickyColumnClass(column, index),
-              column.class
+              column.class,
+              isMovableColumn(column) ? 'col-movable' : 'col-pinned',
+              { 'cursor-move': reorderable && isMovableColumn(column) }
             ]"
             @click="column.sortable && handleSort(column.key)"
           >
@@ -91,7 +94,7 @@
               :sort-key="sortKey"
               :sort-order="sortOrder"
             >
-              <div class="flex items-center space-x-1">
+              <div class="relative flex items-center space-x-1">
                 <span>{{ column.label }}</span>
                 <span v-if="column.sortable" class="text-gray-400 dark:text-dark-500">
                   <svg
@@ -113,6 +116,22 @@
                     />
                   </svg>
                 </span>
+                <!-- Drag handle floats (absolute) to the left of the header text so it never
+                     occupies layout width. Lives in the DEFAULT header slot; a table that
+                     supplies a custom header-<key> slot won't show a handle there. -->
+                <span
+                  v-if="reorderable && isMovableColumn(column)"
+                  class="col-drag-handle"
+                  :title="t('common.dragToReorderColumn')"
+                  :aria-label="t('common.dragToReorderColumn')"
+                  @click.stop
+                >
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <circle cx="7" cy="5" r="1.5" /><circle cx="13" cy="5" r="1.5" />
+                    <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
+                    <circle cx="7" cy="15" r="1.5" /><circle cx="13" cy="15" r="1.5" />
+                  </svg>
+                </span>
               </div>
             </slot>
           </th>
@@ -121,7 +140,7 @@
       <tbody class="table-body divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-900">
         <!-- Loading skeleton -->
         <tr v-if="loading" v-for="i in 5" :key="i">
-          <td v-for="column in columns" :key="column.key" :class="['whitespace-nowrap py-4', getAdaptivePaddingClass()]">
+          <td v-for="column in renderColumns" :key="column.key" :class="['whitespace-nowrap py-4', getAdaptivePaddingClass()]">
             <div class="animate-pulse">
               <div class="h-4 w-3/4 rounded bg-gray-200 dark:bg-dark-700"></div>
             </div>
@@ -131,7 +150,7 @@
         <!-- Empty state -->
         <tr v-else-if="!data || data.length === 0">
           <td
-            :colspan="columns.length"
+            :colspan="renderColumns.length"
             :class="['py-12 text-center text-gray-500 dark:text-dark-400', getAdaptivePaddingClass()]"
           >
             <slot name="empty">
@@ -152,7 +171,7 @@
         <!-- Data rows (virtual scroll) -->
         <template v-else>
           <tr v-if="virtualPaddingTop > 0" aria-hidden="true">
-            <td :colspan="columns.length"
+            <td :colspan="renderColumns.length"
                 :style="{ height: virtualPaddingTop + 'px', padding: 0, border: 'none' }">
             </td>
           </tr>
@@ -165,7 +184,7 @@
             class="hover:bg-gray-50 dark:hover:bg-dark-800"
           >
             <td
-              v-for="(column, colIndex) in columns"
+              v-for="(column, colIndex) in renderColumns"
               :key="column.key"
               :class="[
                 'whitespace-nowrap py-4 text-sm text-gray-900 dark:text-gray-100',
@@ -185,7 +204,7 @@
             </td>
           </tr>
           <tr v-if="virtualPaddingBottom > 0" aria-hidden="true">
-            <td :colspan="columns.length"
+            <td :colspan="renderColumns.length"
                 :style="{ height: virtualPaddingBottom + 'px', padding: 0, border: 'none' }">
             </td>
           </tr>
@@ -199,8 +218,16 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import type { Column } from './types'
 import Icon from '@/components/icons/Icon.vue'
+import { useDraggable } from 'vue-draggable-plus'
+import {
+  applyColumnOrder,
+  buildColumnOrderStorageKey,
+  readColumnOrder,
+  writeColumnOrder,
+} from '@/utils/columnOrder'
 
 const { t } = useI18n()
 
@@ -361,6 +388,13 @@ interface Props {
   estimateRowHeight?: number
   /** Number of rows to render beyond the visible area (default 5) */
   overscan?: number
+  /** Enable drag-to-reorder of column headers (default true). */
+  reorderable?: boolean
+  /**
+   * Explicit persistence id for column order; defaults to the route name/path.
+   * Persistence is disabled when both tableId and route are absent.
+   */
+  tableId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -369,7 +403,73 @@ const props = withDefaults(defineProps<Props>(), {
   stickyActionsColumn: true,
   expandableActions: true,
   defaultSortOrder: 'asc',
-  serverSideSort: false
+  serverSideSort: false,
+  reorderable: true,
+})
+
+const route = useRoute() // undefined when no router is installed (e.g. unit tests)
+
+const columnOrderStorageKey = computed<string | null>(() => {
+  if (!props.reorderable) return null
+  if (props.tableId) return buildColumnOrderStorageKey(props.tableId)
+  const id = route?.name ? String(route.name) : route?.path
+  return id ? buildColumnOrderStorageKey(id) : null
+})
+
+// Persisted column-key order (movable columns only); written by the drag handler in a later task.
+const columnOrder = ref<string[]>([])
+const renderColumns = ref<Column[]>([])
+
+const rebuildRenderColumns = () => {
+  renderColumns.value = props.reorderable
+    ? applyColumnOrder(props.columns, columnOrder.value)
+    : [...props.columns]
+}
+
+// Build synchronously during setup so first paint already reflects saved order.
+if (columnOrderStorageKey.value) {
+  columnOrder.value = readColumnOrder(columnOrderStorageKey.value)
+}
+rebuildRenderColumns()
+
+// Rebuild when the column set changes (replacement or in-place mutation) or when
+// reorderability is toggled. Note: the drag handler mutates renderColumns/columnOrder
+// directly, neither of which is observed here, so there is no feedback loop.
+watch(() => [props.columns, props.reorderable], rebuildRenderColumns, { deep: true })
+
+const headerRowRef = ref<HTMLElement | null>(null)
+
+const isMovableColumn = (column: Column) => {
+  if (column.key === 'actions') return false
+  if (hasSelectColumn.value && column.key === 'select') return false
+  return true
+}
+
+const persistColumnOrderFromRender = () => {
+  const movableKeys = renderColumns.value.filter(isMovableColumn).map((column) => column.key)
+  columnOrder.value = movableKeys
+  const storageKey = columnOrderStorageKey.value
+  if (storageKey) writeColumnOrder(storageKey, movableKeys)
+}
+
+// Column reordering relies on every direct child of the header <tr> being exactly one
+// <th> per renderColumns entry, so Sortable's draggable index maps 1:1 to renderColumns.
+// Do NOT add conditional (v-if) or non-<th> children to that row.
+useDraggable(headerRowRef, renderColumns, {
+  handle: '.col-drag-handle',
+  draggable: 'th',
+  filter: '.col-pinned',
+  animation: 150,
+  onMove: (event: any) => {
+    // Keep select first / actions last: a movable column can only reach the far side of a
+    // pinned column by swapping with it, at which point `related` is that pinned <th> and we
+    // reject the move. (Pinned <th> themselves are immovable via filter: '.col-pinned'.)
+    if (event?.related?.classList?.contains('col-pinned')) return false
+    return true
+  },
+  onUpdate: () => {
+    persistColumnOrderFromRender()
+  },
 })
 
 const sortKey = ref<string>('')
@@ -502,7 +602,7 @@ const resolveRowKey = (row: any, index: number) => {
   return key ?? index
 }
 
-const dataColumns = computed(() => props.columns.filter((column) => column.key !== 'actions'))
+const dataColumns = computed(() => renderColumns.value.filter((column) => column.key !== 'actions'))
 const columnsSignature = computed(() =>
   props.columns.map((column) => `${column.key}:${column.sortable ? '1' : '0'}`).join('|')
 )
@@ -843,6 +943,33 @@ tbody tr:hover .sticky-col {
 
 .dark .is-scrollable .sticky-col-right::before {
   background: linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent);
+}
+
+/* 列拖动手柄：默认隐藏，hover/聚焦表头时显现 */
+.col-drag-handle {
+  /* Float just outside the left edge of the header text; absolute so it never
+     occupies layout width (the label stays at its natural position). */
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 2px;
+  display: inline-flex;
+  align-items: center;
+  cursor: grab;
+  color: rgb(156 163 175);
+  opacity: 0;
+  transition: opacity 0.12s ease-in-out;
+}
+.col-drag-handle:active {
+  cursor: grabbing;
+}
+th:hover .col-drag-handle,
+.col-drag-handle:focus-visible {
+  opacity: 1;
+}
+.dark .col-drag-handle {
+  color: rgb(107 114 128);
 }
 </style>
 

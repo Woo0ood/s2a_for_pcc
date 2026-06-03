@@ -341,7 +341,8 @@ export default {
         minutes: '{m}m',
         withSuffix: '{time} 后解除'
       }
-    }
+    },
+    dragToReorderColumn: '拖动调整列顺序',
   },
 
   // Navigation
