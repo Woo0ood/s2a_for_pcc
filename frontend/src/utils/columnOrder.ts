@@ -38,3 +38,30 @@ export function applyColumnOrder(columns: Column[], order: string[]): Column[] {
 
   return [...leading, ...ordered, ...trailing]
 }
+
+const STORAGE_PREFIX = 's2a:colorder:'
+
+export function buildColumnOrderStorageKey(id: string): string {
+  return `${STORAGE_PREFIX}${id}`
+}
+
+export function readColumnOrder(storageKey: string): string[] {
+  try {
+    const raw = localStorage.getItem(storageKey)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry): entry is string => typeof entry === 'string')
+  } catch (e) {
+    console.error('[columnOrder] Failed to read column order:', e)
+    return []
+  }
+}
+
+export function writeColumnOrder(storageKey: string, order: string[]): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(order))
+  } catch (e) {
+    console.error('[columnOrder] Failed to persist column order:', e)
+  }
+}

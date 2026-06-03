@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { applyColumnOrder } from '@/utils/columnOrder'
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  applyColumnOrder,
+  buildColumnOrderStorageKey,
+  readColumnOrder,
+  writeColumnOrder,
+} from '@/utils/columnOrder'
 import type { Column } from '@/components/common/types'
 
 const cols = (...keys: string[]): Column[] => keys.map((key) => ({ key, label: key }))
@@ -57,5 +62,33 @@ describe('applyColumnOrder', () => {
     expect(applyColumnOrder(input, ['select', 'name']).map((c) => c.key)).toEqual([
       'select', 'name',
     ])
+  })
+})
+
+describe('column order storage', () => {
+  afterEach(() => localStorage.clear())
+
+  it('builds a namespaced storage key', () => {
+    expect(buildColumnOrderStorageKey('AdminUsers')).toBe('s2a:colorder:AdminUsers')
+  })
+
+  it('writes and reads back an order array', () => {
+    const key = buildColumnOrderStorageKey('t1')
+    writeColumnOrder(key, ['a', 'b', 'c'])
+    expect(readColumnOrder(key)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('returns [] when nothing is stored', () => {
+    expect(readColumnOrder('s2a:colorder:missing')).toEqual([])
+  })
+
+  it('returns [] and does not throw on corrupted json', () => {
+    localStorage.setItem('s2a:colorder:bad', '{not json')
+    expect(readColumnOrder('s2a:colorder:bad')).toEqual([])
+  })
+
+  it('filters non-string entries out of stored arrays', () => {
+    localStorage.setItem('s2a:colorder:mixed', JSON.stringify(['a', 1, null, 'b']))
+    expect(readColumnOrder('s2a:colorder:mixed')).toEqual(['a', 'b'])
   })
 })
