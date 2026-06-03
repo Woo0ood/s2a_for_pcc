@@ -341,7 +341,8 @@ export default {
         minutes: '{m}m',
         withSuffix: '{time} to lift'
       }
-    }
+    },
+    dragToReorderColumn: 'Drag to reorder column',
   },
 
   // Navigation
