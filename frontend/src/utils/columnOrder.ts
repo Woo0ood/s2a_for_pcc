@@ -41,8 +41,8 @@ export function applyColumnOrder(columns: Column[], order: string[]): Column[] {
 
 const STORAGE_PREFIX = 's2a:colorder:'
 
-export function buildColumnOrderStorageKey(id: string): string {
-  return `${STORAGE_PREFIX}${id}`
+export function buildColumnOrderStorageKey(tableId: string): string {
+  return `${STORAGE_PREFIX}${tableId}`
 }
 
 export function readColumnOrder(storageKey: string): string[] {

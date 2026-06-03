@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   applyColumnOrder,
   buildColumnOrderStorageKey,
@@ -90,5 +90,13 @@ describe('column order storage', () => {
   it('filters non-string entries out of stored arrays', () => {
     localStorage.setItem('s2a:colorder:mixed', JSON.stringify(['a', 1, null, 'b']))
     expect(readColumnOrder('s2a:colorder:mixed')).toEqual(['a', 'b'])
+  })
+
+  it('does not throw when localStorage.setItem fails (e.g. quota exceeded)', () => {
+    const spy = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    expect(() => writeColumnOrder('s2a:colorder:quota', ['a'])).not.toThrow()
+    spy.mockRestore()
   })
 })
