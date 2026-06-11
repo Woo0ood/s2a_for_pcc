@@ -2920,6 +2920,10 @@ func (r *oauthPendingFlowUserRepo) ResetUserRateLimitWindows(context.Context, in
 	return nil
 }
 
+func (r *oauthPendingFlowUserRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.User, error) {
+	return r.GetByID(ctx, id)
+}
+
 func oauthPendingFlowServiceUser(entity *dbent.User) *service.User {
 	if entity == nil {
 		return nil

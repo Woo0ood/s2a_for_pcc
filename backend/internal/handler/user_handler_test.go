@@ -122,6 +122,9 @@ func (s *userHandlerRepoStub) GetUserRateLimitData(context.Context, int64) (*ser
 	return nil, nil
 }
 func (s *userHandlerRepoStub) ResetUserRateLimitWindows(context.Context, int64) error { return nil }
+func (s *userHandlerRepoStub) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.User, error) {
+	return s.GetByID(ctx, id)
+}
 func (s *userHandlerRepoStub) ListUserAuthIdentities(context.Context, int64) ([]service.UserAuthIdentityRecord, error) {
 	out := make([]service.UserAuthIdentityRecord, len(s.identities))
 	copy(out, s.identities)

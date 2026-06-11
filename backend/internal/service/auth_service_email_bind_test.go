@@ -854,6 +854,9 @@ func (s *emailBindUserRepoStub) GetUserRateLimitData(context.Context, int64) (*s
 	return nil, nil
 }
 func (s *emailBindUserRepoStub) ResetUserRateLimitWindows(context.Context, int64) error { return nil }
+func (s *emailBindUserRepoStub) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.User, error) {
+	return s.GetByID(ctx, id)
+}
 
 func cloneEmailBindUser(user *service.User) *service.User {
 	if user == nil {

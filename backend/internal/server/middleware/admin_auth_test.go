@@ -244,3 +244,7 @@ func (s *stubUserRepo) GetUserRateLimitData(ctx context.Context, userID int64) (
 func (s *stubUserRepo) ResetUserRateLimitWindows(ctx context.Context, userID int64) error {
 	panic("unexpected ResetUserRateLimitWindows call")
 }
+
+func (s *stubUserRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.User, error) {
+	panic("unexpected GetByIDIncludeDeleted call")
+}

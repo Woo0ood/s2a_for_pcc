@@ -137,6 +137,8 @@ docs/*
 !docs/PAYLOAD_AUDIT.md
 !docs/specs/
 !docs/plans/
+!docs/legal/
+!docs/legal/*.md
 .serena/
 .codex/
 frontend/coverage/

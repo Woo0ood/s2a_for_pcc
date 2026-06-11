@@ -81,6 +81,7 @@ func provideCleanup(
 	schedulerSnapshot *service.SchedulerSnapshotService,
 	tokenRefresh *service.TokenRefreshService,
 	accountExpiry *service.AccountExpiryService,
+	proxyExpiry *service.ProxyExpiryService,
 	subscriptionExpiry *service.SubscriptionExpiryService,
 	usageCleanup *service.UsageCleanupService,
 	idempotencyCleanup *service.IdempotencyCleanupService,
@@ -101,6 +102,7 @@ func provideCleanup(
 	payloadAuditSink *service.PayloadAuditSink,
 	payloadAuditRedisBuffer *service.PayloadAuditRedisBuffer,
 	payloadAuditCron *service.PayloadAuditCronService,
+	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -173,6 +175,10 @@ func provideCleanup(
 			}},
 			{"AccountExpiryService", func() error {
 				accountExpiry.Stop()
+				return nil
+			}},
+			{"ProxyExpiryService", func() error {
+				proxyExpiry.Stop()
 				return nil
 			}},
 			{"SubscriptionExpiryService", func() error {
@@ -264,6 +270,12 @@ func provideCleanup(
 					if err := payloadAuditRedisBuffer.DrainBatch(ctx, remaining, 5*time.Second); err != nil {
 						log.Printf("[Cleanup] PayloadAuditSink: partial drain to Redis: %v", err)
 					}
+				}
+				return nil
+			}},
+			{"UserPlatformQuotaUsageFlusher", func() error {
+				if quotaFlusher != nil {
+					quotaFlusher.Stop()
 				}
 				return nil
 			}},
