@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"log/slog"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -121,9 +122,43 @@ func (c *PayloadAuditCollector) Metadata() PayloadAuditMetadata { return c.meta 
 // SetInput copies and optionally truncates the request body. When offload is
 // enabled, inline base64 blobs (and an oversized remainder) are replaced with
 // pointers and staged for upload; the actual upload happens at finalize time.
+// setInputPanicHook is a test-only seam to exercise SetInput's panic recovery.
+// It is nil in production (a single nil-check); tests set it to force a panic
+// mid-collection. Real inputs cannot panic SetInput today (gjson + a linear
+// regex), so this is the only way to deterministically cover the recover path.
+var setInputPanicHook func()
+
+// recoverCollect swallows any panic from a synchronous in-path collection method
+// so audit collection can NEVER break the LLM request/response path. Deferred at
+// the top of each in-path mutator; recover() works because recoverCollect itself
+// is the deferred function.
+func (c *PayloadAuditCollector) recoverCollect(method string) {
+	if r := recover(); r != nil {
+		slog.Error("payload_audit.collect_panic", "method", method, "endpoint", c.meta.Endpoint, "panic", r)
+	}
+}
+
 func (c *PayloadAuditCollector) SetInput(body []byte, format string) {
 	if !c.enabled {
 		return
+	}
+	// Collection must never break the request path. On any panic, discard staged
+	// offload state (so settleOffload won't commit a dangling pointer with no
+	// backing object) and fall back to a minimal inline marker so a row still lands.
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("payload_audit.set_input_panic", "endpoint", c.meta.Endpoint, "panic", r)
+			c.pendingBlobs = nil
+			c.pendingBody = nil
+			c.originalForRevert = nil
+			c.inputOffloaded = false
+			c.inputTrunc = false
+			c.inputFormat = format
+			c.inputBody = []byte("[payload-audit: input capture failed]")
+		}
+	}()
+	if setInputPanicHook != nil {
+		setInputPanicHook()
 	}
 	c.inputBytes = len(body)
 	if ck, prev := ExtractRequestConvIDs(c.meta.Endpoint, body); ck != "" || prev != "" {
@@ -217,6 +252,7 @@ func (c *PayloadAuditCollector) AppendOutput(s string) {
 	if !c.enabled {
 		return
 	}
+	defer c.recoverCollect("AppendOutput")
 	c.outputBytes += len(s)
 	if c.outputTrunc {
 		return
@@ -248,6 +284,7 @@ func (c *PayloadAuditCollector) AppendRawEvent(b []byte) {
 	if !c.enabled || len(b) == 0 {
 		return
 	}
+	defer c.recoverCollect("AppendRawEvent")
 	if c.respID == "" {
 		if id := ExtractResponseID(c.meta.Endpoint, b); id != "" {
 			c.respID = id

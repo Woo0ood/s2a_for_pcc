@@ -173,3 +173,43 @@ func TestCollector_SetResponseID(t *testing.T) {
 		t.Fatalf("ResponseID: want %q got %q", "resp_9", evt.ResponseID)
 	}
 }
+
+// A panic mid-collection must NEVER escape SetInput into the LLM request path:
+// it recovers, discards staged offload state, and leaves a fallback marker so a
+// row still lands.
+func TestCollector_SetInputPanicRecovered(t *testing.T) {
+	setInputPanicHook = func() { panic("boom in collection") }
+	defer func() { setInputPanicHook = nil }()
+
+	c := NewPayloadAuditCollector(newScopedSnap(1000, 1000, 64))
+	c.SetMetadata(PayloadAuditMetadata{Provider: "openai", Endpoint: "/v1/responses"})
+
+	// Must not propagate the panic.
+	c.SetInput([]byte(`{"model":"gpt-5.4","input":"hi"}`), "json")
+
+	if len(c.PendingBlobs()) != 0 || c.PendingBody() != nil {
+		t.Fatalf("staged offload must be cleared after panic, got blobs=%d body=%v",
+			len(c.PendingBlobs()), c.PendingBody())
+	}
+	if got := c.InputBodyForTest(); !strings.Contains(got, "capture failed") {
+		t.Fatalf("expected fallback marker, got %q", got)
+	}
+	if evt := c.Finalize(200, time.Second, ""); evt == nil {
+		t.Fatal("collector should still finalize a row after a recovered panic")
+	}
+}
+
+// recoverCollect (deferred by AppendOutput/AppendRawEvent) must swallow panics so
+// a collection bug cannot break the streaming response path.
+func TestCollector_RecoverCollectSwallows(t *testing.T) {
+	c := NewPayloadAuditCollector(newScopedSnap(1000, 1000, 64))
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("recoverCollect should swallow, but panic escaped: %v", r)
+		}
+	}()
+	func() {
+		defer c.recoverCollect("test")
+		panic("boom in append")
+	}()
+}
