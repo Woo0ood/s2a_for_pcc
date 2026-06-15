@@ -132,6 +132,9 @@ func (c *PayloadAuditCollector) SetInput(body []byte, format string) {
 	}
 
 	maxBytes := c.snap.InputMaxBytes
+	// Oversized remainder: offload the whole (already blob-rewritten) body. Note
+	// pendingBody.Data is `work`, so it may itself contain s2a-blob:// pointers —
+	// that is intended (no duplication); reconstruction resolves blobs separately.
 	if c.snap.OffloadEnabled && maxBytes > 0 && len(work) > maxBytes {
 		sum := sha256.Sum256(work)
 		sha := hex.EncodeToString(sum[:])
@@ -178,6 +181,7 @@ func (c *PayloadAuditCollector) InputBodyForTest() string { return string(c.inpu
 // and falls back to normal truncation of the original body.
 func (c *PayloadAuditCollector) RevertOffload(original []byte) {
 	c.pendingBlobs, c.pendingBody, c.inputOffloaded = nil, nil, false
+	c.originalForRevert, c.inputTrunc = nil, false
 	maxBytes := c.snap.InputMaxBytes
 	if maxBytes > 0 && len(original) > maxBytes {
 		dst := make([]byte, maxBytes)
