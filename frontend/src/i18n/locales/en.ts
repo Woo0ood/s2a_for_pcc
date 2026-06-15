@@ -2897,6 +2897,7 @@ export default {
       confirmDeleteMsg: 'Are you sure you want to delete export key "{name}"? This cannot be undone.',
       runCleanup: 'Run Cleanup',
       cleanupDone: 'Cleanup complete: {deleted} records deleted in {ms}ms',
+      exportConversation: 'Export full conversation',
 
       // Error messages
       statusFailed: 'Failed to load status',
@@ -2910,6 +2911,7 @@ export default {
       createKeyFailed: 'Failed to create key',
       deleteKeyFailed: 'Failed to delete key',
       cleanupFailed: 'Cleanup failed',
+      exportConversationFailed: 'Failed to export conversation',
     },
 
     // Channel Monitor

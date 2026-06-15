@@ -269,7 +269,11 @@
         </div>
 
         <template #footer>
-          <div class="flex justify-end">
+          <div class="flex justify-between">
+            <button type="button" class="btn btn-secondary inline-flex items-center gap-2" @click="exportConversation">
+              <Icon name="download" size="sm" />
+              {{ t('admin.payloadAudit.exportConversation') }}
+            </button>
             <button type="button" class="btn btn-secondary" @click="closeDetail">{{ t('common.close') }}</button>
           </div>
         </template>
@@ -782,6 +786,18 @@ async function loadFullPayload() {
     appStore.showError(extractApiErrorMessage(err, t('admin.payloadAudit.loadPayloadFailed')))
   } finally {
     detailFullLoading.value = false
+  }
+}
+
+async function exportConversation() {
+  if (!detailRow.value) return
+  try {
+    const html = await payloadAuditAPI.exportConversationHTML(detailRow.value.ID, detailRow.value.CreatedAt)
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (err) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.payloadAudit.exportConversationFailed')))
   }
 }
 

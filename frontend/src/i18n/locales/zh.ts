@@ -2974,6 +2974,7 @@ export default {
       confirmDeleteMsg: '确定要删除导出 Key「{name}」吗？此操作不可撤销。',
       runCleanup: '手动清理',
       cleanupDone: '清理完成：删除 {deleted} 条，耗时 {ms}ms',
+      exportConversation: '导出完整对话',
 
       // Error messages
       statusFailed: '获取状态失败',
@@ -2987,6 +2988,7 @@ export default {
       createKeyFailed: '创建 Key 失败',
       deleteKeyFailed: '删除 Key 失败',
       cleanupFailed: '清理失败',
+      exportConversationFailed: '导出对话失败',
     },
 
     // Channel Monitor

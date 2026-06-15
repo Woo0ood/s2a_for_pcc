@@ -182,6 +182,14 @@ export async function runCleanup(): Promise<{ deleted: number; duration_ms: numb
   return data
 }
 
+export async function exportConversationHTML(id: string, createdAt: string): Promise<string> {
+  const { data } = await apiClient.get<string>(
+    `/admin/payload-audit/payloads/${id}/conversation`,
+    { params: { created_at: createdAt, format: 'html' }, responseType: 'text' }
+  )
+  return data
+}
+
 export const payloadAuditAPI = {
   getConfig,
   updateConfig,
@@ -192,6 +200,7 @@ export const payloadAuditAPI = {
   createExportKey,
   deleteExportKey,
   runCleanup,
+  exportConversationHTML,
 }
 
 export default payloadAuditAPI

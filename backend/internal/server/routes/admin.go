@@ -656,6 +656,7 @@ func registerPayloadAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		audit.GET("/status", h.Admin.PayloadAudit.GetStatus)
 		audit.GET("/payloads", h.Admin.PayloadAudit.ListPayloads)
 		audit.GET("/payloads/:id", h.Admin.PayloadAudit.GetPayload)
+		audit.GET("/payloads/:id/conversation", h.AuditConversation.GetConversation)
 		audit.GET("/export-keys", h.Admin.PayloadAudit.ListExportKeys)
 		audit.POST("/export-keys", h.Admin.PayloadAudit.CreateExportKey)
 		audit.DELETE("/export-keys/:id", h.Admin.PayloadAudit.DeleteExportKey)
