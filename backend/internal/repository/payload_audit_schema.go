@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS %s
     output_truncated  Bool,
     output_omitted    Bool,
     error_message     String,
+    input_offloaded   Bool                   DEFAULT false,
 
     INDEX idx_id          id          TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_request_id  request_id  TYPE bloom_filter(0.01)  GRANULARITY 4,
@@ -84,6 +85,13 @@ func EnsureSchema(ctx context.Context, conn clickhouse.Conn, table string, reten
 	ddl := fmt.Sprintf(payloadAuditSchemaSQL, quoteCHIdentifier(table), retentionDays)
 	if err := conn.Exec(ctx, ddl); err != nil {
 		return fmt.Errorf("payload_audit ensure schema create: %w", err)
+	}
+	// Idempotently add columns introduced after the initial schema so existing
+	// production tables pick them up without a manual migration.
+	if err := conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN IF NOT EXISTS input_offloaded Bool DEFAULT false",
+		quoteCHIdentifier(table))); err != nil {
+		return fmt.Errorf("payload_audit ensure schema add input_offloaded: %w", err)
 	}
 	current, err := readTableTTLDays(ctx, conn, table)
 	if err != nil {
