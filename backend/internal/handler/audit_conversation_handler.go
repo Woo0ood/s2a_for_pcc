@@ -20,6 +20,9 @@ import (
 type AuditConversationRepo interface {
 	Get(ctx context.Context, id int64, createdAt time.Time) (*repository.PayloadAuditRow, error)
 	ListConversation(ctx context.Context, convKey string, from, to time.Time, limit int) ([]*repository.PayloadAuditRow, error)
+	// ListByCacheKeyNeedle recovers historical conversations (conversation_key column empty)
+	// by searching for a substring needle in input_body within the given user+time window.
+	ListByCacheKeyNeedle(ctx context.Context, userID *int64, needle string, from, to time.Time, limit int) ([]*repository.PayloadAuditRow, error)
 }
 
 // AuditConversationHandler serves the conversation export and blob proxy endpoints.
@@ -159,15 +162,27 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 	resolver := h.svc.Resolver()
 
 	var events []*service.PayloadAuditEvent
+	var historicalKey string // set when historical prompt_cache_key fallback is used
+	singleTurn := false
 
 	convKey := row.ConversationKey
 	if convKey == "" {
-		// Single-turn fallback: no conversation key.
-		hitEvent := repoRowToServiceEvent(row)
-		// Mark a gap so the manifest notes single-turn.
-		// We inject this by passing a synthesised slice with just the one row
-		// and letting AssembleTranscript add it via a manifest note below.
-		events = []*service.PayloadAuditEvent{hitEvent}
+		// Historical fallback: column empty (row predates conversation_key). Recover
+		// the conversation by matching prompt_cache_key parsed from the body.
+		anchor := createdAt
+		if pck, _ := service.ExtractRequestConvIDs(row.Endpoint, []byte(row.InputBody)); pck != "" {
+			needle := `prompt_cache_key":"` + pck
+			sib, ferr := h.repo.ListByCacheKeyNeedle(ctx, row.UserID, needle, anchor.Add(-7*24*time.Hour), anchor.Add(7*24*time.Hour), 500)
+			if ferr == nil && len(sib) > 1 {
+				events = repoRowsToServiceEvents(sib)
+				historicalKey = pck
+			}
+		}
+		if events == nil {
+			// Single-turn fallback: no conversation key and no recoverable multi-turn history.
+			events = []*service.PayloadAuditEvent{repoRowToServiceEvent(row)}
+			singleTurn = true
+		}
 	} else {
 		// Fetch ±7 days around createdAt (or around row.CreatedAt if createdAt is zero).
 		anchor := createdAt
@@ -191,8 +206,15 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 
 	transcript := service.AssembleTranscript(ctx, events, resolver)
 
-	// If it was a single-turn (no conversation key), add a note to the manifest.
-	if convKey == "" {
+	// Annotate the manifest depending on which path was taken.
+	if historicalKey != "" {
+		// Historical fallback recovered a multi-turn conversation via prompt_cache_key body match.
+		if transcript.Manifest.ConversationKey == "" {
+			transcript.Manifest.ConversationKey = historicalKey
+		}
+		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "历史会话：按 prompt_cache_key 回溯分组（conversation_key 列为空）")
+	} else if singleTurn {
+		// No conversation key and no recoverable history — truly single-turn.
 		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "单轮副本（无会话键）")
 	}
 
