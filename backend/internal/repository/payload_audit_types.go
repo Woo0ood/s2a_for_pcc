@@ -23,6 +23,7 @@ type PayloadAuditEvent struct {
 	InputBytes, OutputBytes                          int
 	InputTruncated, OutputTruncated, OutputOmitted   bool
 	InputOffloaded                                   bool
+	ConversationKey, ResponseID, PreviousResponseID  string
 	ErrorMessage                                     string
 	CreatedAt                                        time.Time
 }

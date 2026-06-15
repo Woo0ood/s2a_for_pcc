@@ -44,6 +44,7 @@ type PayloadAuditEvent struct {
 	InputBytes, OutputBytes                        int
 	InputTruncated, OutputTruncated, OutputOmitted bool
 	InputOffloaded                                 bool
+	ConversationKey, ResponseID, PreviousResponseID string
 	ErrorMessage                                   string
 	CreatedAt                                      time.Time
 }
@@ -75,6 +76,10 @@ type PayloadAuditCollector struct {
 	pendingBody       *ExtractedBlob
 	originalForRevert []byte
 	inputOffloaded    bool
+
+	convKey    string
+	prevRespID string
+	respID     string
 
 	outputBuf     strings.Builder
 	outputBytes   int // total bytes appended (including truncated portion)
@@ -120,6 +125,9 @@ func (c *PayloadAuditCollector) SetInput(body []byte, format string) {
 		return
 	}
 	c.inputBytes = len(body)
+	if ck, prev := ExtractRequestConvIDs(c.meta.Endpoint, body); ck != "" || prev != "" {
+		c.convKey, c.prevRespID = ck, prev
+	}
 	c.inputFormat = format
 
 	work := body
@@ -173,6 +181,13 @@ func (c *PayloadAuditCollector) OriginalForRevert() []byte { return c.originalFo
 
 // MarkInputOffloaded marks the input as successfully offloaded (called by Task 7 uploader).
 func (c *PayloadAuditCollector) MarkInputOffloaded() { c.inputOffloaded = true }
+
+// SetResponseID records the upstream response id (called by output capture once the id is known).
+func (c *PayloadAuditCollector) SetResponseID(id string) {
+	if c.enabled && id != "" {
+		c.respID = id
+	}
+}
 
 // InputBodyForTest returns the current inputBody as a string (for use in tests).
 func (c *PayloadAuditCollector) InputBodyForTest() string { return string(c.inputBody) }
@@ -277,8 +292,11 @@ func (c *PayloadAuditCollector) buildEvent(statusCode int, dur time.Duration, er
 		InputTruncated:  c.inputTrunc,
 		OutputTruncated: c.outputTrunc,
 		OutputOmitted:   c.outputOmitted,
-		InputOffloaded:  c.inputOffloaded,
-		ErrorMessage:    errMsg,
-		CreatedAt:       time.Now(),
+		InputOffloaded:     c.inputOffloaded,
+		ConversationKey:    c.convKey,
+		ResponseID:         c.respID,
+		PreviousResponseID: c.prevRespID,
+		ErrorMessage:       errMsg,
+		CreatedAt:          time.Now(),
 	}
 }

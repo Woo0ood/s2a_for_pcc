@@ -53,8 +53,11 @@ func (a *PayloadAuditSinkAdapter) BatchInsertWithToken(ctx context.Context, even
 			InputTruncated:  e.InputTruncated,
 			OutputTruncated: e.OutputTruncated,
 			OutputOmitted:   e.OutputOmitted,
-			InputOffloaded:  e.InputOffloaded,
-			ErrorMessage:    e.ErrorMessage,
+			InputOffloaded:     e.InputOffloaded,
+			ConversationKey:    e.ConversationKey,
+			ResponseID:         e.ResponseID,
+			PreviousResponseID: e.PreviousResponseID,
+			ErrorMessage:       e.ErrorMessage,
 		}
 	}
 	return a.repo.BatchInsertWithToken(ctx, repoEvents, token)

@@ -140,3 +140,36 @@ func TestCollector_SetInput_OversizedBodyOffloaded(t *testing.T) {
 		t.Fatal("input body should be a body pointer")
 	}
 }
+
+func TestCollector_SetInput_ExtractsConversationIDs(t *testing.T) {
+	snap := newScopedSnap(1000, 1000, 64)
+	c := NewPayloadAuditCollector(snap)
+	c.SetMetadata(PayloadAuditMetadata{Provider: "openai", Endpoint: "/v1/responses"})
+	body := []byte(`{"model":"gpt-5.5","prompt_cache_key":"sess-1","previous_response_id":"resp_0","store":false}`)
+	c.SetInput(body, "json")
+	evt := c.Finalize(200, 0, "")
+	if evt == nil {
+		t.Fatal("expected event")
+	}
+	if evt.ConversationKey != "sess-1" {
+		t.Fatalf("ConversationKey: want %q got %q", "sess-1", evt.ConversationKey)
+	}
+	if evt.PreviousResponseID != "resp_0" {
+		t.Fatalf("PreviousResponseID: want %q got %q", "resp_0", evt.PreviousResponseID)
+	}
+}
+
+func TestCollector_SetResponseID(t *testing.T) {
+	snap := newScopedSnap(1000, 1000, 64)
+	c := NewPayloadAuditCollector(snap)
+	c.SetMetadata(PayloadAuditMetadata{Provider: "openai", Endpoint: "/v1/responses"})
+	c.SetInput([]byte(`{"model":"gpt-5.5","prompt_cache_key":"sess-1","previous_response_id":"resp_0"}`), "json")
+	c.SetResponseID("resp_9")
+	evt := c.Finalize(200, 0, "")
+	if evt == nil {
+		t.Fatal("expected event")
+	}
+	if evt.ResponseID != "resp_9" {
+		t.Fatalf("ResponseID: want %q got %q", "resp_9", evt.ResponseID)
+	}
+}
