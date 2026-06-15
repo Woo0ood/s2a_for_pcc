@@ -2954,8 +2954,25 @@ export default {
       tabs: {
         basic: '基础',
         performance: '性能',
+        offload: '对象旁路',
         apiKey: 'API Key',
       },
+
+      // Offload / blob-store config
+      offloadEnabled: '启用对象旁路',
+      blobOffloadMinBytes: '旁路最小字节数',
+      blobStorePrefix: '对象键前缀',
+      offloadRetentionMarginDays: '保留宽限天数',
+      blobStoreS3: 'S3 兼容对象存储',
+      s3Endpoint: 'Endpoint',
+      s3Region: 'Region',
+      s3Bucket: 'Bucket',
+      s3AccessKeyId: 'Access Key ID',
+      s3SecretAccessKey: 'Secret Access Key',
+      s3SecretPlaceholder: '留空表示不修改',
+      s3Prefix: '存储桶内前缀',
+      s3ForcePathStyle: '强制路径模式 (Path Style)',
+      offloadS3IndependentHint: '此 S3 配置与备份 S3 配置相互独立，互不影响。',
 
       // Export Keys
       exportKeys: '导出 API Key',
@@ -2974,6 +2991,7 @@ export default {
       confirmDeleteMsg: '确定要删除导出 Key「{name}」吗？此操作不可撤销。',
       runCleanup: '手动清理',
       cleanupDone: '清理完成：删除 {deleted} 条，耗时 {ms}ms',
+      exportConversation: '导出完整对话',
 
       // Error messages
       statusFailed: '获取状态失败',
@@ -2987,6 +3005,7 @@ export default {
       createKeyFailed: '创建 Key 失败',
       deleteKeyFailed: '删除 Key 失败',
       cleanupFailed: '清理失败',
+      exportConversationFailed: '导出对话失败',
     },
 
     // Channel Monitor

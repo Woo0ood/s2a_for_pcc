@@ -345,6 +345,10 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 	c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if respBytes, err := json.Marshal(responsesResp); err == nil {
 		respBytes = reverseToolNamesIfPresent(c, respBytes)
+		// Payload audit: tee the full Responses JSON body for structured fidelity.
+		if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+			auditColl.AppendRawEvent(respBytes)
+		}
 		c.Data(http.StatusOK, "application/json; charset=utf-8", respBytes)
 	} else {
 		c.JSON(http.StatusOK, responsesResp)
@@ -437,6 +441,10 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 				continue
 			}
 			out := string(reverseToolNamesIfPresent(c, []byte(sse)))
+			// Payload audit: tee each converted Responses SSE event for structured fidelity.
+			if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+				auditColl.AppendRawEvent([]byte(out))
+			}
 			if _, err := fmt.Fprint(c.Writer, out); err != nil {
 				logger.L().Info("forward_as_responses stream: client disconnected",
 					zap.String("request_id", requestID),
@@ -458,6 +466,10 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 					continue
 				}
 				out := string(reverseToolNamesIfPresent(c, []byte(sse)))
+				// Payload audit: tee finalize events for structured fidelity.
+				if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+					auditColl.AppendRawEvent([]byte(out))
+				}
 				fmt.Fprint(c.Writer, out) //nolint:errcheck
 			}
 			c.Writer.Flush()

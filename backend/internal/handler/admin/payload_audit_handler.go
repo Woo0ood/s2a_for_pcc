@@ -60,6 +60,12 @@ type payloadAuditConfigResponseCfg struct {
 	BatchSize      int                                  `json:"batch_size"`
 	BatchFlushMs   int                                  `json:"batch_flush_ms"`
 	ExportAPIKeys  []payloadAuditExportKeyRedactedEntry `json:"export_api_keys"`
+	// Offload / blob-store fields (independent from backup S3).
+	OffloadEnabled             bool                `json:"offload_enabled"`
+	BlobOffloadMinBytes        int                 `json:"blob_offload_min_bytes"`
+	BlobStorePrefix            string              `json:"blob_store_prefix"`
+	OffloadRetentionMarginDays int                 `json:"offload_retention_margin_days"`
+	BlobStore                  *service.BackupS3Config `json:"blob_store,omitempty"`
 }
 
 type payloadAuditExportKeyRedactedEntry struct {
@@ -104,22 +110,33 @@ func (h *PayloadAuditAdminHandler) GetConfig(c *gin.Context) {
 		response.Success(c, payloadAuditConfigResponse{})
 		return
 	}
+	respCfg := payloadAuditConfigResponseCfg{
+		AllGroups:                  snap.AllGroups,
+		GroupIDs:                   snapshotGroupIDs(snap.GroupIDs),
+		InputMaxBytes:              snap.InputMaxBytes,
+		OutputMaxBytes:             snap.OutputMaxBytes,
+		ExcerptBytes:               snap.ExcerptBytes,
+		RetentionDays:              snap.RetentionDays,
+		WorkerCount:                snap.WorkerCount,
+		QueueSize:                  snap.QueueSize,
+		QueueMaxBytes:              snap.QueueMaxBytes,
+		BatchSize:                  snap.BatchSize,
+		BatchFlushMs:               snap.BatchFlushMs,
+		ExportAPIKeys:              redactExportKeys(snap.ExportKeys),
+		OffloadEnabled:             snap.OffloadEnabled,
+		BlobOffloadMinBytes:        snap.BlobOffloadMinBytes,
+		BlobStorePrefix:            snap.BlobStorePrefix,
+		OffloadRetentionMarginDays: snap.OffloadRetentionMarginDays,
+	}
+	// Copy the blob_store config and blank the secret before sending to browser.
+	if snap.BlobStore != nil {
+		bs := *snap.BlobStore
+		bs.SecretAccessKey = ""
+		respCfg.BlobStore = &bs
+	}
 	response.Success(c, payloadAuditConfigResponse{
 		Enabled: snap.Enabled,
-		Config: payloadAuditConfigResponseCfg{
-			AllGroups:      snap.AllGroups,
-			GroupIDs:       snapshotGroupIDs(snap.GroupIDs),
-			InputMaxBytes:  snap.InputMaxBytes,
-			OutputMaxBytes: snap.OutputMaxBytes,
-			ExcerptBytes:   snap.ExcerptBytes,
-			RetentionDays:  snap.RetentionDays,
-			WorkerCount:    snap.WorkerCount,
-			QueueSize:      snap.QueueSize,
-			QueueMaxBytes:  snap.QueueMaxBytes,
-			BatchSize:      snap.BatchSize,
-			BatchFlushMs:   snap.BatchFlushMs,
-			ExportAPIKeys:  redactExportKeys(snap.ExportKeys),
-		},
+		Config:  respCfg,
 	})
 }
 

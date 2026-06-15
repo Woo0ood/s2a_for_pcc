@@ -3877,6 +3877,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			s.parseSSEUsageBytes(dataBytes, usage)
 			// Payload audit: capture output text from each Responses SSE event
 			if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+				auditColl.AppendRawEvent([]byte(line + "\n")) // raw SSE line for structured fidelity
 				if delta := ExtractOpenAIResponsesEventText(eventType, dataBytes); delta != "" {
 					auditColl.AppendOutput(delta)
 				}
@@ -3998,6 +3999,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	}
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 		if text := extractResponsesOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		}
@@ -4067,6 +4069,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 	}
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 		if text := extractResponsesOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		}
@@ -4879,6 +4882,7 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 			s.parseSSEUsageBytes(dataBytes, usage)
 			// Payload audit: capture output text from each SSE event (Responses + ChatCompletions)
 			if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+				auditColl.AppendRawEvent([]byte(line + "\n")) // raw SSE line for structured fidelity
 				delta := ExtractOpenAIResponsesEventText(eventType, dataBytes)
 				if delta == "" {
 					delta = ExtractOpenAIChatDeltaText(dataBytes)
@@ -5262,6 +5266,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 
 	// Payload audit: capture non-streaming output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 		if text := extractChatCompletionsOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		} else if text := extractResponsesOutputText(body); text != "" {
@@ -5342,6 +5347,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 
 	// Payload audit: capture output from SSE-to-JSON conversion
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full body (JSON or SSE) for structured fidelity
 		if text := extractResponsesOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		} else if text := extractChatCompletionsOutputText(body); text != "" {

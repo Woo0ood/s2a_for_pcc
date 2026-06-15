@@ -11,6 +11,16 @@ export interface PayloadAuditExportKey {
   disabled: boolean
 }
 
+export interface BlobStoreConfig {
+  endpoint: string
+  region: string
+  bucket: string
+  access_key_id: string
+  secret_access_key: string
+  prefix: string
+  force_path_style: boolean
+}
+
 export interface PayloadAuditConfig {
   all_groups: boolean
   group_ids: number[]
@@ -24,6 +34,12 @@ export interface PayloadAuditConfig {
   batch_size: number
   batch_flush_ms: number
   export_api_keys: PayloadAuditExportKey[]
+  // Offload / blob-store (independent from backup S3)
+  offload_enabled: boolean
+  blob_offload_min_bytes: number
+  blob_store_prefix: string
+  offload_retention_margin_days: number
+  blob_store?: BlobStoreConfig
 }
 
 export interface PayloadAuditConfigEnvelope {
@@ -182,6 +198,14 @@ export async function runCleanup(): Promise<{ deleted: number; duration_ms: numb
   return data
 }
 
+export async function exportConversationHTML(id: string, createdAt: string): Promise<string> {
+  const { data } = await apiClient.get<string>(
+    `/admin/payload-audit/payloads/${id}/conversation`,
+    { params: { created_at: createdAt, format: 'html' }, responseType: 'text' }
+  )
+  return data
+}
+
 export const payloadAuditAPI = {
   getConfig,
   updateConfig,
@@ -192,6 +216,7 @@ export const payloadAuditAPI = {
   createExportKey,
   deleteExportKey,
   runCleanup,
+  exportConversationHTML,
 }
 
 export default payloadAuditAPI

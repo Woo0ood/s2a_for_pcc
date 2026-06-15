@@ -1958,6 +1958,7 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(unwrappedBody) // full JSON body for structured fidelity
 		if text := ExtractGeminiStreamFrame(unwrappedBody); text != "" {
 			auditColl.AppendOutput(text)
 		}
@@ -2045,6 +2046,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 
 		// Payload audit: extract output text from Gemini compat stream frame
 		if auditColl != nil {
+			auditColl.AppendRawEvent([]byte(line)) // raw SSE line for structured fidelity
 			if text := ExtractGeminiStreamFrame(unwrappedBytes); text != "" {
 				auditColl.AppendOutput(text)
 			}
@@ -2538,6 +2540,7 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(respBody) // full JSON body for structured fidelity
 		if text := ExtractGeminiStreamFrame(respBody); text != "" {
 			auditColl.AppendOutput(text)
 		}
@@ -2625,6 +2628,7 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 
 					// Payload audit: extract output text from native Gemini stream frame
 					if auditColl != nil && len(rawBytes) > 0 {
+						auditColl.AppendRawEvent([]byte(line)) // raw SSE line for structured fidelity
 						if text := ExtractGeminiStreamFrame(rawBytes); text != "" {
 							auditColl.AppendOutput(text)
 						}

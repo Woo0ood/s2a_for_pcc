@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"sync"
 	"testing"
@@ -90,7 +91,7 @@ func (m *mockSettingsRepo) Delete(_ context.Context, key string) error {
 func newTestPayloadAuditService(t *testing.T) *PayloadAuditService {
 	t.Helper()
 	repo := newMockSettingsRepo()
-	svc, err := ProvidePayloadAuditService(repo, nil, 0, nil)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("ProvidePayloadAuditService: %v", err)
 	}
@@ -380,7 +381,7 @@ func TestLoadFromSettings_InvalidJSON(t *testing.T) {
 	repo := newMockSettingsRepo()
 	_ = repo.Set(context.Background(), settingKeyPayloadAuditConfig, "not-json")
 
-	svc, err := ProvidePayloadAuditService(repo, nil, 0, nil)
+	svc, err := ProvidePayloadAuditService(repo, nil, 0, nil, nil, nil)
 	if err != nil {
 		t.Fatal("ProvidePayloadAuditService should not return error on bad load")
 	}
@@ -424,5 +425,38 @@ func TestConfigSnapshot_BatchDefaults(t *testing.T) {
 	}
 	if snap.BatchFlushMs != 200 {
 		t.Fatalf("expected default batch_flush_ms=200, got %d", snap.BatchFlushMs)
+	}
+}
+
+type fakeEncryptor struct{}
+
+func (fakeEncryptor) Encrypt(s string) (string, error) { return s, nil }
+func (fakeEncryptor) Decrypt(s string) (string, error) { return s, nil }
+
+type stubObjStore struct{}
+
+func (stubObjStore) Upload(_ context.Context, _ string, _ io.Reader, _ string) (int64, error) {
+	return 0, nil
+}
+func (stubObjStore) Download(_ context.Context, _ string) (io.ReadCloser, error) { return nil, nil }
+func (stubObjStore) Delete(_ context.Context, _ string) error                    { return nil }
+func (stubObjStore) PresignURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", nil
+}
+func (stubObjStore) HeadBucket(_ context.Context) error { return nil }
+
+func TestPayloadAuditService_RebuildUploader(t *testing.T) {
+	factory := func(_ context.Context, _ *BackupS3Config) (BackupObjectStore, error) {
+		return stubObjStore{}, nil
+	}
+	s := &PayloadAuditService{storeFactory: factory, encryptor: fakeEncryptor{}}
+
+	s.rebuildUploader(&PayloadAuditConfig{OffloadEnabled: true, BlobStore: &BackupS3Config{Bucket: "b", AccessKeyID: "k", SecretAccessKey: "enc"}}, true)
+	if s.Uploader() == nil {
+		t.Fatal("expected uploader when offload enabled + configured")
+	}
+	s.rebuildUploader(&PayloadAuditConfig{}, true)
+	if s.Uploader() != nil {
+		t.Fatal("expected nil uploader when offload disabled")
 	}
 }

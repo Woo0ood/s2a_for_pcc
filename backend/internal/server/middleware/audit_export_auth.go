@@ -53,27 +53,27 @@ func NewRedisAuditExportRateLimiter(rdb *redis.Client) *RedisAuditExportRateLimi
 
 // Allow implements AuditExportRateLimiter.
 // Returns (true, 0) on allow, (false, retryAfterSec) on deny.
-// On Redis error, returns (true, 0) — fail-open.
+// On Redis error or unexpected result, returns (false, 60) — fail-closed.
 func (l *RedisAuditExportRateLimiter) Allow(ctx context.Context, keyID string, ratePerMin int) (bool, int) {
 	key := fmt.Sprintf("payload_audit:export:rate:%s", keyID)
 	windowSec := int64(60)
 
 	result, err := auditExportRateLimitScript.Run(ctx, l.rdb, []string{key}, windowSec).Slice()
 	if err != nil {
-		slog.Warn("audit export rate limiter redis error, fail-open", "key_id", keyID, "error", err)
-		return true, 0
+		slog.Warn("audit export rate limiter redis error, fail-closed", "key_id", keyID, "error", err)
+		return false, 60
 	}
 
 	if len(result) < 2 {
-		slog.Warn("audit export rate limiter unexpected result", "key_id", keyID)
-		return true, 0
+		slog.Warn("audit export rate limiter unexpected result, fail-closed", "key_id", keyID)
+		return false, 60
 	}
 
 	count, ok1 := toInt64(result[0])
 	ttl, ok2 := toInt64(result[1])
 	if !ok1 || !ok2 {
-		slog.Warn("audit export rate limiter parse error", "key_id", keyID)
-		return true, 0
+		slog.Warn("audit export rate limiter parse error, fail-closed", "key_id", keyID)
+		return false, 60
 	}
 
 	if count > int64(ratePerMin) {

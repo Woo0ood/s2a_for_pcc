@@ -269,7 +269,11 @@
         </div>
 
         <template #footer>
-          <div class="flex justify-end">
+          <div class="flex justify-between">
+            <button type="button" class="btn btn-secondary inline-flex items-center gap-2" @click="exportConversation">
+              <Icon name="download" size="sm" />
+              {{ t('admin.payloadAudit.exportConversation') }}
+            </button>
             <button type="button" class="btn btn-secondary" @click="closeDetail">{{ t('common.close') }}</button>
           </div>
         </template>
@@ -352,6 +356,81 @@
                 <input v-model.number="configForm.config.batch_flush_ms" type="number" min="100" class="input" />
               </div>
             </div>
+          </div>
+
+          <!-- Offload Tab -->
+          <div v-if="activeConfigTab === 'offload'" class="space-y-5">
+            <!-- Independent-from-backup hint -->
+            <p class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300">
+              {{ t('admin.payloadAudit.offloadS3IndependentHint') }}
+            </p>
+
+            <!-- Enable switch -->
+            <div class="flex items-center justify-between rounded-lg border border-gray-100 p-4 dark:border-dark-700">
+              <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.payloadAudit.offloadEnabled') }}</p>
+              </div>
+              <Toggle v-model="configForm.config.offload_enabled" @update:model-value="(v: boolean) => { if (v) ensureBlobStore() }" />
+            </div>
+
+            <!-- Offload sub-fields (only shown when enabled) -->
+            <template v-if="configForm.config.offload_enabled">
+              <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('admin.payloadAudit.blobOffloadMinBytes') }}</label>
+                  <input v-model.number="configForm.config.blob_offload_min_bytes" type="number" min="0" class="input" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.payloadAudit.blobStorePrefix') }}</label>
+                  <input v-model.trim="configForm.config.blob_store_prefix" type="text" class="input" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.payloadAudit.offloadRetentionMarginDays') }}</label>
+                  <input v-model.number="configForm.config.offload_retention_margin_days" type="number" min="0" class="input" />
+                </div>
+              </div>
+
+              <!-- S3 block -->
+              <div class="rounded-lg border border-gray-100 p-4 dark:border-dark-700">
+                <h4 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.payloadAudit.blobStoreS3') }}</h4>
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <label class="input-label">{{ t('admin.payloadAudit.s3Endpoint') }}</label>
+                    <input v-model.trim="configForm.config.blob_store!.endpoint" type="text" class="input" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('admin.payloadAudit.s3Region') }}</label>
+                    <input v-model.trim="configForm.config.blob_store!.region" type="text" class="input" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('admin.payloadAudit.s3Bucket') }}</label>
+                    <input v-model.trim="configForm.config.blob_store!.bucket" type="text" class="input" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('admin.payloadAudit.s3AccessKeyId') }}</label>
+                    <input v-model.trim="configForm.config.blob_store!.access_key_id" type="text" class="input" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('admin.payloadAudit.s3SecretAccessKey') }}</label>
+                    <input
+                      v-model="configForm.config.blob_store!.secret_access_key"
+                      type="password"
+                      class="input"
+                      :placeholder="t('admin.payloadAudit.s3SecretPlaceholder')"
+                      autocomplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('admin.payloadAudit.s3Prefix') }}</label>
+                    <input v-model.trim="configForm.config.blob_store!.prefix" type="text" class="input" />
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-dark-700 lg:col-span-2">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.payloadAudit.s3ForcePathStyle') }}</p>
+                    <Toggle v-model="configForm.config.blob_store!.force_path_style" />
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- API Keys Tab -->
@@ -481,12 +560,13 @@ import {
   type PayloadAuditConfigEnvelope,
   type PayloadAuditStatus,
   type PayloadAuditExportKey,
+  type BlobStoreConfig,
 } from '@/api/admin/payloadAudit'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime as formatDateTimeValue } from '@/utils/format'
 
-type ConfigTab = 'basic' | 'performance' | 'apiKey'
+type ConfigTab = 'basic' | 'performance' | 'offload' | 'apiKey'
 type DetailTab = 'input' | 'output' | 'raw'
 
 const { t } = useI18n()
@@ -549,8 +629,23 @@ const configForm = reactive<PayloadAuditConfigEnvelope>({
     batch_size: 50,
     batch_flush_ms: 1000,
     export_api_keys: [],
+    offload_enabled: false,
+    blob_offload_min_bytes: 0,
+    blob_store_prefix: 'payload-audit/',
+    offload_retention_margin_days: 0,
+    blob_store: undefined,
   },
 })
+
+function defaultBlobStore(): BlobStoreConfig {
+  return { endpoint: '', region: '', bucket: '', access_key_id: '', secret_access_key: '', prefix: '', force_path_style: false }
+}
+
+function ensureBlobStore() {
+  if (!configForm.config.blob_store) {
+    configForm.config.blob_store = defaultBlobStore()
+  }
+}
 
 // --- Export Keys ---
 const exportKeys = ref<PayloadAuditExportKey[]>([])
@@ -570,6 +665,7 @@ const cleanupLoading = ref(false)
 const configTabs = computed(() => [
   { id: 'basic' as const, label: t('admin.payloadAudit.tabs.basic') },
   { id: 'performance' as const, label: t('admin.payloadAudit.tabs.performance') },
+  { id: 'offload' as const, label: t('admin.payloadAudit.tabs.offload') },
   { id: 'apiKey' as const, label: t('admin.payloadAudit.tabs.apiKey') },
 ])
 
@@ -703,7 +799,15 @@ async function loadConfig() {
     const envelope = await payloadAuditAPI.getConfig()
     configEnvelope.value = envelope
     configForm.enabled = envelope.enabled
+    // Assign scalar fields and explicit offload fields.
     Object.assign(configForm.config, envelope.config)
+    // GET masks secret_access_key to "". Keep it as "" so the user must
+    // type a new value to change it; blank means "keep existing" on save.
+    if (envelope.config.blob_store) {
+      configForm.config.blob_store = { ...envelope.config.blob_store, secret_access_key: '' }
+    } else {
+      configForm.config.blob_store = undefined
+    }
   } catch (err) {
     appStore.showError(extractApiErrorMessage(err, t('admin.payloadAudit.loadFailed')))
   }
@@ -782,6 +886,18 @@ async function loadFullPayload() {
     appStore.showError(extractApiErrorMessage(err, t('admin.payloadAudit.loadPayloadFailed')))
   } finally {
     detailFullLoading.value = false
+  }
+}
+
+async function exportConversation() {
+  if (!detailRow.value) return
+  try {
+    const html = await payloadAuditAPI.exportConversationHTML(detailRow.value.ID, detailRow.value.CreatedAt)
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (err) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.payloadAudit.exportConversationFailed')))
   }
 }
 

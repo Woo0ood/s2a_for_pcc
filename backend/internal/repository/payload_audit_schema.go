@@ -57,12 +57,17 @@ CREATE TABLE IF NOT EXISTS %s
     output_truncated  Bool,
     output_omitted    Bool,
     error_message     String,
+    input_offloaded   Bool                   DEFAULT false,
+    conversation_key      String,
+    response_id           String,
+    previous_response_id  String,
 
-    INDEX idx_id          id          TYPE bloom_filter(0.001) GRANULARITY 1,
-    INDEX idx_request_id  request_id  TYPE bloom_filter(0.01)  GRANULARITY 4,
-    INDEX idx_user_id     user_id     TYPE bloom_filter(0.01)  GRANULARITY 4,
-    INDEX idx_api_key_id  api_key_id  TYPE bloom_filter(0.01)  GRANULARITY 4,
-    INDEX idx_group_id    group_id    TYPE bloom_filter(0.01)  GRANULARITY 4
+    INDEX idx_id                id               TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_request_id        request_id       TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_user_id           user_id          TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_api_key_id        api_key_id       TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_group_id          group_id         TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_conversation_key  conversation_key TYPE bloom_filter(0.01)  GRANULARITY 4
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(created_at)
@@ -84,6 +89,33 @@ func EnsureSchema(ctx context.Context, conn clickhouse.Conn, table string, reten
 	ddl := fmt.Sprintf(payloadAuditSchemaSQL, quoteCHIdentifier(table), retentionDays)
 	if err := conn.Exec(ctx, ddl); err != nil {
 		return fmt.Errorf("payload_audit ensure schema create: %w", err)
+	}
+	// Idempotently add columns introduced after the initial schema so existing
+	// production tables pick them up without a manual migration.
+	if err := conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN IF NOT EXISTS input_offloaded Bool DEFAULT false",
+		quoteCHIdentifier(table))); err != nil {
+		return fmt.Errorf("payload_audit ensure schema add input_offloaded: %w", err)
+	}
+	if err := conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN IF NOT EXISTS conversation_key String",
+		quoteCHIdentifier(table))); err != nil {
+		return fmt.Errorf("payload_audit ensure schema add conversation_key: %w", err)
+	}
+	if err := conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN IF NOT EXISTS response_id String",
+		quoteCHIdentifier(table))); err != nil {
+		return fmt.Errorf("payload_audit ensure schema add response_id: %w", err)
+	}
+	if err := conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN IF NOT EXISTS previous_response_id String",
+		quoteCHIdentifier(table))); err != nil {
+		return fmt.Errorf("payload_audit ensure schema add previous_response_id: %w", err)
+	}
+	if err := conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE %s ADD INDEX IF NOT EXISTS idx_conversation_key conversation_key TYPE bloom_filter(0.01) GRANULARITY 4",
+		quoteCHIdentifier(table))); err != nil {
+		return fmt.Errorf("payload_audit ensure schema add idx_conversation_key: %w", err)
 	}
 	current, err := readTableTTLDays(ctx, conn, table)
 	if err != nil {

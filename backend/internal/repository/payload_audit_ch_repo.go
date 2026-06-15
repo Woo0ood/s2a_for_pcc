@@ -77,6 +77,8 @@ func (r *PayloadAuditCHRepo) BatchInsertWithToken(ctx context.Context, events []
 			uint32(e.InputBytes), uint32(e.OutputBytes),
 			e.InputTruncated, e.OutputTruncated, e.OutputOmitted,
 			e.ErrorMessage,
+			e.InputOffloaded,
+			e.ConversationKey, e.ResponseID, e.PreviousResponseID,
 		); err != nil {
 			return fmt.Errorf("payload_audit ch append: %w", err)
 		}
@@ -91,7 +93,8 @@ const payloadAuditListCols = `id, created_at, request_id, user_id, user_email, a
 group_id, group_name, IPv6NumToString(client_ip), endpoint, provider, model, upstream_model,
 stream, status_code, duration_ms, input_excerpt, output_excerpt,
 input_format, output_format, input_bytes, output_bytes,
-input_truncated, output_truncated, output_omitted, error_message`
+input_truncated, output_truncated, output_omitted, error_message, input_offloaded,
+conversation_key, response_id, previous_response_id`
 
 const payloadAuditFullCols = payloadAuditListCols + `, input_body, output_body`
 
@@ -202,7 +205,8 @@ func scanCHRow(rows interface {
 		&row.InputFormat, &row.OutputFormat,
 		&inputBytes, &outputBytes,
 		&row.InputTruncated, &row.OutputTruncated, &row.OutputOmitted,
-		&row.ErrorMessage,
+		&row.ErrorMessage, &row.InputOffloaded,
+		&row.ConversationKey, &row.ResponseID, &row.PreviousResponseID,
 	}
 	if includeBody {
 		targets = append(targets, &row.InputBody, &row.OutputBody)

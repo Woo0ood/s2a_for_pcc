@@ -62,7 +62,7 @@ func newGinCtx(opts ...ginCtxOption) (*gin.Context, *httptest.ResponseRecorder) 
 func setupSvcWithKey(t *testing.T, name string, ratePerMin int) (*service.PayloadAuditService, string) {
 	t.Helper()
 	repo := newMockPAASettingsRepo()
-	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil)
+	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Enable audit so snapshot is active.
@@ -175,7 +175,7 @@ func TestAuditExportAuth_UnknownToken_401(t *testing.T) {
 
 func TestAuditExportAuth_DisabledKey_401(t *testing.T) {
 	repo := newMockPAASettingsRepo()
-	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil)
+	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil, nil, nil)
 	require.NoError(t, err)
 
 	_, err = svc.UpdateConfig(context.Background(), true, service.PayloadAuditConfig{})
@@ -257,6 +257,27 @@ func TestAuditExportAuth_NoScheme_401(t *testing.T) {
 	c, w := newGinCtx(withAuth(plain))
 	mw(c)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.True(t, c.IsAborted())
+}
+
+// alwaysErrorLimiterDirect does NOT panic — it returns (false,60) to simulate
+// a Redis-error fail-closed limiter returning deny directly.
+type alwaysErrorLimiterDirect struct{}
+
+func (l *alwaysErrorLimiterDirect) Allow(_ context.Context, _ string, _ int) (bool, int) {
+	return false, 60
+}
+
+func TestAuditExportAuth_RateLimitFailClosed_DeniesRequest(t *testing.T) {
+	svc, plain := setupSvcWithKey(t, "test-key", 60)
+	// Simulate Redis error path: limiter returns (false, 60) — fail-closed.
+	limiter := &alwaysErrorLimiterDirect{}
+	mw := AuditExportAuthMiddleware(svc, limiter)
+	c, w := newGinCtx(withAuth("Bearer " + plain))
+	mw(c)
+	// fail-closed: request must be denied.
+	require.Equal(t, http.StatusTooManyRequests, w.Code)
+	require.Equal(t, "60", w.Header().Get("Retry-After"))
 	require.True(t, c.IsAborted())
 }
 
