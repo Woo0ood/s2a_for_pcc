@@ -56,3 +56,20 @@ func TestUploader_FailureNotCached(t *testing.T) {
 		t.Fatalf("retry after failure should succeed, got %v", err)
 	}
 }
+
+type panicBlobStore struct{}
+
+func (panicBlobStore) Put(_ context.Context, _ string, _ []byte, _ string) error { panic("boom") }
+
+func TestUploader_PanicSurfacesAsError(t *testing.T) {
+	up := NewPayloadAuditUploader(panicBlobStore{}, "payload-audit/", 2)
+	// A panic in store.Put MUST surface as a non-nil error (named return),
+	// otherwise settleOffload would treat it as success and commit a dangling pointer.
+	if err := up.PutBlob(context.Background(), ExtractedBlob{SHA256: "p", Data: []byte("x")}); err == nil {
+		t.Fatal("panic in store.Put must return an error, got nil")
+	}
+	// Not cached as done → a retry attempts again rather than silently succeeding.
+	if err := up.PutBlob(context.Background(), ExtractedBlob{SHA256: "p", Data: []byte("x")}); err == nil {
+		t.Fatal("retry after panic must still error (not cached as done)")
+	}
+}

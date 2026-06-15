@@ -48,7 +48,7 @@ func (u *PayloadAuditUploader) PutBody(ctx context.Context, sha string, data []b
 	return u.put(ctx, bodyKey(u.prefix, sha), "body:"+sha, data, "application/json")
 }
 
-func (u *PayloadAuditUploader) put(ctx context.Context, key, dedupKey string, data []byte, ct string) error {
+func (u *PayloadAuditUploader) put(ctx context.Context, key, dedupKey string, data []byte, ct string) (err error) {
 	u.mu.Lock()
 	if _, ok := u.done[dedupKey]; ok {
 		u.mu.Unlock()
@@ -65,7 +65,9 @@ func (u *PayloadAuditUploader) put(ctx context.Context, key, dedupKey string, da
 	u.mu.Unlock()
 
 	u.sem <- struct{}{}
-	var err error
+	// err is a NAMED return so the deferred recover below propagates a panic to
+	// the caller as an error; with a local var, a panic would return nil and
+	// settleOffload would wrongly commit a dangling pointer.
 	// 用 defer 收尾，保证即便 store.Put panic 也能释放信号量、清理 flight、唤醒等待者，
 	// 不会永久泄漏一个并发槽或让同 sha 的后续调用死等。panic 转成 error → 不写 done、可重试。
 	defer func() {
