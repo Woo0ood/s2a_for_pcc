@@ -250,7 +250,7 @@ func TestGetConversation_RowNotFound_404(t *testing.T) {
 	r := setupConvRouter(h)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/audit/exports/payloads/99/conversation?format=html", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/audit/exports/payloads/99/conversation?format=html&created_at=1700000000000", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -289,7 +289,7 @@ func TestGetBlob_NoResolver_404(t *testing.T) {
 	r := setupConvRouter(h)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/audit/exports/payloads/blobs/abc123", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/audit/exports/payloads/blobs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -310,4 +310,19 @@ func TestGetBlob_MissingSha_400(t *testing.T) {
 	// Manually invoke to test the guard.
 	h.GetBlob(c)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGetBlob_InvalidSha_400(t *testing.T) {
+	repo := &mockConvRepo{}
+	svc := newMinimalSvc(t)
+	h := NewAuditConversationHandler(repo, svc)
+	r := setupConvRouter(h)
+	// Non-hex / wrong-length shas must be rejected before any object-store
+	// lookup — guards against path-traversal / arbitrary-object reads.
+	for _, bad := range []string{"abc123", "NOTHEXVALUE", "zzzz"} {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/api/v1/audit/exports/payloads/blobs/"+bad, nil)
+		r.ServeHTTP(w, req)
+		assert.Equalf(t, http.StatusBadRequest, w.Code, "sha %q must be 400", bad)
+	}
 }

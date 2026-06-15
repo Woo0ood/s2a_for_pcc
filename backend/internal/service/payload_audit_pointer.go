@@ -32,6 +32,25 @@ func EncodeBodyPointer(sha string, bytes int) string {
 	return bodyScheme + sha + "?bytes=" + strconv.Itoa(bytes)
 }
 
+// isLowerHex reports whether s is a non-empty string of lowercase hex digits.
+// Pointer SHAs feed object-store key construction, so they must not contain
+// path-traversal characters ('/', '.', etc.) or anything outside [0-9a-f].
+func isLowerHex(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// IsHexSHA256 reports whether s is exactly 64 lowercase hex digits (a real
+// sha256). Used to validate untrusted sha path params at HTTP boundaries.
+func IsHexSHA256(s string) bool { return len(s) == 64 && isLowerHex(s) }
+
 // ParsePointer 解析指针；非指针返回 ok=false。
 func ParsePointer(s string) (Pointer, bool) {
 	var kind, rest string
@@ -44,7 +63,7 @@ func ParsePointer(s string) (Pointer, bool) {
 		return Pointer{}, false
 	}
 	sha, query, _ := strings.Cut(rest, "?")
-	if sha == "" {
+	if !isLowerHex(sha) {
 		return Pointer{}, false
 	}
 	p := Pointer{Kind: kind, SHA256: sha}

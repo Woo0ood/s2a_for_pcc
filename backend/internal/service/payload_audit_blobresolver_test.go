@@ -121,7 +121,7 @@ func TestBlobResolver_BlobPointer_NoDownloadAttempted(t *testing.T) {
 	store := &testBlobStore{err: errors.New("should not be called")}
 	r := NewBlobResolver(store, prefix)
 
-	blobPointer := EncodeBlobPointer("sha999", "image/jpeg", 512)
+	blobPointer := EncodeBlobPointer("abc999", "image/jpeg", 512)
 	_, _, gaps := r.ResolveBody(context.Background(), blobPointer)
 
 	if len(gaps) != 0 {
@@ -152,8 +152,8 @@ func TestBlobResolver_NoPointers_ReturnsBodyUnchanged(t *testing.T) {
 
 func TestBlobResolver_MultiplePointers(t *testing.T) {
 	const prefix = "payload-audit"
-	const bodySHA = "body111"
-	const blobSHA = "blob222"
+	const bodySHA = "bbbb11"
+	const blobSHA = "aaaa22"
 	const originalText = "restored text content"
 
 	key := makeBodyKey(prefix, bodySHA)

@@ -134,6 +134,11 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 		}
 	}
 
+	if createdAt.IsZero() {
+		response.BadRequest(c, "created_at query parameter is required")
+		return
+	}
+
 	ctx := c.Request.Context()
 
 	// --- fetch hit row ---
@@ -210,8 +215,10 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 // The resolver must be configured (offload enabled); otherwise 404.
 func (h *AuditConversationHandler) GetBlob(c *gin.Context) {
 	sha := strings.TrimSpace(c.Param("sha"))
-	if sha == "" {
-		response.BadRequest(c, "Missing sha")
+	// Strict hex validation: the sha builds an object-store key, so anything
+	// other than a real 64-hex sha256 (e.g. "../") must be rejected outright.
+	if !service.IsHexSHA256(sha) {
+		response.BadRequest(c, "Invalid sha: must be 64 lowercase hex digits")
 		return
 	}
 
@@ -229,5 +236,6 @@ func (h *AuditConversationHandler) GetBlob(c *gin.Context) {
 
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("Content-Disposition", "attachment")
 	c.Data(http.StatusOK, mime, data)
 }
