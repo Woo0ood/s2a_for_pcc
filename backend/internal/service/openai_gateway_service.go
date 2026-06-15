@@ -3877,6 +3877,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			s.parseSSEUsageBytes(dataBytes, usage)
 			// Payload audit: capture output text from each Responses SSE event
 			if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+				auditColl.AppendRawEvent([]byte(line + "\n")) // raw SSE line for structured fidelity
 				if delta := ExtractOpenAIResponsesEventText(eventType, dataBytes); delta != "" {
 					auditColl.AppendOutput(delta)
 				}
@@ -3998,6 +3999,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	}
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 		if text := extractResponsesOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		}
@@ -4067,6 +4069,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 	}
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 		if text := extractResponsesOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		}
