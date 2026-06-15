@@ -140,6 +140,22 @@ func (s *PayloadAuditService) UpdateConfig(ctx context.Context, enabled bool, cf
 	s.cfgMu.Lock()
 	defer s.cfgMu.Unlock()
 
+	// Mirror backup: keep or encrypt the blob_store secret before validation.
+	if cfg.BlobStore != nil {
+		if cfg.BlobStore.SecretAccessKey == "" {
+			// keep existing encrypted secret
+			if old := s.snap.Load(); old != nil && old.BlobStore != nil {
+				cfg.BlobStore.SecretAccessKey = old.BlobStore.SecretAccessKey
+			}
+		} else if s.encryptor != nil {
+			enc, err := s.encryptor.Encrypt(cfg.BlobStore.SecretAccessKey)
+			if err != nil {
+				return false, fmt.Errorf("encrypt blob_store secret: %w", err)
+			}
+			cfg.BlobStore.SecretAccessKey = enc
+		}
+	}
+
 	if err := validatePayloadAuditConfig(&cfg); err != nil {
 		return false, err
 	}

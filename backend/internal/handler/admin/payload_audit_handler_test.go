@@ -593,3 +593,222 @@ func TestPayloadAuditAdmin_ListPayloads_RepoError(t *testing.T) {
 		t.Fatalf("expected error status, got 200")
 	}
 }
+
+// --------------- offload / blob_store tests ---------------
+
+// buildTestPayloadAuditHandlerWithEncryptor creates a handler backed by a service
+// that uses the given encryptor (for blob_store secret encryption tests).
+func buildTestPayloadAuditHandlerWithEncryptor(
+	enabledStr, cfgJSON string,
+	repo PayloadAuditAdminRepo,
+	encryptor service.SecretEncryptor,
+) *PayloadAuditAdminHandler {
+	settings := &stubSettingsRepo{data: map[string]string{
+		"payload_audit_enabled": enabledStr,
+		"payload_audit_config":  cfgJSON,
+	}}
+	svc, _ := service.ProvidePayloadAuditService(settings, nil, 0, nil, nil, encryptor)
+
+	sink := service.NewPayloadAuditSink(nil, service.SinkConfig{
+		WorkerCount: 4, QueueSize: 1024, QueueMaxBytes: 1 << 20,
+		BatchSize: 50, BatchFlushMs: 100,
+	})
+
+	return &PayloadAuditAdminHandler{
+		svc:     svc,
+		sink:    sink,
+		cleanup: service.NewPayloadAuditCleanup(&mockPayloadAuditCleanupRepo{}, svc),
+		repo:    repo,
+	}
+}
+
+// testEncryptor wraps plaintext with a reversible prefix so we can verify it is
+// not equal to the plaintext but can be decrypted back.
+type testEncryptor struct{}
+
+func (testEncryptor) Encrypt(s string) (string, error) { return "ENC:" + s, nil }
+func (testEncryptor) Decrypt(s string) (string, error) {
+	if len(s) < 4 {
+		return s, nil
+	}
+	return s[4:], nil
+}
+
+// TestPayloadAuditAdmin_GetConfig_OffloadFields verifies that GetConfig returns
+// the offload fields and masks the blob_store secret.
+func TestPayloadAuditAdmin_GetConfig_OffloadFields(t *testing.T) {
+	cfgJSON := `{
+		"all_groups":true,
+		"retention_days":90,
+		"batch_size":50,
+		"batch_flush_ms":100,
+		"offload_enabled":false,
+		"blob_offload_min_bytes":4096,
+		"blob_store_prefix":"payload-audit/",
+		"offload_retention_margin_days":7,
+		"blob_store":{
+			"endpoint":"https://s3.example.com",
+			"region":"us-east-1",
+			"bucket":"my-bucket",
+			"access_key_id":"AKID",
+			"secret_access_key":"supersecret",
+			"prefix":"",
+			"force_path_style":false
+		}
+	}`
+	h := buildTestPayloadAuditHandler("true", cfgJSON, &mockPayloadAuditRepo{})
+	r := newPayloadAuditTestRouter(h)
+
+	w := doRequest(r, http.MethodGet, "/payload-audit/config", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d, want 200, body: %s", w.Code, w.Body.String())
+	}
+
+	data := unmarshalData(t, w)
+	var resp payloadAuditConfigResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	// Offload scalar fields must be present.
+	if resp.Config.BlobOffloadMinBytes != 4096 {
+		t.Errorf("blob_offload_min_bytes=%d, want 4096", resp.Config.BlobOffloadMinBytes)
+	}
+	if resp.Config.BlobStorePrefix != "payload-audit/" {
+		t.Errorf("blob_store_prefix=%q, want 'payload-audit/'", resp.Config.BlobStorePrefix)
+	}
+	if resp.Config.OffloadRetentionMarginDays != 7 {
+		t.Errorf("offload_retention_margin_days=%d, want 7", resp.Config.OffloadRetentionMarginDays)
+	}
+
+	// blob_store must be present with endpoint/bucket/access_key_id but secret blanked.
+	if resp.Config.BlobStore == nil {
+		t.Fatal("blob_store must not be nil in response")
+	}
+	if resp.Config.BlobStore.Endpoint != "https://s3.example.com" {
+		t.Errorf("blob_store.endpoint=%q", resp.Config.BlobStore.Endpoint)
+	}
+	if resp.Config.BlobStore.Bucket != "my-bucket" {
+		t.Errorf("blob_store.bucket=%q", resp.Config.BlobStore.Bucket)
+	}
+	if resp.Config.BlobStore.AccessKeyID != "AKID" {
+		t.Errorf("blob_store.access_key_id=%q", resp.Config.BlobStore.AccessKeyID)
+	}
+	if resp.Config.BlobStore.SecretAccessKey != "" {
+		t.Errorf("blob_store.secret_access_key must be masked (got %q)", resp.Config.BlobStore.SecretAccessKey)
+	}
+
+	// Body must not contain the raw secret string.
+	if bytes.Contains(w.Body.Bytes(), []byte("supersecret")) {
+		t.Error("response body must not contain the raw secret")
+	}
+}
+
+// TestPayloadAuditAdmin_UpdateConfig_SecretEncrypted verifies that supplying a
+// new secret causes it to be stored encrypted (not equal to plaintext).
+func TestPayloadAuditAdmin_UpdateConfig_SecretEncrypted(t *testing.T) {
+	baseCfg := `{"retention_days":90,"batch_size":50,"batch_flush_ms":100}`
+	enc := testEncryptor{}
+	h := buildTestPayloadAuditHandlerWithEncryptor("false", baseCfg, &mockPayloadAuditRepo{}, enc)
+	r := newPayloadAuditTestRouter(h)
+
+	reqBody := map[string]any{
+		"enabled": true,
+		"config": map[string]any{
+			"retention_days":  90,
+			"batch_size":      50,
+			"batch_flush_ms":  100,
+			"offload_enabled": true,
+			"blob_store": map[string]any{
+				"endpoint":         "https://s3.example.com",
+				"region":           "us-east-1",
+				"bucket":           "my-bucket",
+				"access_key_id":    "AKID",
+				"secret_access_key": "plaintext-secret",
+				"prefix":           "",
+				"force_path_style": false,
+			},
+		},
+	}
+	w := doRequest(r, http.MethodPut, "/payload-audit/config", reqBody)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d, want 200, body: %s", w.Code, w.Body.String())
+	}
+
+	// Now GET — secret must be blanked in response but snapshot has it encrypted.
+	snap := h.svc.Snapshot()
+	if snap.BlobStore == nil {
+		t.Fatal("snapshot BlobStore must not be nil after update")
+	}
+	stored := snap.BlobStore.SecretAccessKey
+	if stored == "plaintext-secret" {
+		t.Error("stored secret must not equal plaintext; it should be encrypted")
+	}
+	if stored == "" {
+		t.Error("stored secret must not be empty after providing a new secret")
+	}
+	// Decrypt back to verify round-trip.
+	plain, err := enc.Decrypt(stored)
+	if err != nil {
+		t.Fatalf("decrypt failed: %v", err)
+	}
+	if plain != "plaintext-secret" {
+		t.Errorf("decrypted secret=%q, want 'plaintext-secret'", plain)
+	}
+}
+
+// TestPayloadAuditAdmin_UpdateConfig_BlankSecretKeepsOld verifies that sending
+// an empty secret on an update preserves the previously stored (encrypted) secret.
+func TestPayloadAuditAdmin_UpdateConfig_BlankSecretKeepsOld(t *testing.T) {
+	// Seed with an already-encrypted secret in the stored config.
+	seededCfg := `{
+		"retention_days":90,
+		"batch_size":50,
+		"batch_flush_ms":100,
+		"offload_enabled":false,
+		"blob_store":{
+			"endpoint":"https://s3.example.com",
+			"region":"us-east-1",
+			"bucket":"my-bucket",
+			"access_key_id":"AKID",
+			"secret_access_key":"ENC:old-secret",
+			"prefix":"",
+			"force_path_style":false
+		}
+	}`
+	enc := testEncryptor{}
+	h := buildTestPayloadAuditHandlerWithEncryptor("true", seededCfg, &mockPayloadAuditRepo{}, enc)
+	r := newPayloadAuditTestRouter(h)
+
+	// Update with blank secret — the old encrypted secret must be preserved.
+	reqBody := map[string]any{
+		"enabled": true,
+		"config": map[string]any{
+			"retention_days":  90,
+			"batch_size":      50,
+			"batch_flush_ms":  100,
+			"offload_enabled": true,
+			"blob_store": map[string]any{
+				"endpoint":          "https://s3.example.com",
+				"region":            "us-east-1",
+				"bucket":            "my-bucket",
+				"access_key_id":     "AKID",
+				"secret_access_key": "", // blank — must keep old
+				"prefix":            "",
+				"force_path_style":  false,
+			},
+		},
+	}
+	w := doRequest(r, http.MethodPut, "/payload-audit/config", reqBody)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d, want 200, body: %s", w.Code, w.Body.String())
+	}
+
+	snap := h.svc.Snapshot()
+	if snap.BlobStore == nil {
+		t.Fatal("snapshot BlobStore must not be nil")
+	}
+	if snap.BlobStore.SecretAccessKey != "ENC:old-secret" {
+		t.Errorf("stored secret=%q, want 'ENC:old-secret' (old preserved)", snap.BlobStore.SecretAccessKey)
+	}
+}

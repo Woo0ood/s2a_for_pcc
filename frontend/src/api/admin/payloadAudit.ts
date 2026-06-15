@@ -11,6 +11,16 @@ export interface PayloadAuditExportKey {
   disabled: boolean
 }
 
+export interface BlobStoreConfig {
+  endpoint: string
+  region: string
+  bucket: string
+  access_key_id: string
+  secret_access_key: string
+  prefix: string
+  force_path_style: boolean
+}
+
 export interface PayloadAuditConfig {
   all_groups: boolean
   group_ids: number[]
@@ -24,6 +34,12 @@ export interface PayloadAuditConfig {
   batch_size: number
   batch_flush_ms: number
   export_api_keys: PayloadAuditExportKey[]
+  // Offload / blob-store (independent from backup S3)
+  offload_enabled: boolean
+  blob_offload_min_bytes: number
+  blob_store_prefix: string
+  offload_retention_margin_days: number
+  blob_store?: BlobStoreConfig
 }
 
 export interface PayloadAuditConfigEnvelope {

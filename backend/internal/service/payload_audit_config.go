@@ -62,9 +62,11 @@ type ConfigSnapshot struct {
 	ExportKeys       []PayloadAuditExportKey
 	ExportKeysByHash map[string]*PayloadAuditExportKey
 	Generation       uint64
-	OffloadEnabled      bool
-	BlobOffloadMinBytes int
-	BlobStorePrefix     string
+	OffloadEnabled             bool
+	BlobOffloadMinBytes        int
+	BlobStorePrefix            string
+	OffloadRetentionMarginDays int
+	BlobStore                  *BackupS3Config
 }
 
 // GroupInScope reports whether the given group ID falls within the audit scope.
@@ -141,11 +143,16 @@ func buildSnapshot(enabled bool, cfg *PayloadAuditConfig, gen uint64) *ConfigSna
 		QueueMaxBytes:  cfg.QueueMaxBytes,
 		BatchSize:      cfg.BatchSize,
 		BatchFlushMs:   cfg.BatchFlushMs,
-		ExportKeys:          append([]PayloadAuditExportKey(nil), cfg.ExportAPIKeys...),
-		Generation:          gen,
-		OffloadEnabled:      enabled && cfg.OffloadEnabled,
-		BlobOffloadMinBytes: cfg.BlobOffloadMinBytes,
-		BlobStorePrefix:     cfg.BlobStorePrefix,
+		ExportKeys:                 append([]PayloadAuditExportKey(nil), cfg.ExportAPIKeys...),
+		Generation:                 gen,
+		OffloadEnabled:             enabled && cfg.OffloadEnabled,
+		BlobOffloadMinBytes:        cfg.BlobOffloadMinBytes,
+		BlobStorePrefix:            cfg.BlobStorePrefix,
+		OffloadRetentionMarginDays: cfg.OffloadRetentionMarginDays,
+	}
+	if cfg.BlobStore != nil {
+		bs := *cfg.BlobStore
+		s.BlobStore = &bs
 	}
 	s.GroupIDs = make(map[int64]struct{}, len(cfg.GroupIDs))
 	for _, id := range cfg.GroupIDs {

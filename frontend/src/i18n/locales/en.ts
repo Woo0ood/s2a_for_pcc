@@ -2877,8 +2877,25 @@ export default {
       tabs: {
         basic: 'Basic',
         performance: 'Performance',
+        offload: 'Offload',
         apiKey: 'API Key',
       },
+
+      // Offload / blob-store config
+      offloadEnabled: 'Enable Offload',
+      blobOffloadMinBytes: 'Min Bytes to Offload',
+      blobStorePrefix: 'Object Key Prefix',
+      offloadRetentionMarginDays: 'Retention Margin (days)',
+      blobStoreS3: 'S3-Compatible Object Store',
+      s3Endpoint: 'Endpoint',
+      s3Region: 'Region',
+      s3Bucket: 'Bucket',
+      s3AccessKeyId: 'Access Key ID',
+      s3SecretAccessKey: 'Secret Access Key',
+      s3SecretPlaceholder: 'Leave blank to keep current',
+      s3Prefix: 'Key Prefix (within bucket)',
+      s3ForcePathStyle: 'Force Path Style',
+      offloadS3IndependentHint: 'This S3 configuration is independent from the backup S3 settings.',
 
       // Export Keys
       exportKeys: 'Export API Keys',
