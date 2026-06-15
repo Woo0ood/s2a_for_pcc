@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -64,17 +65,24 @@ func (u *PayloadAuditUploader) put(ctx context.Context, key, dedupKey string, da
 	u.mu.Unlock()
 
 	u.sem <- struct{}{}
-	err := u.store.Put(ctx, key, data, ct)
-	<-u.sem
+	var err error
+	// 用 defer 收尾，保证即便 store.Put panic 也能释放信号量、清理 flight、唤醒等待者，
+	// 不会永久泄漏一个并发槽或让同 sha 的后续调用死等。panic 转成 error → 不写 done、可重试。
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("payload_audit upload panic: %v", r)
+		}
+		<-u.sem
+		u.mu.Lock()
+		delete(u.flight, dedupKey)
+		if err == nil {
+			u.done[dedupKey] = struct{}{} // 仅成功后入 done
+		}
+		u.mu.Unlock()
+		call.err = err
+		call.wg.Done()
+	}()
 
-	u.mu.Lock()
-	delete(u.flight, dedupKey)
-	if err == nil {
-		u.done[dedupKey] = struct{}{} // 仅成功后入 done
-	}
-	u.mu.Unlock()
-
-	call.err = err
-	call.wg.Done()
+	err = u.store.Put(ctx, key, data, ct)
 	return err
 }
