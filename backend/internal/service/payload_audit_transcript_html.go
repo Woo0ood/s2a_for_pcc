@@ -21,6 +21,9 @@ func RenderTranscriptHTML(t Transcript) ([]byte, error) {
 			}
 			return ts.UTC().Format("2006-01-02 15:04:05 UTC")
 		},
+		// safeURL marks a data: URI as trusted so html/template does not rewrite it
+		// to #ZgotmplZ. Only used for validated image data URIs we generated ourselves.
+		"safeURL": func(s string) template.URL { return template.URL(s) },
 	}).Parse(transcriptHTMLTemplate)
 	if err != nil {
 		return nil, err
@@ -152,6 +155,12 @@ details[open] summary { border-radius: 4px 4px 0 0; }
   border: 1px solid #c8e6c9; margin: 2px 4px 2px 0;
 }
 .attachment-link:hover { background: #c8e6c9; }
+.attachment-img {
+  display: inline-block; margin: 4px 0;
+}
+.attachment-img figcaption {
+  font-size: 11px; color: #888; margin-top: 4px;
+}
 
 /* ── meta footer ── */
 .turn-footer {
@@ -300,9 +309,14 @@ details[open] summary { border-radius: 4px 4px 0 0; }
     <section class="section attachments">
       <h2>🖼 Attachments</h2>
       {{range .Attachments}}
-      <a class="attachment-link" href="{{.ProxyPath}}">
-        🖼 {{.MIME}} ({{.Bytes}} bytes)
-      </a>
+      {{if .DataURI}}
+        <figure class="attachment-img">
+          <img src="{{ safeURL .DataURI }}" alt="blob {{ .SHA256 }}" style="max-width:100%;height:auto;border:1px solid #ccc" />
+          <figcaption>{{ .MIME }} · {{ .Bytes }} bytes · {{ .SHA256 }}</figcaption>
+        </figure>
+      {{else}}
+        <a class="attachment-link" href="{{ .ProxyPath }}">🖼 {{ .MIME }} · {{ .Bytes }} bytes · {{ .SHA256 }}</a>
+      {{end}}
       {{end}}
     </section>
     {{end}}

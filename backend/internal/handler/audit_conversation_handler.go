@@ -16,6 +16,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// conversationCSP is the Content-Security-Policy applied to every conversation
+// export HTML response. It allows inline styles and data: URIs for images
+// (inlined blobs), but blocks all other external resources.
+const conversationCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:"
+
 // AuditConversationRepo is the subset of repository.PayloadAuditCHRepo needed
 // by the conversation export handler.
 type AuditConversationRepo interface {
@@ -227,7 +232,7 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'")
+	c.Header("Content-Security-Policy", conversationCSP)
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 }
@@ -345,7 +350,7 @@ func (h *AuditConversationHandler) GetConversationExportResult(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "result expired")
 		return
 	}
-	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'")
+	c.Header("Content-Security-Policy", conversationCSP)
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 }
