@@ -3,12 +3,15 @@ package service
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 )
 
 // PayloadAuditBlobStore 是旁路上传所需的最小对象存储能力。
 type PayloadAuditBlobStore interface {
 	Put(ctx context.Context, key string, data []byte, contentType string) error
+	// Get downloads an object by key and returns its full contents.
+	Get(ctx context.Context, key string) ([]byte, error)
 }
 
 // blobKey / bodyKey 用内容寻址前缀分桶，天然去重。
@@ -33,6 +36,15 @@ type backupStoreAdapter struct{ inner BackupObjectStore }
 func (a backupStoreAdapter) Put(ctx context.Context, key string, data []byte, contentType string) error {
 	_, err := a.inner.Upload(ctx, key, bytes.NewReader(data), contentType)
 	return err
+}
+
+func (a backupStoreAdapter) Get(ctx context.Context, key string) ([]byte, error) {
+	rc, err := a.inner.Download(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return io.ReadAll(rc)
 }
 
 // NewPayloadAuditBlobStore 用现有工厂从独立配置构建对象存储。

@@ -28,6 +28,8 @@ func (f *fakeBlobStore) Put(_ context.Context, key string, _ []byte, _ string) e
 	return nil
 }
 
+func (f *fakeBlobStore) Get(_ context.Context, _ string) ([]byte, error) { return nil, nil }
+
 func TestUploader_DedupSameSHA(t *testing.T) {
 	fs := &fakeBlobStore{}
 	up := NewPayloadAuditUploader(fs, "payload-audit/", 4)
@@ -60,6 +62,7 @@ func TestUploader_FailureNotCached(t *testing.T) {
 type panicBlobStore struct{}
 
 func (panicBlobStore) Put(_ context.Context, _ string, _ []byte, _ string) error { panic("boom") }
+func (panicBlobStore) Get(_ context.Context, _ string) ([]byte, error)           { return nil, nil }
 
 func TestUploader_PanicSurfacesAsError(t *testing.T) {
 	up := NewPayloadAuditUploader(panicBlobStore{}, "payload-audit/", 2)

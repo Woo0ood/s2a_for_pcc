@@ -53,6 +53,7 @@ type PayloadAuditService struct {
 	gen          atomic.Uint64
 	cfgMu        sync.Mutex // serialises read-modify-write of payload_audit_config
 	uploader     atomic.Pointer[PayloadAuditUploader]
+	resolver     atomic.Pointer[BlobResolver]
 }
 
 // ProvidePayloadAuditService loads settings and builds the initial snapshot.
@@ -73,11 +74,16 @@ func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client, w
 // Uploader returns the current offload uploader, or nil when offload is disabled/unconfigured.
 func (s *PayloadAuditService) Uploader() *PayloadAuditUploader { return s.uploader.Load() }
 
-// rebuildUploader (re)builds the offload uploader from the given config, or clears it.
-// Called after each snapshot swap so the uploader tracks hot-reloaded config.
+// Resolver returns the current BlobResolver, or nil when offload is disabled/unconfigured.
+func (s *PayloadAuditService) Resolver() *BlobResolver { return s.resolver.Load() }
+
+// rebuildUploader (re)builds the offload uploader and blob resolver from the given config,
+// or clears them. Both share the same store instance built once here.
+// Called after each snapshot swap so they track hot-reloaded config.
 func (s *PayloadAuditService) rebuildUploader(cfg *PayloadAuditConfig, enabled bool) {
 	if !enabled || !cfg.OffloadEnabled || cfg.BlobStore == nil || !cfg.BlobStore.IsConfigured() || s.storeFactory == nil {
 		s.uploader.Store(nil)
+		s.resolver.Store(nil)
 		return
 	}
 	dec := *cfg.BlobStore // copy; decrypt secret without mutating the snapshot's config
@@ -92,9 +98,12 @@ func (s *PayloadAuditService) rebuildUploader(cfg *PayloadAuditConfig, enabled b
 	if err != nil {
 		slog.Error("payload_audit.blobstore_build_failed", "err", err)
 		s.uploader.Store(nil)
+		s.resolver.Store(nil)
 		return
 	}
+	// Build uploader and resolver from the same store; prefix shared.
 	s.uploader.Store(NewPayloadAuditUploader(store, cfg.BlobStorePrefix, cfg.WorkerCount))
+	s.resolver.Store(NewBlobResolver(store, cfg.BlobStorePrefix))
 }
 
 // NextID returns the next snowflake ID for a payload audit event.
