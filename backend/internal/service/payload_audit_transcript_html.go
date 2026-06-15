@@ -111,9 +111,21 @@ h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
   padding: 8px 12px; white-space: pre-wrap; word-break: break-word;
   font-size: 13px; line-height: 1.55;
 }
-.item-text.user  { border-left: 3px solid #1976d2; }
+.item-text.user      { border-left: 3px solid #1976d2; }
 .item-text.assistant { border-left: 3px solid #388e3c; }
-.item-text.system { border-left: 3px solid #f57c00; }
+.item-text.system    { border-left: 3px solid #f57c00; }
+.item-text.developer { border-left: 3px solid #7b1fa2; }
+
+/* ── per-item role chip ── */
+.role-chip {
+  display: inline-block; padding: 2px 7px; border-radius: 10px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; margin-bottom: 4px;
+}
+.role-chip.system    { background: #fff3e0; color: #e65100; }
+.role-chip.developer { background: #f3e5f5; color: #6a1b9a; }
+.role-chip.user      { background: #e3f2fd; color: #1565c0; }
+.role-chip.other     { background: #f5f5f5; color: #555; }
 
 /* ── collapsible details ── */
 details { margin-bottom: 8px; }
@@ -201,15 +213,24 @@ details[open] summary { border-radius: 4px 4px 0 0; }
     {{/* User / Input items */}}
     {{if .UserItems}}
     <section class="section">
-      <h2>👤 Input (本轮新增)</h2>
+      <h2>💬 Input (本轮新增)</h2>
       {{range .UserItems}}
       <div class="item">
         {{if eq .Type "message"}}
-          <div class="item-label">{{if .Role}}{{.Role}}{{else}}user{{end}}</div>
-          <div class="item-text {{.Role}}">{{.Text}}</div>
+          {{/* Role chip: system / developer / user / (other) */}}
+          {{if eq .Role "system"}}
+            <span class="role-chip system">⚙️ System</span>
+          {{else if eq .Role "developer"}}
+            <span class="role-chip developer">🧑‍💻 Developer</span>
+          {{else if eq .Role "user"}}
+            <span class="role-chip user">👤 User</span>
+          {{else}}
+            <span class="role-chip other">{{if .Role}}{{.Role}}{{else}}user{{end}}</span>
+          {{end}}
+          <div class="item-text {{if .Role}}{{.Role}}{{else}}user{{end}}">{{.Text}}</div>
         {{else if eq .Type "function_call_output"}}
           <details>
-            <summary>📄 Tool Output</summary>
+            <summary>📄 Tool Output{{if .ToolName}}: {{.ToolName}}{{end}}</summary>
             <div class="details-body">{{.ToolOutput}}</div>
           </details>
         {{else if eq .Type "function_call"}}
@@ -221,6 +242,16 @@ details[open] summary { border-radius: 4px 4px 0 0; }
           <details>
             <summary>💭 Reasoning</summary>
             <div class="details-body">{{.Text}}</div>
+          </details>
+        {{else if eq .Type "tool_search_call"}}
+          <details>
+            <summary>🔍 Search Call{{if .ToolName}}: {{.ToolName}}{{end}}</summary>
+            <div class="details-body">{{if .Text}}{{.Text}}{{else}}(no query text){{end}}</div>
+          </details>
+        {{else if eq .Type "tool_search_output"}}
+          <details>
+            <summary>📋 Search Output{{if .ToolName}}: {{.ToolName}}{{end}}</summary>
+            <div class="details-body">{{if .ToolOutput}}{{.ToolOutput}}{{else}}(no output){{end}}</div>
           </details>
         {{else}}
           <div class="item-label">raw</div>

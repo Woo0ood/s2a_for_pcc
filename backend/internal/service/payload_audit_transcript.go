@@ -79,10 +79,11 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 		}
 	}
 
-	// seen tracks input item IDs already emitted in earlier turns (responses endpoint).
-	seen := make(map[string]bool)
-	// seenChatHash tracks hashed (role+content) for chat/completions dedup.
-	seenChatHash := make(map[string]bool)
+	// seenHashes deduplicates input items across turns for both /v1/responses and
+	// chat/completions. Items are keyed by itemHash(). The responses path previously
+	// used item IDs, but Codex /v1/responses items have NO id field, so content-hash
+	// dedup is the only reliable approach for both paths.
+	seenHashes := make(map[string]bool)
 
 	var turns []Turn
 	var allGaps []string
@@ -98,7 +99,7 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 		atts := append(inputAtts, outputAtts...)
 
 		// Parse user items from the resolved input.
-		userItems := parseUserItems(row.Endpoint, resolvedInput, seen, seenChatHash)
+		userItems := parseUserItems(row.Endpoint, resolvedInput, seenHashes)
 
 		// Parse assistant items from the resolved output.
 		assistantItems := parseAssistantItems(row.OutputFormat, resolvedOutput)
@@ -155,43 +156,77 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 // ─────────────────────────────────────────────────────────────────────────────
 
 // parseUserItems extracts new input items from a resolved body.
-// For /v1/responses: deduplicates by item.id (stable ids provided by the API).
-// For chat/completions: deduplicates by hash(role+content), emits only new messages.
+// For /v1/responses: deduplicates by content-hash (item.id is absent on Codex inputs).
+// For chat/completions: deduplicates by content-hash.
 // Other endpoints: emit a single raw Item.
-func parseUserItems(endpoint, body string, seenIDs, seenChatHashes map[string]bool) []Item {
+func parseUserItems(endpoint, body string, seenHashes map[string]bool) []Item {
 	switch {
 	case strings.Contains(endpoint, "/responses"):
-		return parseResponsesInputItems(body, seenIDs)
+		return parseResponsesInputItems(body, seenHashes)
 	case strings.Contains(endpoint, "/chat/completions"):
-		return parseChatInputItems(body, seenChatHashes)
+		return parseChatInputItems(body, seenHashes)
 	default:
 		return parseRawInputItem(body)
 	}
 }
 
-// parseResponsesInputItems parses the `input[]` array of the OpenAI Responses API.
-// Items with a stable `id` are deduplicated via seenIDs. Items without an id are
-// always treated as new.
-func parseResponsesInputItems(body string, seenIDs map[string]bool) []Item {
-	inputArray := gjson.Get(body, "input")
-	if !inputArray.Exists() || !inputArray.IsArray() {
-		return parseRawInputItem(body)
+// itemHash returns a stable content-based key for deduplication across turns.
+// Uses \x00 as a field separator (never appears in UTF-8 text fields).
+func itemHash(it Item) string {
+	return it.Role + "\x00" + it.Type + "\x00" + it.Text + "\x00" + it.ToolName + "\x00" + it.ToolArgs + "\x00" + it.ToolOutput
+}
+
+// parseResponsesInputItems parses the OpenAI Responses API request body.
+//
+// It handles three cases for the "input" field:
+//   - absent / unknown structure → raw fallback
+//   - string → single user message
+//   - array → iterate items via responseItemToItem
+//
+// It also reads the top-level "instructions" string, which carries the
+// system/developer prompt, and emits it as a system role item.
+//
+// All items are deduplicated across turns via seenHashes (content-hash).
+func parseResponsesInputItems(body string, seenHashes map[string]bool) []Item {
+	var items []Item
+
+	emit := func(it Item) {
+		h := itemHash(it)
+		if seenHashes[h] {
+			return
+		}
+		seenHashes[h] = true
+		items = append(items, it)
 	}
 
-	var items []Item
-	inputArray.ForEach(func(_, elem gjson.Result) bool {
-		id := elem.Get("id").String()
-		if id != "" {
-			if seenIDs[id] {
-				return true // already shown in a previous turn — skip
-			}
-			seenIDs[id] = true
-		}
+	// 1. Top-level "instructions" → system prompt.
+	if instructions := strings.TrimSpace(gjson.Get(body, "instructions").String()); instructions != "" {
+		emit(Item{Role: "system", Type: "message", Text: instructions})
+	}
 
-		item := responseItemToItem(elem)
-		items = append(items, item)
-		return true
-	})
+	// 2. "input" field.
+	input := gjson.Get(body, "input")
+	switch {
+	case !input.Exists():
+		// No input field at all; return what we have (may just be instructions).
+		if len(items) == 0 {
+			return parseRawInputItem(body)
+		}
+	case input.Type == gjson.String:
+		// Plain string input (e.g. simple "say hi in one word").
+		if s := input.String(); s != "" {
+			emit(Item{Role: "user", Type: "message", Text: s})
+		}
+	case input.IsArray():
+		input.ForEach(func(_, elem gjson.Result) bool {
+			emit(responseItemToItem(elem))
+			return true
+		})
+	default:
+		// Unexpected input shape; raw fallback for that field.
+		emit(Item{Type: "raw", Text: input.Raw})
+	}
+
 	return items
 }
 
@@ -233,7 +268,32 @@ func responseItemToItem(elem gjson.Result) Item {
 			})
 			text = strings.Join(parts, " ")
 		}
+		// If summary was empty but encrypted_content is present, emit a placeholder
+		// so the reasoning block is at least visible and honest about the situation.
+		if text == "" && elem.Get("encrypted_content").String() != "" {
+			text = "(reasoning: encrypted, not retained)"
+		}
 		return Item{Type: "reasoning", Text: text}
+
+	case "tool_search_call":
+		// Best-effort: surface name + any query text.
+		name := elem.Get("name").String()
+		query := elem.Get("query").String()
+		return Item{
+			Type:     "tool_search_call",
+			ToolName: name,
+			Text:     query,
+		}
+
+	case "tool_search_output":
+		// Best-effort: surface name + output text.
+		name := elem.Get("name").String()
+		output := elem.Get("output").String()
+		return Item{
+			Type:       "tool_search_output",
+			ToolName:   name,
+			ToolOutput: output,
+		}
 
 	default:
 		// Emit a best-effort raw item.
@@ -266,7 +326,8 @@ func extractResponsesContentText(content gjson.Result) string {
 
 // parseChatInputItems parses `messages[]` from a chat/completions body.
 // Chat requests re-send full history each turn; to avoid repeating already-shown
-// messages, we hash each (role, content) pair and skip hashes already seen.
+// messages, we use itemHash (same hash function as the responses path) keyed
+// against the shared seenHashes map.
 func parseChatInputItems(body string, seenHashes map[string]bool) []Item {
 	messagesArr := gjson.Get(body, "messages")
 	if !messagesArr.Exists() || !messagesArr.IsArray() {
@@ -277,12 +338,13 @@ func parseChatInputItems(body string, seenHashes map[string]bool) []Item {
 	messagesArr.ForEach(func(_, msg gjson.Result) bool {
 		role := msg.Get("role").String()
 		content := extractChatContent(msg.Get("content"))
-		h := chatHash(role, content)
+		it := Item{Role: role, Type: "message", Text: content}
+		h := itemHash(it)
 		if seenHashes[h] {
 			return true // already shown in a previous turn
 		}
 		seenHashes[h] = true
-		items = append(items, Item{Role: role, Type: "message", Text: content})
+		items = append(items, it)
 		return true
 	})
 	return items
@@ -307,13 +369,6 @@ func extractChatContent(content gjson.Result) string {
 		return strings.Join(parts, "")
 	}
 	return content.Raw
-}
-
-// chatHash hashes (role, content) for chat message dedup. Uses a cheap separator
-// that cannot appear in either field to avoid collisions.
-func chatHash(role, content string) string {
-	// Use a zero-byte separator (role and content are UTF-8 text; \x00 won't appear).
-	return role + "\x00" + content
 }
 
 // parseRawInputItem returns a single raw fallback Item.

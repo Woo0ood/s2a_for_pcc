@@ -297,3 +297,207 @@ func TestAssembleTranscript_EmptyRows(t *testing.T) {
 		t.Errorf("expected TurnCount=0, got %d", tr.Manifest.TurnCount)
 	}
 }
+
+// ─────────────────────────────────────────────────────
+// NEW: instructions + string input → system + user items
+// ─────────────────────────────────────────────────────
+
+// A /v1/responses body with "instructions" (string) and "input" (string) must
+// produce exactly two items: system (instructions) and user (input string).
+// The raw JSON must NOT be used as a fallback.
+func TestAssembleTranscript_ResponsesInstructions_StringInput(t *testing.T) {
+	convKey := "conv-instructions-101"
+
+	inputBody := `{
+		"model": "codex-mini-latest",
+		"instructions": "You are Codex, based on GPT-5…",
+		"input": "say hi in one word",
+		"stream": false
+	}`
+	outputBody := `{"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Hi"}]}]}`
+
+	rows := []*service.PayloadAuditEvent{
+		makePARow(t, 1, "/v1/responses", inputBody, outputBody, "json", "resp_101", "", convKey, false),
+	}
+
+	tr := service.AssembleTranscript(context.Background(), rows, nil)
+
+	if len(tr.Turns) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(tr.Turns))
+	}
+	turn := tr.Turns[0]
+
+	if len(turn.UserItems) != 2 {
+		t.Fatalf("expected 2 UserItems (system + user), got %d: %+v", len(turn.UserItems), turn.UserItems)
+	}
+
+	sysItem := turn.UserItems[0]
+	if sysItem.Role != "system" {
+		t.Errorf("item[0].Role = %q, want 'system'", sysItem.Role)
+	}
+	if sysItem.Type != "message" {
+		t.Errorf("item[0].Type = %q, want 'message'", sysItem.Type)
+	}
+	if !strings.Contains(sysItem.Text, "You are Codex") {
+		t.Errorf("item[0].Text = %q, expected to contain 'You are Codex'", sysItem.Text)
+	}
+
+	userItem := turn.UserItems[1]
+	if userItem.Role != "user" {
+		t.Errorf("item[1].Role = %q, want 'user'", userItem.Role)
+	}
+	if userItem.Text != "say hi in one word" {
+		t.Errorf("item[1].Text = %q, want 'say hi in one word'", userItem.Text)
+	}
+
+	// Raw JSON must NOT appear in user items.
+	for _, it := range turn.UserItems {
+		if it.Type == "raw" {
+			t.Errorf("unexpected raw item in UserItems: %+v", it)
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────
+// NEW: input[] array with user message + function calls + reasoning(encrypted)
+// ─────────────────────────────────────────────────────
+
+func TestAssembleTranscript_ResponsesInputArray_FullMix(t *testing.T) {
+	convKey := "conv-array-102"
+
+	inputBody := `{
+		"model": "codex-mini-latest",
+		"instructions": "You are Codex.",
+		"input": [
+			{"type":"message","role":"user","content":[{"type":"input_text","text":"Run the tests"}]},
+			{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"go test ./...\"}","call_id":"call_01"},
+			{"type":"function_call_output","call_id":"call_01","output":"PASS\nok  \tpkg\t0.12s"},
+			{"type":"reasoning","summary":[],"encrypted_content":"gAAAABsomeopaquecontent"}
+		]
+	}`
+	outputBody := `{"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Tests passed."}]}]}`
+
+	rows := []*service.PayloadAuditEvent{
+		makePARow(t, 1, "/v1/responses", inputBody, outputBody, "json", "resp_102", "", convKey, false),
+	}
+
+	tr := service.AssembleTranscript(context.Background(), rows, nil)
+
+	if len(tr.Turns) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(tr.Turns))
+	}
+	turn := tr.Turns[0]
+
+	// Expect: system (instructions) + user message + function_call + function_call_output + reasoning = 5
+	if len(turn.UserItems) != 5 {
+		t.Fatalf("expected 5 UserItems, got %d: %+v", len(turn.UserItems), turn.UserItems)
+	}
+
+	// [0] system (instructions)
+	if turn.UserItems[0].Role != "system" || turn.UserItems[0].Type != "message" {
+		t.Errorf("item[0]: want system/message, got role=%q type=%q", turn.UserItems[0].Role, turn.UserItems[0].Type)
+	}
+
+	// [1] user message
+	if turn.UserItems[1].Role != "user" || turn.UserItems[1].Type != "message" {
+		t.Errorf("item[1]: want user/message, got role=%q type=%q", turn.UserItems[1].Role, turn.UserItems[1].Type)
+	}
+	if turn.UserItems[1].Text != "Run the tests" {
+		t.Errorf("item[1].Text = %q, want 'Run the tests'", turn.UserItems[1].Text)
+	}
+
+	// [2] function_call
+	if turn.UserItems[2].Type != "function_call" {
+		t.Errorf("item[2].Type = %q, want 'function_call'", turn.UserItems[2].Type)
+	}
+	if turn.UserItems[2].ToolName != "exec_command" {
+		t.Errorf("item[2].ToolName = %q, want 'exec_command'", turn.UserItems[2].ToolName)
+	}
+	if !strings.Contains(turn.UserItems[2].ToolArgs, "go test") {
+		t.Errorf("item[2].ToolArgs = %q, expected to contain 'go test'", turn.UserItems[2].ToolArgs)
+	}
+
+	// [3] function_call_output
+	if turn.UserItems[3].Type != "function_call_output" {
+		t.Errorf("item[3].Type = %q, want 'function_call_output'", turn.UserItems[3].Type)
+	}
+	if !strings.Contains(turn.UserItems[3].ToolOutput, "PASS") {
+		t.Errorf("item[3].ToolOutput = %q, expected to contain 'PASS'", turn.UserItems[3].ToolOutput)
+	}
+
+	// [4] reasoning with encrypted_content → placeholder text
+	if turn.UserItems[4].Type != "reasoning" {
+		t.Errorf("item[4].Type = %q, want 'reasoning'", turn.UserItems[4].Type)
+	}
+	if !strings.Contains(turn.UserItems[4].Text, "encrypted") {
+		t.Errorf("item[4].Text = %q, expected to contain 'encrypted' placeholder", turn.UserItems[4].Text)
+	}
+}
+
+// ─────────────────────────────────────────────────────
+// NEW: content-hash dedup across turns (instructions not repeated)
+// ─────────────────────────────────────────────────────
+
+// Turn 1: instructions + user message A.
+// Turn 2: same instructions + same user message A (repeated context) + NEW user message B.
+// Expected: turn 1 shows [system, A]; turn 2 shows ONLY [B].
+func TestAssembleTranscript_ResponsesContentHashDedup(t *testing.T) {
+	convKey := "conv-hash-103"
+
+	instructions := "You are Codex, based on GPT-5. Help the user code."
+	msgA := "What is the capital of France?"
+	msgB := "Now tell me about Go generics."
+
+	makeBody := func(extra string) string {
+		base := `{"model":"codex-mini-latest","instructions":"` + instructions + `","input":[` +
+			`{"type":"message","role":"user","content":[{"type":"input_text","text":"` + msgA + `"}]}`
+		if extra != "" {
+			base += `,` + extra
+		}
+		base += `]}`
+		return base
+	}
+
+	turn1Body := makeBody("")
+	turn2Body := makeBody(`{"type":"message","role":"user","content":[{"type":"input_text","text":"` + msgB + `"}]}`)
+
+	outputBody := `{"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}`
+
+	rows := []*service.PayloadAuditEvent{
+		makePARow(t, 1, "/v1/responses", turn1Body, outputBody, "json", "resp_103a", "", convKey, false),
+		makePARow(t, 2, "/v1/responses", turn2Body, outputBody, "json", "resp_103b", "resp_103a", convKey, false),
+	}
+
+	tr := service.AssembleTranscript(context.Background(), rows, nil)
+
+	if len(tr.Turns) != 2 {
+		t.Fatalf("expected 2 turns, got %d", len(tr.Turns))
+	}
+
+	turn1 := tr.Turns[0]
+	// Turn 1: system (instructions) + user (msgA) = 2 items.
+	if len(turn1.UserItems) != 2 {
+		t.Fatalf("turn 1: expected 2 UserItems, got %d: %+v", len(turn1.UserItems), turn1.UserItems)
+	}
+	if turn1.UserItems[0].Role != "system" {
+		t.Errorf("turn 1 item[0].Role = %q, want 'system'", turn1.UserItems[0].Role)
+	}
+	if turn1.UserItems[1].Text != msgA {
+		t.Errorf("turn 1 item[1].Text = %q, want %q", turn1.UserItems[1].Text, msgA)
+	}
+
+	turn2 := tr.Turns[1]
+	// Turn 2: instructions already hashed, msgA already hashed → only msgB is new.
+	if len(turn2.UserItems) != 1 {
+		t.Fatalf("turn 2: expected 1 new UserItem, got %d: %+v", len(turn2.UserItems), turn2.UserItems)
+	}
+	if turn2.UserItems[0].Text != msgB {
+		t.Errorf("turn 2 item[0].Text = %q, want %q", turn2.UserItems[0].Text, msgB)
+	}
+	// Instructions must NOT appear again.
+	for _, it := range turn2.UserItems {
+		if it.Role == "system" {
+			t.Errorf("turn 2: system/instructions should not repeat, but got: %+v", it)
+		}
+	}
+}
