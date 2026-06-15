@@ -861,6 +861,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 
 	// Payload audit: capture image output before writing to client.
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 		if text := extractOpenAIImagesOutputText(body); text != "" {
 			auditColl.AppendOutput(text)
 		}
@@ -919,6 +920,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 
 		// Payload audit: capture streaming image output.
 		if auditColl != nil {
+			auditColl.AppendRawEvent(dataBytes) // raw SSE data bytes for structured fidelity
 			if text := extractOpenAIImagesOutputText(dataBytes); text != "" {
 				auditColl.AppendOutput(text)
 			}
@@ -976,6 +978,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 
 		// Payload audit: capture fallback (non-SSE) image output.
 		if auditColl != nil {
+			auditColl.AppendRawEvent(body) // full JSON body for structured fidelity
 			if text := extractOpenAIImagesOutputText(body); text != "" {
 				auditColl.AppendOutput(text)
 			}

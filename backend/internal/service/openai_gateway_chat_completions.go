@@ -424,6 +424,7 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
 		if respJSON, jerr := json.Marshal(chatResp); jerr == nil {
+			auditColl.AppendRawEvent(respJSON) // full JSON body for structured fidelity
 			if text := extractChatCompletionsOutputText(respJSON); text != "" {
 				auditColl.AppendOutput(text)
 			}
@@ -550,6 +551,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 
 		// Payload audit: extract output text from each Responses event
 		if auditColl != nil {
+			auditColl.AppendRawEvent([]byte(payload + "\n")) // raw event JSON for structured fidelity
 			if delta := ExtractOpenAIResponsesEventText(event.Type, []byte(payload)); delta != "" {
 				auditColl.AppendOutput(delta)
 			}

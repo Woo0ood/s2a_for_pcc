@@ -324,6 +324,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 				}
 				// Payload audit: extract delta text from CC stream chunk
 				if auditColl != nil {
+					auditColl.AppendRawEvent([]byte(line + "\n")) // raw SSE line for structured fidelity
 					if delta := ExtractOpenAIChatDeltaText([]byte(payload)); delta != "" {
 						auditColl.AppendOutput(delta)
 					}
@@ -461,6 +462,7 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 
 	// Payload audit: capture non-stream output
 	if auditColl := GetPayloadAuditCollector(c); auditColl != nil {
+		auditColl.AppendRawEvent(respBody) // full JSON body for structured fidelity
 		if text := extractChatCompletionsOutputText(respBody); text != "" {
 			auditColl.AppendOutput(text)
 		}
