@@ -1,0 +1,80 @@
+package service
+
+import (
+	"context"
+	"sync"
+)
+
+// PayloadAuditUploader 用 per-sha singleflight 去重上传；成功后才记入 done。
+//
+// 注意：done map 无上限增长；对长期运行进程应换成 LRU 缓存（已知后续项）。
+type PayloadAuditUploader struct {
+	store  PayloadAuditBlobStore
+	prefix string
+	sem    chan struct{}
+
+	mu     sync.Mutex
+	done   map[string]struct{}    // 已确证上传成功的 sha
+	flight map[string]*uploadCall // 进行中的上传
+}
+
+type uploadCall struct {
+	wg  sync.WaitGroup
+	err error
+}
+
+// NewPayloadAuditUploader 构造一个限并发的去重上传器。
+func NewPayloadAuditUploader(store PayloadAuditBlobStore, prefix string, concurrency int) *PayloadAuditUploader {
+	if concurrency < 1 {
+		concurrency = 2
+	}
+	return &PayloadAuditUploader{
+		store:  store,
+		prefix: prefix,
+		sem:    make(chan struct{}, concurrency),
+		done:   map[string]struct{}{},
+		flight: map[string]*uploadCall{},
+	}
+}
+
+// PutBlob 幂等上传一个大对象；同 sha 并发只发一次。
+func (u *PayloadAuditUploader) PutBlob(ctx context.Context, b ExtractedBlob) error {
+	return u.put(ctx, blobKey(u.prefix, b.SHA256), b.SHA256, b.Data, b.MIME)
+}
+
+// PutBody 幂等上传一段超大正文。
+func (u *PayloadAuditUploader) PutBody(ctx context.Context, sha string, data []byte) error {
+	return u.put(ctx, bodyKey(u.prefix, sha), "body:"+sha, data, "application/json")
+}
+
+func (u *PayloadAuditUploader) put(ctx context.Context, key, dedupKey string, data []byte, ct string) error {
+	u.mu.Lock()
+	if _, ok := u.done[dedupKey]; ok {
+		u.mu.Unlock()
+		return nil
+	}
+	if call, ok := u.flight[dedupKey]; ok {
+		u.mu.Unlock()
+		call.wg.Wait()
+		return call.err
+	}
+	call := &uploadCall{}
+	call.wg.Add(1)
+	u.flight[dedupKey] = call
+	u.mu.Unlock()
+
+	u.sem <- struct{}{}
+	err := u.store.Put(ctx, key, data, ct)
+	<-u.sem
+
+	u.mu.Lock()
+	delete(u.flight, dedupKey)
+	if err == nil {
+		u.done[dedupKey] = struct{}{} // 仅成功后入 done
+	}
+	u.mu.Unlock()
+
+	call.err = err
+	call.wg.Done()
+	return err
+}
