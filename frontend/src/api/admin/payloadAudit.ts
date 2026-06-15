@@ -206,6 +206,36 @@ export async function exportConversationHTML(id: string, createdAt: string): Pro
   return data
 }
 
+export async function startConversationExport(
+  id: string,
+  createdAt: string,
+  timezone?: string
+): Promise<{ job_id: string }> {
+  const { data } = await apiClient.post(
+    `/admin/payload-audit/payloads/${id}/conversation/export`,
+    null,
+    { params: { created_at: createdAt, timezone } }
+  )
+  return data
+}
+
+export async function getConversationExportStatus(
+  jobId: string
+): Promise<{ status: string; error?: string }> {
+  const { data } = await apiClient.get(
+    `/admin/payload-audit/conversation-exports/${jobId}`
+  )
+  return data
+}
+
+export async function getConversationExportResult(jobId: string): Promise<string> {
+  const { data } = await apiClient.get<string>(
+    `/admin/payload-audit/conversation-exports/${jobId}/result`,
+    { responseType: 'text' }
+  )
+  return data
+}
+
 export const payloadAuditAPI = {
   getConfig,
   updateConfig,
@@ -217,6 +247,9 @@ export const payloadAuditAPI = {
   deleteExportKey,
   runCleanup,
   exportConversationHTML,
+  startConversationExport,
+  getConversationExportStatus,
+  getConversationExportResult,
 }
 
 export default payloadAuditAPI

@@ -2,13 +2,22 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/tidwall/gjson"
 )
+
+const (
+	maxInlineImageBytes = 8 << 20  // 8 MiB per image (decoded)
+	maxTotalInlineBytes = 32 << 20 // 32 MiB total per transcript
+)
+
+var imageMIMERe = regexp.MustCompile(`^image/[a-zA-Z0-9.+-]+$`)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public models
@@ -139,7 +148,7 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 	first := rows[0]
 	last := rows[len(rows)-1]
 
-	return Transcript{
+	transcript := Transcript{
 		Turns: turns,
 		Manifest: Manifest{
 			ConversationKey: first.ConversationKey,
@@ -149,6 +158,56 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 			Gaps:            allGaps,
 		},
 	}
+
+	// ── Inline pass: fetch and embed image blobs as data URIs ────────────────
+	// Only runs when a resolver is configured. ResolveBody is NOT changed; this
+	// pass operates on the already-populated Attachments in each Turn.
+	if resolver != nil {
+		totalInlined := 0
+		budgetExhausted := false
+		for ti := range transcript.Turns {
+			for ai := range transcript.Turns[ti].Attachments {
+				att := &transcript.Turns[ti].Attachments[ai]
+
+				// Only inline images; non-image attachments stay as proxy links.
+				if !imageMIMERe.MatchString(att.MIME) {
+					continue
+				}
+
+				// Per-image size cap.
+				if att.Bytes > maxInlineImageBytes {
+					transcript.Manifest.Gaps = append(transcript.Manifest.Gaps,
+						fmt.Sprintf("image not inlined (exceeds %d MiB cap): sha=%s bytes=%d",
+							maxInlineImageBytes>>20, att.SHA256, att.Bytes))
+					continue
+				}
+
+				// Total budget cap — emit the exhaustion note once.
+				if totalInlined+att.Bytes > maxTotalInlineBytes {
+					if !budgetExhausted {
+						budgetExhausted = true
+						transcript.Manifest.Gaps = append(transcript.Manifest.Gaps,
+							"inline image budget exhausted; remaining images shown as links only")
+					}
+					continue
+				}
+
+				// Fetch blob. FetchBlob's returned MIME is always "application/octet-stream";
+				// we use att.MIME (from the pointer) which was already validated by imageMIMERe.
+				data, _, err := resolver.FetchBlob(ctx, att.SHA256)
+				if err != nil {
+					transcript.Manifest.Gaps = append(transcript.Manifest.Gaps,
+						fmt.Sprintf("blob inline fetch failed (sha=%s): %v", att.SHA256, err))
+					continue
+				}
+
+				att.DataURI = "data:" + att.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)
+				totalInlined += len(data)
+			}
+		}
+	}
+
+	return transcript
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

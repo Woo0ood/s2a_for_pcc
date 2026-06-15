@@ -185,7 +185,9 @@ func TestGetConversation_WithConversationKey_200HTML(t *testing.T) {
 	assert.Contains(t, body, "Manifest")
 	// Security headers.
 	assert.Equal(t, "no-referrer", w.Header().Get("Referrer-Policy"))
-	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "default-src 'none'")
+	csp := w.Header().Get("Content-Security-Policy")
+	assert.Contains(t, csp, "default-src 'none'")
+	assert.Contains(t, csp, "data:", "CSP must allow data: URIs for inlined image blobs")
 }
 
 func TestGetConversation_EmptyConversationKey_SingleTurnFallback(t *testing.T) {

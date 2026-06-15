@@ -200,3 +200,94 @@ func TestRenderTranscriptHTML_ReasoningPresent(t *testing.T) {
 		t.Error("expected reasoning text in HTML output")
 	}
 }
+
+// ─────────────────────────────────────────────────────
+// Inlined image: rendered as <img src="data:..."> (NOT #ZgotmplZ)
+// ─────────────────────────────────────────────────────
+
+func TestRenderTranscriptHTML_InlinedImage_DataURI(t *testing.T) {
+	const dataURI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+	tr := service.Transcript{
+		Turns: []service.Turn{
+			{
+				Index:      1,
+				CreatedAt:  time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC),
+				Model:      "gpt-4o",
+				StatusCode: 200,
+				Attachments: []service.Attachment{
+					{
+						SHA256:    "abc123def456abc123def456abc123def456abc123def456abc123def456abc1",
+						MIME:      "image/png",
+						Bytes:     68,
+						ProxyPath: "blobs/abc123def456abc123def456abc123def456abc123def456abc123def456abc1",
+						DataURI:   dataURI,
+					},
+				},
+			},
+		},
+		Manifest: service.Manifest{ConversationKey: "test-inline", TurnCount: 1},
+	}
+
+	html, err := service.RenderTranscriptHTML(tr)
+	if err != nil {
+		t.Fatalf("RenderTranscriptHTML error: %v", err)
+	}
+	output := string(html)
+
+	// Must contain the actual data URI in an img src — NOT the blocked placeholder.
+	if strings.Contains(output, "#ZgotmplZ") {
+		t.Error("got #ZgotmplZ — safeURL func is not working; html/template is blocking data: URI")
+	}
+	if !strings.Contains(output, `<img src="data:image/png;base64,`) {
+		t.Errorf("expected <img src=\"data:image/png;base64,...\"> in output; got:\n%s", output)
+	}
+	// ProxyPath href must NOT appear (it was inlined).
+	if strings.Contains(output, `class="attachment-link"`) {
+		t.Error("expected no attachment-link for an inlined image")
+	}
+}
+
+// ─────────────────────────────────────────────────────
+// Non-inlined attachment: rendered as attachment-link href
+// ─────────────────────────────────────────────────────
+
+func TestRenderTranscriptHTML_NonInlinedAttachment_Link(t *testing.T) {
+	tr := service.Transcript{
+		Turns: []service.Turn{
+			{
+				Index:      1,
+				CreatedAt:  time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC),
+				Model:      "gpt-4o",
+				StatusCode: 200,
+				Attachments: []service.Attachment{
+					{
+						SHA256:    "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						MIME:      "image/jpeg",
+						Bytes:     4096,
+						ProxyPath: "blobs/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+						// DataURI intentionally empty: should render as proxy link.
+					},
+				},
+			},
+		},
+		Manifest: service.Manifest{ConversationKey: "test-link", TurnCount: 1},
+	}
+
+	html, err := service.RenderTranscriptHTML(tr)
+	if err != nil {
+		t.Fatalf("RenderTranscriptHTML error: %v", err)
+	}
+	output := string(html)
+
+	// Must have the proxy link.
+	if !strings.Contains(output, `class="attachment-link"`) {
+		t.Error("expected attachment-link class for non-inlined attachment")
+	}
+	if !strings.Contains(output, "blobs/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef") {
+		t.Error("expected ProxyPath in attachment link href")
+	}
+	// Must NOT have an img element with data: URI.
+	if strings.Contains(output, `<img src="data:`) {
+		t.Error("expected no inlined img for non-inlined attachment")
+	}
+}

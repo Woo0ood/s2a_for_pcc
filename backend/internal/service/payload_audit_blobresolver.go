@@ -8,11 +8,14 @@ import (
 
 // Attachment describes a blob-typed pointer that was found while resolving a body.
 // ProxyPath is the relative path used by the export blob-proxy endpoint (blobs/<sha>).
+// DataURI is populated by the inline pass in AssembleTranscript when the blob is an
+// image within size caps; empty when the blob should be served via the proxy instead.
 type Attachment struct {
 	SHA256    string
 	MIME      string
 	Bytes     int
 	ProxyPath string
+	DataURI   string
 }
 
 // BlobResolver resolves s2a-blob:// and s2a-body:// pointers found in stored bodies.

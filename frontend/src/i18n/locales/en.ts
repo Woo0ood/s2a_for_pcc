@@ -2915,6 +2915,7 @@ export default {
       runCleanup: 'Run Cleanup',
       cleanupDone: 'Cleanup complete: {deleted} records deleted in {ms}ms',
       exportConversation: 'Export full conversation',
+      exporting: 'Exporting…',
 
       // Error messages
       statusFailed: 'Failed to load status',

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +15,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
+
+// conversationCSP is the Content-Security-Policy applied to every conversation
+// export HTML response. It allows inline styles and data: URIs for images
+// (inlined blobs), but blocks all other external resources.
+const conversationCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:"
 
 // AuditConversationRepo is the subset of repository.PayloadAuditCHRepo needed
 // by the conversation export handler.
@@ -99,6 +105,80 @@ func repoRowsToServiceEvents(rows []*repository.PayloadAuditRow) []*service.Payl
 // GET /api/v1/audit/exports/payloads/:id/conversation
 // ─────────────────────────────────────────────────────────────────────────────
 
+// buildConversationHTML fetches the payload row, resolves the full conversation,
+// assembles the transcript and renders it to a self-contained HTML document.
+// Returns sql.ErrNoRows (wrapped) when the row is not found.
+func (h *AuditConversationHandler) buildConversationHTML(ctx context.Context, id int64, createdAt time.Time) ([]byte, error) {
+	// --- fetch hit row ---
+	row, err := h.repo.Get(ctx, id, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil {
+		return nil, sql.ErrNoRows
+	}
+
+	resolver := h.svc.Resolver()
+
+	var events []*service.PayloadAuditEvent
+	var historicalKey string // set when historical prompt_cache_key fallback is used
+	singleTurn := false
+
+	convKey := row.ConversationKey
+	if convKey == "" {
+		// Historical fallback: column empty (row predates conversation_key). Recover
+		// the conversation by matching prompt_cache_key parsed from the body.
+		anchor := createdAt
+		if pck, _ := service.ExtractRequestConvIDs(row.Endpoint, []byte(row.InputBody)); pck != "" {
+			needle := `prompt_cache_key":"` + pck
+			sib, ferr := h.repo.ListByCacheKeyNeedle(ctx, row.UserID, needle, anchor.Add(-7*24*time.Hour), anchor.Add(7*24*time.Hour), 500)
+			if ferr == nil && len(sib) > 1 {
+				events = repoRowsToServiceEvents(sib)
+				historicalKey = pck
+			}
+		}
+		if events == nil {
+			// Single-turn fallback: no conversation key and no recoverable multi-turn history.
+			events = []*service.PayloadAuditEvent{repoRowToServiceEvent(row)}
+			singleTurn = true
+		}
+	} else {
+		// Fetch ±7 days around createdAt (or around row.CreatedAt if createdAt is zero).
+		anchor := createdAt
+		if anchor.IsZero() {
+			anchor = row.CreatedAt
+		}
+		from := anchor.Add(-7 * 24 * time.Hour)
+		to := anchor.Add(7 * 24 * time.Hour)
+
+		convRows, listErr := h.repo.ListConversation(ctx, convKey, from, to, 500)
+		if listErr != nil {
+			return nil, listErr
+		}
+		if len(convRows) == 0 {
+			// Fallback to hit row only.
+			convRows = []*repository.PayloadAuditRow{row}
+		}
+		events = repoRowsToServiceEvents(convRows)
+	}
+
+	transcript := service.AssembleTranscript(ctx, events, resolver)
+
+	// Annotate the manifest depending on which path was taken.
+	if historicalKey != "" {
+		// Historical fallback recovered a multi-turn conversation via prompt_cache_key body match.
+		if transcript.Manifest.ConversationKey == "" {
+			transcript.Manifest.ConversationKey = historicalKey
+		}
+		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "历史会话：按 prompt_cache_key 回溯分组（conversation_key 列为空）")
+	} else if singleTurn {
+		// No conversation key and no recoverable history — truly single-turn.
+		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "单轮副本（无会话键）")
+	}
+
+	return service.RenderTranscriptHTML(transcript)
+}
+
 // GetConversation exports the full conversation a payload record belongs to as
 // a self-contained HTML page.
 //
@@ -142,10 +222,7 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-
-	// --- fetch hit row ---
-	row, err := h.repo.Get(ctx, id, createdAt)
+	html, err := h.buildConversationHTML(c.Request.Context(), id, createdAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			response.Error(c, http.StatusNotFound, "Payload not found")
@@ -154,77 +231,126 @@ func (h *AuditConversationHandler) GetConversation(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	if row == nil {
-		response.Error(c, http.StatusNotFound, "Payload not found")
+
+	c.Header("Content-Security-Policy", conversationCSP)
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Data(http.StatusOK, "text/html; charset=utf-8", html)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Async conversation export endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+// parseConvExportParams parses the :id path param and created_at query param
+// shared by the export start endpoint.
+func (h *AuditConversationHandler) parseConvExportParams(c *gin.Context) (id int64, createdAt time.Time, ok bool) {
+	idStr := strings.TrimSpace(c.Param("id"))
+	var err error
+	id, err = strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid id")
+		return 0, time.Time{}, false
+	}
+
+	v := strings.TrimSpace(c.Query("created_at"))
+	if v == "" {
+		response.BadRequest(c, "created_at query parameter is required")
+		return 0, time.Time{}, false
+	}
+	if ms, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil {
+		createdAt = time.UnixMilli(ms).UTC()
+	} else {
+		t, parseErr := parseExportTime(v)
+		if parseErr != nil {
+			response.BadRequest(c, "Invalid created_at: "+parseErr.Error())
+			return 0, time.Time{}, false
+		}
+		createdAt = t
+	}
+	return id, createdAt, true
+}
+
+// StartConversationExport kicks off an async export job and returns a job_id.
+// POST /admin/payload-audit/payloads/:id/conversation/export
+func (h *AuditConversationHandler) StartConversationExport(c *gin.Context) {
+	id, createdAt, ok := h.parseConvExportParams(c)
+	if !ok {
 		return
 	}
 
-	resolver := h.svc.Resolver()
+	jobID, err := h.svc.CreateConvExportJob(c.Request.Context())
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "export unavailable: "+err.Error())
+		return
+	}
 
-	var events []*service.PayloadAuditEvent
-	var historicalKey string // set when historical prompt_cache_key fallback is used
-	singleTurn := false
+	// Capture values for the goroutine — detached from request lifecycle.
+	capturedID := id
+	capturedCreatedAt := createdAt
+	capturedJobID := jobID
 
-	convKey := row.ConversationKey
-	if convKey == "" {
-		// Historical fallback: column empty (row predates conversation_key). Recover
-		// the conversation by matching prompt_cache_key parsed from the body.
-		anchor := createdAt
-		if pck, _ := service.ExtractRequestConvIDs(row.Endpoint, []byte(row.InputBody)); pck != "" {
-			needle := `prompt_cache_key":"` + pck
-			sib, ferr := h.repo.ListByCacheKeyNeedle(ctx, row.UserID, needle, anchor.Add(-7*24*time.Hour), anchor.Add(7*24*time.Hour), 500)
-			if ferr == nil && len(sib) > 1 {
-				events = repoRowsToServiceEvents(sib)
-				historicalKey = pck
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				h.svc.FailConvExportJob(context.Background(), capturedJobID, fmt.Sprintf("panic: %v", r))
 			}
-		}
-		if events == nil {
-			// Single-turn fallback: no conversation key and no recoverable multi-turn history.
-			events = []*service.PayloadAuditEvent{repoRowToServiceEvent(row)}
-			singleTurn = true
-		}
-	} else {
-		// Fetch ±7 days around createdAt (or around row.CreatedAt if createdAt is zero).
-		anchor := createdAt
-		if anchor.IsZero() {
-			anchor = row.CreatedAt
-		}
-		from := anchor.Add(-7 * 24 * time.Hour)
-		to := anchor.Add(7 * 24 * time.Hour)
-
-		convRows, listErr := h.repo.ListConversation(ctx, convKey, from, to, 500)
-		if listErr != nil {
-			response.ErrorFrom(c, listErr)
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		html, err := h.buildConversationHTML(ctx, capturedID, capturedCreatedAt)
+		if err != nil {
+			h.svc.FailConvExportJob(context.Background(), capturedJobID, err.Error())
 			return
 		}
-		if len(convRows) == 0 {
-			// Fallback to hit row only.
-			convRows = []*repository.PayloadAuditRow{row}
-		}
-		events = repoRowsToServiceEvents(convRows)
-	}
+		h.svc.FinishConvExportJob(context.Background(), capturedJobID, html)
+	}()
 
-	transcript := service.AssembleTranscript(ctx, events, resolver)
+	response.Success(c, gin.H{"job_id": jobID})
+}
 
-	// Annotate the manifest depending on which path was taken.
-	if historicalKey != "" {
-		// Historical fallback recovered a multi-turn conversation via prompt_cache_key body match.
-		if transcript.Manifest.ConversationKey == "" {
-			transcript.Manifest.ConversationKey = historicalKey
-		}
-		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "历史会话：按 prompt_cache_key 回溯分组（conversation_key 列为空）")
-	} else if singleTurn {
-		// No conversation key and no recoverable history — truly single-turn.
-		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "单轮副本（无会话键）")
-	}
-
-	html, err := service.RenderTranscriptHTML(transcript)
+// GetConversationExportStatus polls the job status.
+// GET /admin/payload-audit/conversation-exports/:job_id
+func (h *AuditConversationHandler) GetConversationExportStatus(c *gin.Context) {
+	jobID := c.Param("job_id")
+	job, err := h.svc.GetConvExportJob(c.Request.Context(), jobID)
 	if err != nil {
-		response.ErrorFrom(c, err)
+		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if job == nil {
+		response.Error(c, http.StatusNotFound, "job not found")
+		return
+	}
+	response.Success(c, gin.H{"status": job.Status, "error": job.Error})
+}
 
-	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'")
+// GetConversationExportResult fetches the rendered HTML once the job is done.
+// GET /admin/payload-audit/conversation-exports/:job_id/result
+func (h *AuditConversationHandler) GetConversationExportResult(c *gin.Context) {
+	jobID := c.Param("job_id")
+	job, err := h.svc.GetConvExportJob(c.Request.Context(), jobID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if job == nil {
+		response.Error(c, http.StatusNotFound, "job not found")
+		return
+	}
+	if job.Status != "done" {
+		response.Error(c, http.StatusConflict, "not ready")
+		return
+	}
+	html, err := h.svc.GetConvExportResult(c.Request.Context(), jobID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if html == nil {
+		response.Error(c, http.StatusNotFound, "result expired")
+		return
+	}
+	c.Header("Content-Security-Policy", conversationCSP)
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 }
