@@ -85,6 +85,7 @@ type PayloadAuditCollector struct {
 	outputBytes   int // total bytes appended (including truncated portion)
 	outputTrunc   bool
 	outputOmitted bool
+	rawOutput     strings.Builder // structured raw response events (SSE/JSON); preferred over text for OutputBody
 
 	finalized atomic.Bool
 }
@@ -238,6 +239,38 @@ func (c *PayloadAuditCollector) AppendOutput(s string) {
 	c.outputBuf.WriteString(s)
 }
 
+// AppendRawEvent appends a raw upstream response event (an SSE chunk or the full
+// JSON body) for structured-fidelity capture. Stored verbatim up to OutputMaxBytes;
+// the assistant's tool calls/args/results live here, while the flattened text from
+// AppendOutput is kept only for the human-readable excerpt. Opportunistically
+// captures the upstream response id from the first event that carries one.
+func (c *PayloadAuditCollector) AppendRawEvent(b []byte) {
+	if !c.enabled || len(b) == 0 {
+		return
+	}
+	if c.respID == "" {
+		if id := ExtractResponseID(c.meta.Endpoint, b); id != "" {
+			c.respID = id
+		}
+	}
+	cap := c.snap.OutputMaxBytes
+	if cap <= 0 {
+		c.rawOutput.Write(b)
+		return
+	}
+	remaining := cap - c.rawOutput.Len()
+	if remaining <= 0 {
+		c.outputTrunc = true
+		return
+	}
+	if len(b) > remaining {
+		c.rawOutput.Write(b[:remaining])
+		c.outputTrunc = true
+		return
+	}
+	c.rawOutput.Write(b)
+}
+
 // MarkOutputOmitted marks the output as intentionally omitted (e.g. embeddings).
 func (c *PayloadAuditCollector) MarkOutputOmitted() {
 	if !c.enabled {
@@ -265,6 +298,18 @@ func (c *PayloadAuditCollector) buildEvent(statusCode int, dur time.Duration, er
 	inputExcerpt := excerpt(inputText, c.snap.ExcerptBytes)
 	outputExcerpt := excerpt(outputText, c.snap.ExcerptBytes)
 
+	// Prefer structured raw events for the stored body (faithful tool calls/args);
+	// fall back to flattened text. The excerpt always uses the human-readable text.
+	outputBody, outputFormat := outputText, "text"
+	if c.rawOutput.Len() > 0 {
+		outputBody = c.rawOutput.String()
+		if c.meta.Stream {
+			outputFormat = "sse"
+		} else {
+			outputFormat = "json"
+		}
+	}
+
 	return &PayloadAuditEvent{
 		RequestID:       c.meta.RequestID,
 		UserID:          c.meta.UserID,
@@ -284,9 +329,9 @@ func (c *PayloadAuditCollector) buildEvent(statusCode int, dur time.Duration, er
 		InputExcerpt:    inputExcerpt,
 		OutputExcerpt:   outputExcerpt,
 		InputBody:       string(c.inputBody),
-		OutputBody:      outputText,
+		OutputBody:      outputBody,
 		InputFormat:     c.inputFormat,
-		OutputFormat:    "text",
+		OutputFormat:    outputFormat,
 		InputBytes:      c.inputBytes,
 		OutputBytes:     c.outputBytes,
 		InputTruncated:  c.inputTrunc,
