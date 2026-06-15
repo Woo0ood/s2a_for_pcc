@@ -233,15 +233,17 @@ func parseResponsesInputItems(body string, seenHashes map[string]bool) []Item {
 // responseItemToItem maps a single JSON object from `input[]` to an Item.
 func responseItemToItem(elem gjson.Result) Item {
 	itemType := elem.Get("type").String()
-	switch itemType {
-	case "message":
+	// Codex input messages frequently OMIT "type" — they are identified by a
+	// "role" + "content" (e.g. {"role":"user","content":[{"type":"input_text",…}]}).
+	// Treat type=="message" OR (no type + has role) as a message.
+	if itemType == "message" || (itemType == "" && elem.Get("role").Exists()) {
 		role := elem.Get("role").String()
 		if role == "" {
 			role = "user"
 		}
-		text := extractResponsesContentText(elem.Get("content"))
-		return Item{Role: role, Type: "message", Text: text}
-
+		return Item{Role: role, Type: "message", Text: extractResponsesContentText(elem.Get("content"))}
+	}
+	switch itemType {
 	case "function_call":
 		return Item{
 			Type:     "function_call",

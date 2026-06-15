@@ -501,3 +501,33 @@ func TestAssembleTranscript_ResponsesContentHashDedup(t *testing.T) {
 		}
 	}
 }
+
+// Real Codex input messages OMIT "type" — identified by role + content. They must
+// parse as role-tagged messages, NOT raw items.
+func TestAssembleTranscript_ResponsesNoTypeMessages(t *testing.T) {
+	inputBody := `{"model":"gpt-5.4","instructions":"You are a helpful coding agent.",` +
+		`"input":[` +
+		`{"role":"developer","content":[{"type":"input_text","text":"Project uses Go 1.26."}]},` +
+		`{"role":"user","content":[{"type":"input_text","text":"List the files."}]}` +
+		`]}`
+	rows := []*service.PayloadAuditEvent{
+		makePARow(t, 1, "/v1/responses", inputBody, "", "text", "resp_nt1", "", "conv-notype", false),
+	}
+	tr := service.AssembleTranscript(context.Background(), rows, nil)
+	if len(tr.Turns) != 1 {
+		t.Fatalf("want 1 turn, got %d", len(tr.Turns))
+	}
+	items := tr.Turns[0].UserItems
+	if len(items) != 3 {
+		t.Fatalf("want 3 items (system+developer+user), got %d: %+v", len(items), items)
+	}
+	if items[0].Role != "system" || items[0].Type != "message" {
+		t.Errorf("item[0]=%+v want system message", items[0])
+	}
+	if items[1].Role != "developer" || items[1].Type != "message" || items[1].Text != "Project uses Go 1.26." {
+		t.Errorf("item[1]=%+v want developer message", items[1])
+	}
+	if items[2].Role != "user" || items[2].Type != "message" || items[2].Text != "List the files." {
+		t.Errorf("item[2]=%+v want user message", items[2])
+	}
+}
