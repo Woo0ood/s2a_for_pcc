@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,7 +23,18 @@ const (
 	settingKeyPayloadAuditConfig  = "payload_audit_config"
 	redisKeyExportKeyLastUsed     = "payload_audit:export_key:last_used:%s" // %s = key id
 	exportKeyLastUsedTTL          = 7 * 24 * time.Hour
+
+	redisKeyConvExportJob    = "pa:convexport:%s"
+	redisKeyConvExportResult = "pa:convexport:%s:html"
+	convExportTTL            = 30 * time.Minute
 )
+
+// ConvExportJob is the status record for an async conversation export job.
+type ConvExportJob struct {
+	Status    string `json:"status"`           // "running" | "done" | "failed"
+	Error     string `json:"error,omitempty"`
+	SizeBytes int    `json:"size_bytes,omitempty"`
+}
 
 // PayloadAuditTTLSyncer is called when RetentionDays changes so the
 // underlying storage can adjust its TTL (e.g. ALTER TABLE … MODIFY TTL).
@@ -310,6 +322,75 @@ func (s *PayloadAuditService) ExportKeyLastUsed(ctx context.Context, id string) 
 		return time.Time{}, false
 	}
 	return t, true
+}
+
+// === Async Conversation Export Jobs (Redis-backed) ===
+
+// CreateConvExportJob allocates a new job record in Redis with status "running".
+func (s *PayloadAuditService) CreateConvExportJob(ctx context.Context) (string, error) {
+	if s.rdb == nil {
+		return "", errors.New("redis not configured")
+	}
+	id, err := s.idgen.NextID()
+	if err != nil {
+		return "", err
+	}
+	jobID := strconv.FormatInt(id, 10)
+	b, _ := json.Marshal(ConvExportJob{Status: "running"})
+	if err := s.rdb.Set(ctx, fmt.Sprintf(redisKeyConvExportJob, jobID), b, convExportTTL).Err(); err != nil {
+		return "", err
+	}
+	return jobID, nil
+}
+
+// FinishConvExportJob stores the rendered HTML result and marks the job "done".
+func (s *PayloadAuditService) FinishConvExportJob(ctx context.Context, jobID string, html []byte) {
+	if s.rdb == nil {
+		return
+	}
+	s.rdb.Set(ctx, fmt.Sprintf(redisKeyConvExportResult, jobID), html, convExportTTL)
+	b, _ := json.Marshal(ConvExportJob{Status: "done", SizeBytes: len(html)})
+	s.rdb.Set(ctx, fmt.Sprintf(redisKeyConvExportJob, jobID), b, convExportTTL)
+}
+
+// FailConvExportJob marks a job as "failed" with an error message.
+func (s *PayloadAuditService) FailConvExportJob(ctx context.Context, jobID, errMsg string) {
+	if s.rdb == nil {
+		return
+	}
+	b, _ := json.Marshal(ConvExportJob{Status: "failed", Error: errMsg})
+	s.rdb.Set(ctx, fmt.Sprintf(redisKeyConvExportJob, jobID), b, convExportTTL)
+}
+
+// GetConvExportJob retrieves the job status record. Returns nil (no error) when not found.
+func (s *PayloadAuditService) GetConvExportJob(ctx context.Context, jobID string) (*ConvExportJob, error) {
+	if s.rdb == nil {
+		return nil, errors.New("redis not configured")
+	}
+	val, err := s.rdb.Get(ctx, fmt.Sprintf(redisKeyConvExportJob, jobID)).Result()
+	if errors.Is(err, redis.Nil) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var j ConvExportJob
+	if err := json.Unmarshal([]byte(val), &j); err != nil {
+		return nil, err
+	}
+	return &j, nil
+}
+
+// GetConvExportResult retrieves the rendered HTML bytes. Returns nil (no error) when not found (expired).
+func (s *PayloadAuditService) GetConvExportResult(ctx context.Context, jobID string) ([]byte, error) {
+	if s.rdb == nil {
+		return nil, errors.New("redis not configured")
+	}
+	val, err := s.rdb.Get(ctx, fmt.Sprintf(redisKeyConvExportResult, jobID)).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return nil, nil
+	}
+	return val, err
 }
 
 // generateExportKeyID produces a 24-character random hex string prefixed with "ak_".

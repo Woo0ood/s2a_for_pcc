@@ -2992,6 +2992,7 @@ export default {
       runCleanup: '手动清理',
       cleanupDone: '清理完成：删除 {deleted} 条，耗时 {ms}ms',
       exportConversation: '导出完整对话',
+      exporting: '导出中…',
 
       // Error messages
       statusFailed: '获取状态失败',

@@ -270,9 +270,9 @@
 
         <template #footer>
           <div class="flex justify-between">
-            <button type="button" class="btn btn-secondary inline-flex items-center gap-2" @click="exportConversation">
-              <Icon name="download" size="sm" />
-              {{ t('admin.payloadAudit.exportConversation') }}
+            <button type="button" class="btn btn-secondary inline-flex items-center gap-2" :disabled="exporting" @click="exportConversation">
+              <Icon name="download" size="sm" :class="exporting ? 'animate-spin' : ''" />
+              {{ exporting ? t('admin.payloadAudit.exporting') : t('admin.payloadAudit.exportConversation') }}
             </button>
             <button type="button" class="btn btn-secondary" @click="closeDetail">{{ t('common.close') }}</button>
           </div>
@@ -660,6 +660,7 @@ const deleteKeyOpen = ref(false)
 const deleteKeyTarget = ref<PayloadAuditExportKey | null>(null)
 const deletingKey = ref(false)
 const cleanupLoading = ref(false)
+const exporting = ref(false)
 
 // --- Config Tabs ---
 const configTabs = computed(() => [
@@ -890,14 +891,42 @@ async function loadFullPayload() {
 }
 
 async function exportConversation() {
-  if (!detailRow.value) return
+  if (!detailRow.value || exporting.value) return
+  exporting.value = true
+  // Open the new tab synchronously within the user-gesture to avoid popup blockers.
+  const win = window.open('', '_blank')
+  if (win) win.document.write('<p style="font-family:sans-serif;padding:2rem">Exporting…</p>')
   try {
-    const html = await payloadAuditAPI.exportConversationHTML(detailRow.value.ID, detailRow.value.CreatedAt)
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const { job_id } = await payloadAuditAPI.startConversationExport(
+      detailRow.value.ID,
+      detailRow.value.CreatedAt,
+      tz
+    )
+    const deadline = Date.now() + 5 * 60 * 1000
+    let html: string | null = null
+    while (Date.now() < deadline) {
+      await new Promise<void>(r => setTimeout(r, 1500))
+      const st = await payloadAuditAPI.getConversationExportStatus(job_id)
+      if (st.status === 'done') {
+        html = await payloadAuditAPI.getConversationExportResult(job_id)
+        break
+      }
+      if (st.status === 'failed') throw new Error(st.error || 'export failed')
+    }
+    if (html === null) throw new Error('export timed out')
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
-    window.open(url, '_blank')
+    if (win) {
+      win.location.href = url
+    } else {
+      window.open(url, '_blank')
+    }
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   } catch (err) {
+    if (win) win.close()
     appStore.showError(extractApiErrorMessage(err, t('admin.payloadAudit.exportConversationFailed')))
+  } finally {
+    exporting.value = false
   }
 }
 
