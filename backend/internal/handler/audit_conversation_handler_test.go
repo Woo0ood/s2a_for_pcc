@@ -269,6 +269,31 @@ func TestGetConversation_HistoricalFallback_MultiTurn(t *testing.T) {
 	assert.NotContains(t, body, "单轮副本")
 }
 
+// When the bounded historical scan errors (e.g. CH max_execution_time exceeded for a
+// heavy user), the export must degrade to single-turn with a clear note — never hang.
+func TestGetConversation_HistoricalFallback_ScanBounded_SingleTurn(t *testing.T) {
+	now := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	hitRow := makeResponsesRow(40, "hist-bound", now)
+	repo := &mockConvRepo{
+		getRow:    hitRow,
+		needleErr: fmt.Errorf("clickhouse: timeout exceeded: max_execution_time"),
+	}
+	svc := newMinimalSvc(t)
+	h := NewAuditConversationHandler(repo, svc)
+	r := setupConvRouter(h)
+
+	url := fmt.Sprintf("/api/v1/audit/exports/payloads/40/conversation?format=html&created_at=%d", now.UnixMilli())
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code) // graceful: still 200, single-turn
+	body := w.Body.String()
+	assert.Contains(t, body, "Turn 1")
+	assert.NotContains(t, body, "Turn 2")
+	assert.Contains(t, body, "历史回溯扫描超时") // the bounded-scan note
+}
+
 func TestGetConversation_HistoricalFallback_OnlySingleSibling_FallsBackToSingleTurn(t *testing.T) {
 	// When ListByCacheKeyNeedle returns only 1 row (<=1), we must degrade to single-turn.
 	now := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)

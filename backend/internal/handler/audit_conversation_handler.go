@@ -123,22 +123,29 @@ func (h *AuditConversationHandler) buildConversationHTML(ctx context.Context, id
 	var events []*service.PayloadAuditEvent
 	var historicalKey string // set when historical prompt_cache_key fallback is used
 	singleTurn := false
+	fallbackBounded := false // set when the historical scan exceeded its time/bytes bound
 
 	convKey := row.ConversationKey
 	if convKey == "" {
-		// Historical fallback: column empty (row predates conversation_key). Recover
-		// the conversation by matching prompt_cache_key parsed from the body.
+		// Historical fallback: column empty (row predates conversation_key population).
+		// Recover the conversation by matching prompt_cache_key parsed from the body,
+		// within a BOUNDED ±2d window — the position(input_body) scan is costly over a
+		// heavy user's history, and the repo also caps it with max_execution_time.
 		anchor := createdAt
 		if pck, _ := service.ExtractRequestConvIDs(row.Endpoint, []byte(row.InputBody)); pck != "" {
 			needle := `prompt_cache_key":"` + pck
-			sib, ferr := h.repo.ListByCacheKeyNeedle(ctx, row.UserID, needle, anchor.Add(-7*24*time.Hour), anchor.Add(7*24*time.Hour), 500)
-			if ferr == nil && len(sib) > 1 {
+			sib, ferr := h.repo.ListByCacheKeyNeedle(ctx, row.UserID, needle, anchor.Add(-2*24*time.Hour), anchor.Add(2*24*time.Hour), 500)
+			if ferr != nil {
+				// Scan exceeded its bound (heavy user): degrade to single-turn rather
+				// than hang the export / saturate ClickHouse.
+				fallbackBounded = true
+			} else if len(sib) > 1 {
 				events = repoRowsToServiceEvents(sib)
 				historicalKey = pck
 			}
 		}
 		if events == nil {
-			// Single-turn fallback: no conversation key and no recoverable multi-turn history.
+			// No conversation key and no recoverable multi-turn history (or scan bounded).
 			events = []*service.PayloadAuditEvent{repoRowToServiceEvent(row)}
 			singleTurn = true
 		}
@@ -172,8 +179,12 @@ func (h *AuditConversationHandler) buildConversationHTML(ctx context.Context, id
 		}
 		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "历史会话：按 prompt_cache_key 回溯分组（conversation_key 列为空）")
 	} else if singleTurn {
-		// No conversation key and no recoverable history — truly single-turn.
-		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, "单轮副本（无会话键）")
+		note := "单轮副本（无会话键）"
+		if fallbackBounded {
+			// The historical scan was too expensive to finish within its bound.
+			note = "历史回溯扫描超时/受限，仅导出本轮（部署 conversation_key 写入或回填历史后可恢复多轮）"
+		}
+		transcript.Manifest.Gaps = append(transcript.Manifest.Gaps, note)
 	}
 
 	return service.RenderTranscriptHTML(transcript)

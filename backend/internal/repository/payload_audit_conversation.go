@@ -28,8 +28,12 @@ func (r *PayloadAuditCHRepo) ListByCacheKeyNeedle(ctx context.Context, userID *i
 		where = append(where, "user_id = @uid")
 		args = append(args, clickhouse.Named("uid", *userID))
 	}
+	// max_execution_time bounds the position(input_body, needle) scan: input_body
+	// is a multi-GiB column, so an unbounded scan over a heavy user's window can run
+	// for many seconds and hammer ClickHouse. On exceed, CH errors and the caller
+	// degrades to a single-turn export instead of hanging.
 	q := fmt.Sprintf(
-		"SELECT %s FROM %s WHERE %s ORDER BY created_at ASC, id ASC LIMIT %d",
+		"SELECT %s FROM %s WHERE %s ORDER BY created_at ASC, id ASC LIMIT %d SETTINGS max_execution_time=25",
 		payloadAuditFullCols, r.table, strings.Join(where, " AND "), limit,
 	)
 	rows, err := r.conn.Query(ctx, q, args...)
