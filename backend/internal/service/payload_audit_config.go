@@ -35,6 +35,13 @@ type PayloadAuditConfig struct {
 	BatchSize     int                    `json:"batch_size"`
 	BatchFlushMs  int                    `json:"batch_flush_ms"`
 	ExportAPIKeys []PayloadAuditExportKey `json:"export_api_keys"`
+
+	// 旁路（offload）到对象存储的配置。
+	OffloadEnabled             bool            `json:"offload_enabled"`
+	BlobOffloadMinBytes        int             `json:"blob_offload_min_bytes"`        // 0 = 用默认；内联 base64 解码后 >= 该值才旁路
+	BlobStorePrefix            string          `json:"blob_store_prefix"`             // 默认 "payload-audit/"
+	OffloadRetentionMarginDays int             `json:"offload_retention_margin_days"` // 对象保留 = RetentionDays + margin
+	BlobStore                  *BackupS3Config `json:"blob_store,omitempty"`          // 独立 S3 配置；secret 经 SecretEncryptor
 }
 
 // ConfigSnapshot is an immutable point-in-time snapshot of payload audit configuration.
@@ -54,7 +61,10 @@ type ConfigSnapshot struct {
 	BatchFlushMs   int
 	ExportKeys       []PayloadAuditExportKey
 	ExportKeysByHash map[string]*PayloadAuditExportKey
-	Generation     uint64
+	Generation       uint64
+	OffloadEnabled      bool
+	BlobOffloadMinBytes int
+	BlobStorePrefix     string
 }
 
 // GroupInScope reports whether the given group ID falls within the audit scope.
@@ -105,6 +115,15 @@ func validatePayloadAuditConfig(cfg *PayloadAuditConfig) error {
 	if cfg.BatchFlushMs < 1 {
 		cfg.BatchFlushMs = 200
 	}
+	if cfg.BlobOffloadMinBytes < 0 {
+		return fmt.Errorf("%w: blob_offload_min_bytes negative", ErrInvalidPayloadAuditConfig)
+	}
+	if cfg.OffloadRetentionMarginDays < 0 {
+		return fmt.Errorf("%w: offload_retention_margin_days negative", ErrInvalidPayloadAuditConfig)
+	}
+	if cfg.OffloadEnabled && (cfg.BlobStore == nil || !cfg.BlobStore.IsConfigured()) {
+		return fmt.Errorf("%w: offload_enabled requires a configured blob_store", ErrInvalidPayloadAuditConfig)
+	}
 	return nil
 }
 
@@ -122,8 +141,11 @@ func buildSnapshot(enabled bool, cfg *PayloadAuditConfig, gen uint64) *ConfigSna
 		QueueMaxBytes:  cfg.QueueMaxBytes,
 		BatchSize:      cfg.BatchSize,
 		BatchFlushMs:   cfg.BatchFlushMs,
-		ExportKeys:     append([]PayloadAuditExportKey(nil), cfg.ExportAPIKeys...),
-		Generation:     gen,
+		ExportKeys:          append([]PayloadAuditExportKey(nil), cfg.ExportAPIKeys...),
+		Generation:          gen,
+		OffloadEnabled:      enabled && cfg.OffloadEnabled,
+		BlobOffloadMinBytes: cfg.BlobOffloadMinBytes,
+		BlobStorePrefix:     cfg.BlobStorePrefix,
 	}
 	s.GroupIDs = make(map[int64]struct{}, len(cfg.GroupIDs))
 	for _, id := range cfg.GroupIDs {
