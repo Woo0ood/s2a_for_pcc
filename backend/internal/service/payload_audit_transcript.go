@@ -1,0 +1,601 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/tidwall/gjson"
+)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public models
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Item represents a single atomic message or tool action within a turn.
+type Item struct {
+	Role       string // "user", "assistant", "system", "tool", …
+	Type       string // "message", "function_call", "function_call_output", "reasoning", "raw"
+	Text       string // message text (for message/raw types)
+	ToolName   string // populated for function_call
+	ToolArgs   string // populated for function_call (JSON string)
+	ToolOutput string // populated for function_call_output
+}
+
+// Turn holds the parsed content of a single gateway request+response row.
+type Turn struct {
+	Index     int
+	CreatedAt time.Time
+	Model     string
+	StatusCode int
+
+	// UserItems: only input items that are NEW in this turn (not seen in earlier turns).
+	UserItems   []Item
+	// Assistant: items parsed from the structured output.
+	Assistant   []Item
+	// Attachments: blob-pointer attachments resolved from input/output bodies.
+	Attachments []Attachment
+
+	RawInputBytes  int
+	RawOutputBytes int
+}
+
+// Manifest describes the completeness of a Transcript.
+type Manifest struct {
+	ConversationKey string
+	TurnCount       int
+	TimeFrom        time.Time
+	TimeTo          time.Time
+	// Gaps is an explicit list of missing or unrecoverable portions.
+	Gaps []string
+}
+
+// Transcript is the assembled, turn-by-turn view of a conversation.
+type Transcript struct {
+	Turns    []Turn
+	Manifest Manifest
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AssembleTranscript
+// ─────────────────────────────────────────────────────────────────────────────
+
+// AssembleTranscript converts an ordered slice of PayloadAuditEvents into a
+// structured Transcript. Rows MUST be sorted ascending by (created_at, id).
+//
+// resolver may be nil — if nil, pointer bodies are left as-is.
+func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver *BlobResolver) Transcript {
+	if len(rows) == 0 {
+		return Transcript{}
+	}
+
+	// Build a set of all responseIDs present in this slice for chain-gap detection.
+	responseIDSet := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		if r.ResponseID != "" {
+			responseIDSet[r.ResponseID] = true
+		}
+	}
+
+	// seen tracks input item IDs already emitted in earlier turns (responses endpoint).
+	seen := make(map[string]bool)
+	// seenChatHash tracks hashed (role+content) for chat/completions dedup.
+	seenChatHash := make(map[string]bool)
+
+	var turns []Turn
+	var allGaps []string
+	outputTruncated := false
+
+	for idx, row := range rows {
+		// Resolve pointers in bodies.
+		resolvedInput, inputAtts, inputGaps := resolver.ResolveBody(ctx, row.InputBody)
+		resolvedOutput, outputAtts, outputGaps := resolver.ResolveBody(ctx, row.OutputBody)
+
+		gaps := append(inputGaps, outputGaps...)
+
+		atts := append(inputAtts, outputAtts...)
+
+		// Parse user items from the resolved input.
+		userItems := parseUserItems(row.Endpoint, resolvedInput, seen, seenChatHash)
+
+		// Parse assistant items from the resolved output.
+		assistantItems := parseAssistantItems(row.OutputFormat, resolvedOutput)
+
+		// Check gap conditions.
+		if row.PreviousResponseID != "" && !responseIDSet[row.PreviousResponseID] {
+			gaps = append(gaps, fmt.Sprintf(
+				"此前历史不在留存范围 (previous_response_id=%s)", row.PreviousResponseID,
+			))
+		}
+		if row.OutputTruncated {
+			outputTruncated = true
+		}
+
+		turns = append(turns, Turn{
+			Index:          idx + 1,
+			CreatedAt:      row.CreatedAt,
+			Model:          row.Model,
+			StatusCode:     row.StatusCode,
+			UserItems:      userItems,
+			Assistant:      assistantItems,
+			Attachments:    atts,
+			RawInputBytes:  len(row.InputBody),
+			RawOutputBytes: len(row.OutputBody),
+		})
+
+		allGaps = append(allGaps, gaps...)
+	}
+
+	if outputTruncated {
+		allGaps = append(allGaps, "部分输出被截断 (output_truncated)")
+	}
+
+	// Dedup gaps preserving order.
+	allGaps = dedupStrings(allGaps)
+
+	first := rows[0]
+	last := rows[len(rows)-1]
+
+	return Transcript{
+		Turns: turns,
+		Manifest: Manifest{
+			ConversationKey: first.ConversationKey,
+			TurnCount:       len(turns),
+			TimeFrom:        first.CreatedAt,
+			TimeTo:          last.CreatedAt,
+			Gaps:            allGaps,
+		},
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Input parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
+// parseUserItems extracts new input items from a resolved body.
+// For /v1/responses: deduplicates by item.id (stable ids provided by the API).
+// For chat/completions: deduplicates by hash(role+content), emits only new messages.
+// Other endpoints: emit a single raw Item.
+func parseUserItems(endpoint, body string, seenIDs, seenChatHashes map[string]bool) []Item {
+	switch {
+	case strings.Contains(endpoint, "/responses"):
+		return parseResponsesInputItems(body, seenIDs)
+	case strings.Contains(endpoint, "/chat/completions"):
+		return parseChatInputItems(body, seenChatHashes)
+	default:
+		return parseRawInputItem(body)
+	}
+}
+
+// parseResponsesInputItems parses the `input[]` array of the OpenAI Responses API.
+// Items with a stable `id` are deduplicated via seenIDs. Items without an id are
+// always treated as new.
+func parseResponsesInputItems(body string, seenIDs map[string]bool) []Item {
+	inputArray := gjson.Get(body, "input")
+	if !inputArray.Exists() || !inputArray.IsArray() {
+		return parseRawInputItem(body)
+	}
+
+	var items []Item
+	inputArray.ForEach(func(_, elem gjson.Result) bool {
+		id := elem.Get("id").String()
+		if id != "" {
+			if seenIDs[id] {
+				return true // already shown in a previous turn — skip
+			}
+			seenIDs[id] = true
+		}
+
+		item := responseItemToItem(elem)
+		items = append(items, item)
+		return true
+	})
+	return items
+}
+
+// responseItemToItem maps a single JSON object from `input[]` to an Item.
+func responseItemToItem(elem gjson.Result) Item {
+	itemType := elem.Get("type").String()
+	switch itemType {
+	case "message":
+		role := elem.Get("role").String()
+		if role == "" {
+			role = "user"
+		}
+		text := extractResponsesContentText(elem.Get("content"))
+		return Item{Role: role, Type: "message", Text: text}
+
+	case "function_call":
+		return Item{
+			Type:     "function_call",
+			ToolName: elem.Get("name").String(),
+			ToolArgs: elem.Get("arguments").String(),
+		}
+
+	case "function_call_output":
+		return Item{
+			Type:       "function_call_output",
+			ToolOutput: elem.Get("output").String(),
+		}
+
+	case "reasoning":
+		summaryArr := elem.Get("summary")
+		text := ""
+		if summaryArr.IsArray() {
+			var parts []string
+			summaryArr.ForEach(func(_, s gjson.Result) bool {
+				if t := s.Get("text").String(); t != "" {
+					parts = append(parts, t)
+				}
+				return true
+			})
+			text = strings.Join(parts, " ")
+		}
+		return Item{Type: "reasoning", Text: text}
+
+	default:
+		// Emit a best-effort raw item.
+		return Item{Type: "raw", Text: elem.Raw}
+	}
+}
+
+// extractResponsesContentText extracts text from `content` which may be:
+//   - a string
+//   - an array of content blocks {type, text}
+func extractResponsesContentText(content gjson.Result) string {
+	if !content.Exists() {
+		return ""
+	}
+	if content.Type == gjson.String {
+		return content.String()
+	}
+	if content.IsArray() {
+		var parts []string
+		content.ForEach(func(_, block gjson.Result) bool {
+			if t := block.Get("text").String(); t != "" {
+				parts = append(parts, t)
+			}
+			return true
+		})
+		return strings.Join(parts, "")
+	}
+	return content.Raw
+}
+
+// parseChatInputItems parses `messages[]` from a chat/completions body.
+// Chat requests re-send full history each turn; to avoid repeating already-shown
+// messages, we hash each (role, content) pair and skip hashes already seen.
+func parseChatInputItems(body string, seenHashes map[string]bool) []Item {
+	messagesArr := gjson.Get(body, "messages")
+	if !messagesArr.Exists() || !messagesArr.IsArray() {
+		return parseRawInputItem(body)
+	}
+
+	var items []Item
+	messagesArr.ForEach(func(_, msg gjson.Result) bool {
+		role := msg.Get("role").String()
+		content := extractChatContent(msg.Get("content"))
+		h := chatHash(role, content)
+		if seenHashes[h] {
+			return true // already shown in a previous turn
+		}
+		seenHashes[h] = true
+		items = append(items, Item{Role: role, Type: "message", Text: content})
+		return true
+	})
+	return items
+}
+
+// extractChatContent handles content that is a string or array of blocks.
+func extractChatContent(content gjson.Result) string {
+	if !content.Exists() {
+		return ""
+	}
+	if content.Type == gjson.String {
+		return content.String()
+	}
+	if content.IsArray() {
+		var parts []string
+		content.ForEach(func(_, block gjson.Result) bool {
+			if t := block.Get("text").String(); t != "" {
+				parts = append(parts, t)
+			}
+			return true
+		})
+		return strings.Join(parts, "")
+	}
+	return content.Raw
+}
+
+// chatHash hashes (role, content) for chat message dedup. Uses a cheap separator
+// that cannot appear in either field to avoid collisions.
+func chatHash(role, content string) string {
+	// Use a zero-byte separator (role and content are UTF-8 text; \x00 won't appear).
+	return role + "\x00" + content
+}
+
+// parseRawInputItem returns a single raw fallback Item.
+func parseRawInputItem(body string) []Item {
+	truncated := body
+	const maxRaw = 4096
+	if len(truncated) > maxRaw {
+		truncated = truncated[:maxRaw] + "…[truncated]"
+	}
+	return []Item{{Type: "raw", Text: truncated}}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Output parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
+// parseAssistantItems converts a stored output body to structured assistant Items.
+// outputFormat is "sse", "json", or "text" (from repository.PayloadAuditEvent.OutputFormat).
+func parseAssistantItems(outputFormat, body string) []Item {
+	switch outputFormat {
+	case "sse":
+		return parseSSEOutput(body)
+	case "json":
+		return parseJSONOutput(body)
+	default:
+		// "text" or unknown: emit as a single assistant message.
+		if strings.TrimSpace(body) == "" {
+			return nil
+		}
+		return []Item{{Role: "assistant", Type: "message", Text: body}}
+	}
+}
+
+// parseJSONOutput handles both chat completions and responses API JSON outputs.
+func parseJSONOutput(body string) []Item {
+	// Try OpenAI Responses format: {"output":[...]}
+	outputArr := gjson.Get(body, "output")
+	if outputArr.Exists() && outputArr.IsArray() {
+		return parseResponsesOutputItems(outputArr)
+	}
+
+	// Try chat completions format: {"choices":[{"message":{...}}]}
+	choicesArr := gjson.Get(body, "choices")
+	if choicesArr.Exists() && choicesArr.IsArray() {
+		return parseChatChoices(choicesArr)
+	}
+
+	// Fallback: raw.
+	return []Item{{Role: "assistant", Type: "raw", Text: body}}
+}
+
+// parseResponsesOutputItems parses the `output[]` array from Responses API JSON.
+func parseResponsesOutputItems(arr gjson.Result) []Item {
+	var items []Item
+	arr.ForEach(func(_, elem gjson.Result) bool {
+		t := elem.Get("type").String()
+		switch t {
+		case "message":
+			text := extractResponsesContentText(elem.Get("content"))
+			items = append(items, Item{Role: "assistant", Type: "message", Text: text})
+		case "function_call":
+			items = append(items, Item{
+				Type:     "function_call",
+				ToolName: elem.Get("name").String(),
+				ToolArgs: elem.Get("arguments").String(),
+			})
+		case "reasoning":
+			text := ""
+			summaryArr := elem.Get("summary")
+			if summaryArr.IsArray() {
+				var parts []string
+				summaryArr.ForEach(func(_, s gjson.Result) bool {
+					if tx := s.Get("text").String(); tx != "" {
+						parts = append(parts, tx)
+					}
+					return true
+				})
+				text = strings.Join(parts, " ")
+			}
+			items = append(items, Item{Type: "reasoning", Text: text})
+		default:
+			items = append(items, Item{Role: "assistant", Type: "raw", Text: elem.Raw})
+		}
+		return true
+	})
+	return items
+}
+
+// parseChatChoices extracts assistant message + tool_calls from chat choices.
+func parseChatChoices(arr gjson.Result) []Item {
+	var items []Item
+	arr.ForEach(func(_, choice gjson.Result) bool {
+		msg := choice.Get("message")
+		if !msg.Exists() {
+			// streaming delta
+			msg = choice.Get("delta")
+		}
+		if !msg.Exists() {
+			return true
+		}
+		content := msg.Get("content").String()
+		if content != "" {
+			items = append(items, Item{Role: "assistant", Type: "message", Text: content})
+		}
+		// tool_calls
+		toolCalls := msg.Get("tool_calls")
+		if toolCalls.IsArray() {
+			toolCalls.ForEach(func(_, tc gjson.Result) bool {
+				name := tc.Get("function.name").String()
+				args := tc.Get("function.arguments").String()
+				items = append(items, Item{
+					Type:     "function_call",
+					ToolName: name,
+					ToolArgs: args,
+				})
+				return true
+			})
+		}
+		return true
+	})
+	return items
+}
+
+// parseSSEOutput processes an SSE event stream and extracts structured Items.
+// It accumulates deltas and also collects function_call output items.
+func parseSSEOutput(body string) []Item {
+	// Accumulate text and tool calls from SSE events.
+	var textBuilder strings.Builder
+	var toolCalls []Item    // function_call items accumulated
+	var reasonBuilder strings.Builder
+
+	forEachSSEEvent([]byte(body), func(eventType string, data []byte) {
+		switch eventType {
+		case "response.output_text.delta", "response.output_text.done":
+			var d struct {
+				Delta string `json:"delta"`
+				Text  string `json:"text"`
+			}
+			if json.Unmarshal(data, &d) == nil {
+				if d.Delta != "" {
+					textBuilder.WriteString(d.Delta)
+				}
+			}
+
+		case "response.output_item.added", "response.output_item.done":
+			// Captures function_call items added as output items.
+			var d struct {
+				Item struct {
+					Type      string `json:"type"`
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+					ID        string `json:"id"`
+				} `json:"item"`
+			}
+			if json.Unmarshal(data, &d) == nil && d.Item.Type == "function_call" {
+				toolCalls = append(toolCalls, Item{
+					Type:     "function_call",
+					ToolName: d.Item.Name,
+					ToolArgs: d.Item.Arguments,
+				})
+			}
+
+		case "response.function_call_arguments.done":
+			// Captures complete function call arguments.
+			var d struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+				CallID    string `json:"call_id"`
+			}
+			if json.Unmarshal(data, &d) == nil && d.Name != "" {
+				toolCalls = append(toolCalls, Item{
+					Type:     "function_call",
+					ToolName: d.Name,
+					ToolArgs: d.Arguments,
+				})
+			}
+
+		case "response.reasoning_summary.delta", "response.reasoning.delta":
+			var d struct{ Delta string `json:"delta"` }
+			if json.Unmarshal(data, &d) == nil {
+				reasonBuilder.WriteString(d.Delta)
+			}
+
+		// Chat completions SSE deltas.
+		default:
+			// Try chat-style delta.
+			if len(data) > 0 {
+				var chatChunk struct {
+					Choices []struct {
+						Delta struct {
+							Content   string `json:"content"`
+							ToolCalls []struct {
+								Function struct {
+									Name      string `json:"name"`
+									Arguments string `json:"arguments"`
+								} `json:"function"`
+							} `json:"tool_calls"`
+						} `json:"delta"`
+					} `json:"choices"`
+				}
+				if json.Unmarshal(data, &chatChunk) == nil {
+					for _, c := range chatChunk.Choices {
+						textBuilder.WriteString(c.Delta.Content)
+						for _, tc := range c.Delta.ToolCalls {
+							if tc.Function.Name != "" {
+								toolCalls = append(toolCalls, Item{
+									Type:     "function_call",
+									ToolName: tc.Function.Name,
+									ToolArgs: tc.Function.Arguments,
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+	})
+
+	// Also scan data-only SSE lines (for chat completions without event: lines).
+	// We do a second pass treating it as data-only if textBuilder is still empty.
+	if textBuilder.Len() == 0 && len(toolCalls) == 0 {
+		forEachSSEData([]byte(body), func(data []byte) {
+			var chatChunk struct {
+				Choices []struct {
+					Delta struct {
+						Content   string `json:"content"`
+						ToolCalls []struct {
+							Function struct {
+								Name      string `json:"name"`
+								Arguments string `json:"arguments"`
+							} `json:"function"`
+						} `json:"tool_calls"`
+					} `json:"delta"`
+				} `json:"choices"`
+			}
+			if json.Unmarshal(data, &chatChunk) == nil {
+				for _, c := range chatChunk.Choices {
+					textBuilder.WriteString(c.Delta.Content)
+				}
+			}
+		})
+	}
+
+	var items []Item
+	if text := textBuilder.String(); text != "" {
+		items = append(items, Item{Role: "assistant", Type: "message", Text: text})
+	}
+	items = append(items, dedupToolCalls(toolCalls)...)
+	if reason := reasonBuilder.String(); reason != "" {
+		items = append(items, Item{Type: "reasoning", Text: reason})
+	}
+	return items
+}
+
+// dedupToolCalls removes duplicate function_call items (same name+args).
+func dedupToolCalls(calls []Item) []Item {
+	seen := make(map[string]bool, len(calls))
+	var out []Item
+	for _, c := range calls {
+		key := c.ToolName + "\x00" + c.ToolArgs
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+// dedupStrings preserves order and removes exact duplicates.
+func dedupStrings(ss []string) []string {
+	seen := make(map[string]bool, len(ss))
+	var out []string
+	for _, s := range ss {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
