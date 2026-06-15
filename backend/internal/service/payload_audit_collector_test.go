@@ -2,6 +2,8 @@ package service
 
 import (
 	"bytes"
+	"encoding/base64"
+	"strings"
 	"testing"
 	"time"
 )
@@ -103,5 +105,38 @@ func TestCollector_OutputOmitted(t *testing.T) {
 	evt := c.Finalize(200, time.Second, "")
 	if !evt.OutputOmitted {
 		t.Fatal("OutputOmitted should be true")
+	}
+}
+
+func base64Std(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
+func containsPointer(s string) bool {
+	return strings.Contains(s, "s2a-blob://") || strings.Contains(s, "s2a-body://")
+}
+
+func TestCollector_SetInput_OffloadExtractsPending(t *testing.T) {
+	snap := &ConfigSnapshot{Enabled: true, AllGroups: true, OffloadEnabled: true, BlobOffloadMinBytes: 512, InputMaxBytes: 0}
+	c := NewPayloadAuditCollector(snap)
+	c.SetMetadata(PayloadAuditMetadata{Provider: "openai", Endpoint: "/v1/responses"})
+	raw := make([]byte, 1024)
+	body := []byte(`{"image_url":"data:image/png;base64,` + base64Std(raw) + `"}`)
+	c.SetInput(body, "json")
+	if len(c.PendingBlobs()) != 1 {
+		t.Fatalf("want 1 pending blob, got %d", len(c.PendingBlobs()))
+	}
+	if !containsPointer(c.InputBodyForTest()) {
+		t.Fatal("input body should contain pointer after rewrite")
+	}
+}
+
+func TestCollector_SetInput_OversizedBodyOffloaded(t *testing.T) {
+	snap := &ConfigSnapshot{Enabled: true, AllGroups: true, OffloadEnabled: true, BlobOffloadMinBytes: 1 << 20, InputMaxBytes: 16}
+	c := NewPayloadAuditCollector(snap)
+	c.SetMetadata(PayloadAuditMetadata{Provider: "openai", Endpoint: "/v1/responses"})
+	c.SetInput([]byte(`{"prompt":"this body is way over sixteen bytes"}`), "json")
+	if c.PendingBody() == nil {
+		t.Fatal("expected pending body offload")
+	}
+	if !containsPointer(c.InputBodyForTest()) {
+		t.Fatal("input body should be a body pointer")
 	}
 }

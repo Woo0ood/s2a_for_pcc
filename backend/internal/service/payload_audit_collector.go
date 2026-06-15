@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -41,6 +43,7 @@ type PayloadAuditEvent struct {
 	InputFormat, OutputFormat                      string
 	InputBytes, OutputBytes                        int
 	InputTruncated, OutputTruncated, OutputOmitted bool
+	InputOffloaded                                 bool
 	ErrorMessage                                   string
 	CreatedAt                                      time.Time
 }
@@ -67,6 +70,11 @@ type PayloadAuditCollector struct {
 	inputBytes  int // pre-truncation original size
 	inputTrunc  bool
 	inputFormat string
+
+	pendingBlobs      []ExtractedBlob
+	pendingBody       *ExtractedBlob
+	originalForRevert []byte
+	inputOffloaded    bool
 
 	outputBuf     strings.Builder
 	outputBytes   int // total bytes appended (including truncated portion)
@@ -104,24 +112,83 @@ func (c *PayloadAuditCollector) SetMetadata(m PayloadAuditMetadata) {
 // Metadata returns the stored metadata.
 func (c *PayloadAuditCollector) Metadata() PayloadAuditMetadata { return c.meta }
 
-// SetInput copies and optionally truncates the request body.
+// SetInput copies and optionally truncates the request body. When offload is
+// enabled, inline base64 blobs (and an oversized remainder) are replaced with
+// pointers and staged for upload; the actual upload happens at finalize time.
 func (c *PayloadAuditCollector) SetInput(body []byte, format string) {
 	if !c.enabled {
 		return
 	}
 	c.inputBytes = len(body)
 	c.inputFormat = format
-	cap := c.snap.InputMaxBytes
-	if cap > 0 && len(body) > cap {
-		dst := make([]byte, cap)
-		copy(dst, body[:cap])
+
+	work := body
+	if c.snap.OffloadEnabled {
+		rewritten, blobs := RewriteInlineBlobs(body, c.snap.BlobOffloadMinBytes)
+		if len(blobs) > 0 {
+			work = rewritten
+			c.pendingBlobs = blobs
+		}
+	}
+
+	maxBytes := c.snap.InputMaxBytes
+	if c.snap.OffloadEnabled && maxBytes > 0 && len(work) > maxBytes {
+		sum := sha256.Sum256(work)
+		sha := hex.EncodeToString(sum[:])
+		cp := make([]byte, len(work))
+		copy(cp, work)
+		c.pendingBody = &ExtractedBlob{SHA256: sha, MIME: "application/json", Bytes: len(work), Data: cp}
+		c.inputBody = []byte(EncodeBodyPointer(sha, len(work)))
+		c.originalForRevert = body
+		return
+	}
+
+	if len(c.pendingBlobs) > 0 {
+		c.originalForRevert = body
+	}
+
+	if maxBytes > 0 && len(work) > maxBytes {
+		dst := make([]byte, maxBytes)
+		copy(dst, work[:maxBytes])
 		c.inputBody = dst
 		c.inputTrunc = true
-	} else {
-		dst := make([]byte, len(body))
-		copy(dst, body)
-		c.inputBody = dst
+		return
 	}
+	dst := make([]byte, len(work))
+	copy(dst, work)
+	c.inputBody = dst
+}
+
+// PendingBlobs returns blobs staged for offload upload (set by SetInput).
+func (c *PayloadAuditCollector) PendingBlobs() []ExtractedBlob { return c.pendingBlobs }
+
+// PendingBody returns an oversized body staged for whole-body offload, or nil.
+func (c *PayloadAuditCollector) PendingBody() *ExtractedBlob { return c.pendingBody }
+
+// OriginalForRevert returns the original pre-rewrite body, used to revert on upload failure.
+func (c *PayloadAuditCollector) OriginalForRevert() []byte { return c.originalForRevert }
+
+// MarkInputOffloaded marks the input as successfully offloaded (called by Task 7 uploader).
+func (c *PayloadAuditCollector) MarkInputOffloaded() { c.inputOffloaded = true }
+
+// InputBodyForTest returns the current inputBody as a string (for use in tests).
+func (c *PayloadAuditCollector) InputBodyForTest() string { return string(c.inputBody) }
+
+// RevertOffload undoes a staged offload on upload failure: clears pending state
+// and falls back to normal truncation of the original body.
+func (c *PayloadAuditCollector) RevertOffload(original []byte) {
+	c.pendingBlobs, c.pendingBody, c.inputOffloaded = nil, nil, false
+	maxBytes := c.snap.InputMaxBytes
+	if maxBytes > 0 && len(original) > maxBytes {
+		dst := make([]byte, maxBytes)
+		copy(dst, original[:maxBytes])
+		c.inputBody = dst
+		c.inputTrunc = true
+		return
+	}
+	dst := make([]byte, len(original))
+	copy(dst, original)
+	c.inputBody = dst
 }
 
 // AppendOutput appends streaming delta text. Once the output cap is reached,
@@ -206,6 +273,7 @@ func (c *PayloadAuditCollector) buildEvent(statusCode int, dur time.Duration, er
 		InputTruncated:  c.inputTrunc,
 		OutputTruncated: c.outputTrunc,
 		OutputOmitted:   c.outputOmitted,
+		InputOffloaded:  c.inputOffloaded,
 		ErrorMessage:    errMsg,
 		CreatedAt:       time.Now(),
 	}

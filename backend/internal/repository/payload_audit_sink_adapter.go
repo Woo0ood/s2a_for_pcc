@@ -53,6 +53,7 @@ func (a *PayloadAuditSinkAdapter) BatchInsertWithToken(ctx context.Context, even
 			InputTruncated:  e.InputTruncated,
 			OutputTruncated: e.OutputTruncated,
 			OutputOmitted:   e.OutputOmitted,
+			InputOffloaded:  e.InputOffloaded,
 			ErrorMessage:    e.ErrorMessage,
 		}
 	}

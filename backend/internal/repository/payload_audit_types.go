@@ -22,6 +22,7 @@ type PayloadAuditEvent struct {
 	InputFormat, OutputFormat                        string
 	InputBytes, OutputBytes                          int
 	InputTruncated, OutputTruncated, OutputOmitted   bool
+	InputOffloaded                                   bool
 	ErrorMessage                                     string
 	CreatedAt                                        time.Time
 }
