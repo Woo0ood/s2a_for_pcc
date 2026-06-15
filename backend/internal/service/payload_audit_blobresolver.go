@@ -116,6 +116,23 @@ func (r *BlobResolver) ResolveBody(ctx context.Context, body string) (resolved s
 	return sb.String(), atts, gaps
 }
 
+// FetchBlob downloads a blob object by its SHA-256 hex digest.
+// It returns the raw bytes and a MIME type string.
+// If the resolver is nil or the object is not found, an error is returned.
+// The MIME type defaults to "application/octet-stream" when unknown.
+func (r *BlobResolver) FetchBlob(ctx context.Context, sha string) (data []byte, mime string, err error) {
+	if r == nil || r.store == nil {
+		return nil, "", fmt.Errorf("blob resolver not configured")
+	}
+	key := blobKey(r.prefix, sha)
+	data, err = r.store.Get(ctx, key)
+	if err != nil {
+		return nil, "", fmt.Errorf("blob fetch: %w", err)
+	}
+	// The object store does not persist MIME on retrieval; default to octet-stream.
+	return data, "application/octet-stream", nil
+}
+
 // tokenEnd returns the index of the first character after the pointer token.
 // A pointer token ends at a double-quote, whitespace, or end-of-string — they
 // appear inside JSON string values, which are delimited by `"`.

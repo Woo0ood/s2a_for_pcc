@@ -20,6 +20,10 @@ func (f fakePutStore) Put(_ context.Context, _ string, _ []byte, _ string) error
 	return nil
 }
 
+func (f fakePutStore) Get(_ context.Context, _ string) ([]byte, error) {
+	return nil, errors.New("fakePutStore: Get not implemented")
+}
+
 func offloadCollectorWithPending(t *testing.T) *service.PayloadAuditCollector {
 	t.Helper()
 	snap := &service.ConfigSnapshot{Enabled: true, AllGroups: true, OffloadEnabled: true, BlobOffloadMinBytes: 512, InputMaxBytes: 0}

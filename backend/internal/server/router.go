@@ -120,5 +120,5 @@ func registerRoutes(
 	// Public audit export API (own bearer-token auth)
 	auditExportLimiter := middleware2.NewAuditExportRateLimiter(redisClient)
 	auditExportMW := middleware2.AuditExportAuthMiddleware(payloadAuditService, auditExportLimiter)
-	routes.RegisterPublicAuditRoutes(r, h.AuditExport, auditExportMW)
+	routes.RegisterPublicAuditRoutes(r, h.AuditExport, h.AuditConversation, auditExportMW)
 }
