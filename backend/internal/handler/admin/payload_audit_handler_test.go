@@ -109,7 +109,7 @@ func buildTestPayloadAuditHandler(
 		"payload_audit_enabled": enabledStr,
 		"payload_audit_config":  cfgJSON,
 	}}
-	svc, _ := service.ProvidePayloadAuditService(settings, nil, 0, nil)
+	svc, _ := service.ProvidePayloadAuditService(settings, nil, 0, nil, nil, nil)
 
 	sink := service.NewPayloadAuditSink(nil, service.SinkConfig{
 		WorkerCount: 4, QueueSize: 1024, QueueMaxBytes: 1 << 20,

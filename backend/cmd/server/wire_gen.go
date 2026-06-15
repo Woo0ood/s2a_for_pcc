@@ -241,12 +241,12 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentHandler := admin.NewPaymentHandler(paymentService, paymentConfigService)
 	affiliateHandler := admin.NewAffiliateHandler(affiliateService, adminService)
 	payloadAuditWorkerID := repository.ProvidePayloadAuditWorkerID(configConfig)
-	v, err := repository.ProvideClickHouse(configConfig)
+	conn, err := repository.ProvideClickHouse(configConfig)
 	if err != nil {
 		return nil, err
 	}
-	payloadAuditCHRepo := repository.NewPayloadAuditCHRepo(v)
-	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID, payloadAuditCHRepo)
+	payloadAuditCHRepo := repository.NewPayloadAuditCHRepo(conn)
+	payloadAuditService, err := service.ProvidePayloadAuditService(settingRepository, redisClient, payloadAuditWorkerID, payloadAuditCHRepo, backupObjectStoreFactory, secretEncryptor)
 	if err != nil {
 		return nil, err
 	}
@@ -293,10 +293,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
 	payloadAuditCronService := service.ProvidePayloadAuditCronService(payloadAuditCleanup)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, payloadAuditSink, payloadAuditRedisBuffer, payloadAuditCronService, userPlatformQuotaUsageFlusher)
+	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, payloadAuditSink, payloadAuditRedisBuffer, payloadAuditCronService, userPlatformQuotaUsageFlusher)
 	application := &Application{
 		Server:  httpServer,
-		Cleanup: v2,
+		Cleanup: v,
 	}
 	return application, nil
 }

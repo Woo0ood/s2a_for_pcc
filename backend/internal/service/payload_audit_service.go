@@ -43,28 +43,58 @@ type payloadAuditSettingsRepo interface {
 // PayloadAuditService manages payload audit configuration lifecycle,
 // including hot-reload of ConfigSnapshot and export key CRUD.
 type PayloadAuditService struct {
-	settings  payloadAuditSettingsRepo
-	rdb       *redis.Client
-	idgen     *snowflake.Generator
-	ttlSyncer PayloadAuditTTLSyncer
-	snap      atomic.Pointer[ConfigSnapshot]
-	gen       atomic.Uint64
-	cfgMu     sync.Mutex // serialises read-modify-write of payload_audit_config
+	settings     payloadAuditSettingsRepo
+	rdb          *redis.Client
+	idgen        *snowflake.Generator
+	ttlSyncer    PayloadAuditTTLSyncer
+	storeFactory BackupObjectStoreFactory
+	encryptor    SecretEncryptor
+	snap         atomic.Pointer[ConfigSnapshot]
+	gen          atomic.Uint64
+	cfgMu        sync.Mutex // serialises read-modify-write of payload_audit_config
+	uploader     atomic.Pointer[PayloadAuditUploader]
 }
 
 // ProvidePayloadAuditService loads settings and builds the initial snapshot.
 // On load failure, an empty disabled snapshot is installed so the service can start.
-func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client, workerID PayloadAuditWorkerID, ttlSyncer PayloadAuditTTLSyncer) (*PayloadAuditService, error) {
+func ProvidePayloadAuditService(settings SettingRepository, rdb *redis.Client, workerID PayloadAuditWorkerID, ttlSyncer PayloadAuditTTLSyncer, storeFactory BackupObjectStoreFactory, encryptor SecretEncryptor) (*PayloadAuditService, error) {
 	gen, err := snowflake.New(int64(workerID))
 	if err != nil {
 		return nil, fmt.Errorf("payload audit snowflake init: %w", err)
 	}
-	s := &PayloadAuditService{settings: settings, rdb: rdb, idgen: gen, ttlSyncer: ttlSyncer}
+	s := &PayloadAuditService{settings: settings, rdb: rdb, idgen: gen, ttlSyncer: ttlSyncer, storeFactory: storeFactory, encryptor: encryptor}
 	if err := s.LoadFromSettings(context.Background()); err != nil {
 		s.snap.Store(buildSnapshot(false, &PayloadAuditConfig{}, 0))
 		return s, nil
 	}
 	return s, nil
+}
+
+// Uploader returns the current offload uploader, or nil when offload is disabled/unconfigured.
+func (s *PayloadAuditService) Uploader() *PayloadAuditUploader { return s.uploader.Load() }
+
+// rebuildUploader (re)builds the offload uploader from the given config, or clears it.
+// Called after each snapshot swap so the uploader tracks hot-reloaded config.
+func (s *PayloadAuditService) rebuildUploader(cfg *PayloadAuditConfig, enabled bool) {
+	if !enabled || !cfg.OffloadEnabled || cfg.BlobStore == nil || !cfg.BlobStore.IsConfigured() || s.storeFactory == nil {
+		s.uploader.Store(nil)
+		return
+	}
+	dec := *cfg.BlobStore // copy; decrypt secret without mutating the snapshot's config
+	if dec.SecretAccessKey != "" && s.encryptor != nil {
+		if plain, err := s.encryptor.Decrypt(dec.SecretAccessKey); err != nil {
+			slog.Warn("payload_audit.blobstore_secret_decrypt_failed", "err", err) // keep original (compat with unencrypted)
+		} else {
+			dec.SecretAccessKey = plain
+		}
+	}
+	store, err := NewPayloadAuditBlobStore(context.Background(), s.storeFactory, &dec)
+	if err != nil {
+		slog.Error("payload_audit.blobstore_build_failed", "err", err)
+		s.uploader.Store(nil)
+		return
+	}
+	s.uploader.Store(NewPayloadAuditUploader(store, cfg.BlobStorePrefix, cfg.WorkerCount))
 }
 
 // NextID returns the next snowflake ID for a payload audit event.
@@ -91,6 +121,7 @@ func (s *PayloadAuditService) LoadFromSettings(ctx context.Context) error {
 		return err
 	}
 	s.snap.Store(buildSnapshot(enabled, &cfg, s.gen.Add(1)))
+	s.rebuildUploader(&cfg, enabled)
 	return nil
 }
 
@@ -119,6 +150,7 @@ func (s *PayloadAuditService) UpdateConfig(ctx context.Context, enabled bool, cf
 		return false, err
 	}
 	s.snap.Store(buildSnapshot(enabled, &cfg, s.gen.Add(1)))
+	s.rebuildUploader(&cfg, enabled)
 
 	// Sync TTL to ClickHouse when retention_days changes (non-blocking).
 	if s.ttlSyncer != nil && old != nil && old.RetentionDays != cfg.RetentionDays {

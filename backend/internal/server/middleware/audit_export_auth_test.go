@@ -62,7 +62,7 @@ func newGinCtx(opts ...ginCtxOption) (*gin.Context, *httptest.ResponseRecorder) 
 func setupSvcWithKey(t *testing.T, name string, ratePerMin int) (*service.PayloadAuditService, string) {
 	t.Helper()
 	repo := newMockPAASettingsRepo()
-	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil)
+	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Enable audit so snapshot is active.
@@ -175,7 +175,7 @@ func TestAuditExportAuth_UnknownToken_401(t *testing.T) {
 
 func TestAuditExportAuth_DisabledKey_401(t *testing.T) {
 	repo := newMockPAASettingsRepo()
-	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil)
+	svc, err := service.ProvidePayloadAuditService(repo, nil, 0, nil, nil, nil)
 	require.NoError(t, err)
 
 	_, err = svc.UpdateConfig(context.Background(), true, service.PayloadAuditConfig{})
