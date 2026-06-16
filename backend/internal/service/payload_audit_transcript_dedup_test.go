@@ -365,6 +365,58 @@ func TestAssembleTranscript_InlineImage_LinearAcrossCumulativeTurns(t *testing.T
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Inline images in NON-message items (tool results + embedded-in-code)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// data:image URIs do not only appear in message input_image blocks. They also show
+// up in function_call_output tool results (e.g. a screenshot tool) and embedded
+// inside function_call arguments (e.g. an apply_patch diff writing a file with an
+// inline icon). Each NEW item's raw JSON is scanned, matching the old whole-body
+// scan's coverage; a message-only scan (the regression this guards) silently DROPPED
+// these. They are also deduped across cumulative re-sends.
+func TestAssembleTranscript_InlineImage_NonMessageItems(t *testing.T) {
+	const prefix = "payload-audit"
+	store := &testBlobStore{data: map[string][]byte{}}
+	resolver := NewBlobResolver(store, prefix)
+
+	// (a) image returned by a tool, carried in a function_call_output output array.
+	toolImg := base64.StdEncoding.EncodeToString([]byte("\xff\xd8\xffJPEG-tool-result-screenshot-aaaaaaaaaaaa"))
+	toolURI := "data:image/jpeg;base64," + toolImg
+	fcOutput := `{"type":"function_call_output","call_id":"call_1","output":[` +
+		`{"type":"input_image","image_url":"` + toolURI + `"}]}`
+
+	// (b) image embedded inside function_call arguments (NOT in any image_url block).
+	codeImg := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nembedded-in-code-appicon-bbbbbbbbbbbb"))
+	codeURI := "data:image/png;base64," + codeImg
+	fcCall := `{"type":"function_call","name":"apply_patch","arguments":"*** Begin Patch\n+const appIcon = '` + codeURI + `';\n*** End Patch"}`
+
+	userMsg := `{"role":"user","content":[{"type":"input_text","text":"go"}]}`
+
+	body := `{"input":[` + userMsg + `,` + fcCall + `,` + fcOutput + `]}`
+	rows := []*PayloadAuditEvent{
+		makeDedupRow(1, body),
+		makeDedupRow(2, body), // cumulative re-send — must NOT duplicate
+	}
+
+	tr := AssembleTranscript(context.Background(), rows, resolver)
+
+	counts := countAttachmentsBySHA(tr)
+	if c := counts[hexSHAOf(toolImg)]; c != 1 {
+		t.Errorf("tool-output image (function_call_output): expected exactly 1 attachment, got %d", c)
+	}
+	if c := counts[hexSHAOf(codeImg)]; c != 1 {
+		t.Errorf("embedded-in-arguments image (function_call): expected exactly 1 attachment, got %d", c)
+	}
+	total := 0
+	for _, turn := range tr.Turns {
+		total += len(turn.Attachments)
+	}
+	if total != 2 {
+		t.Errorf("expected 2 unique attachments (tool image + embedded image), got %d", total)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Inline image respects the bounded per-image cap (in-process fallback path)
 // ─────────────────────────────────────────────────────────────────────────────
 
