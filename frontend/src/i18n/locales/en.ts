@@ -2873,6 +2873,12 @@ export default {
       configBatchSize: 'Batch Size',
       configBatchFlushMs: 'Batch Flush Interval (ms)',
 
+      // External export worker
+      exportWorker: 'Export Worker',
+      exportWorkerUrl: 'Worker URL',
+      exportWorkerToken: 'Worker Token',
+      exportWorkerHint: 'When set, exports are rendered by the external worker (off-gateway), avoiding gateway memory pressure; empty = render locally.',
+
       // Config Tabs
       tabs: {
         basic: 'Basic',

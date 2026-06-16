@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -24,6 +26,17 @@ func (s *testBlobStore) Get(_ context.Context, key string) ([]byte, error) {
 		return nil, errors.New("key not found: " + key)
 	}
 	return v, nil
+}
+
+func (s *testBlobStore) GetStream(_ context.Context, key string) (io.ReadCloser, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	v, ok := s.data[key]
+	if !ok {
+		return nil, errors.New("key not found: " + key)
+	}
+	return io.NopCloser(bytes.NewReader(v)), nil
 }
 
 // makeBodyKey returns the object-store key for a body SHA using the same logic as blobresolver.

@@ -12,6 +12,10 @@ type PayloadAuditBlobStore interface {
 	Put(ctx context.Context, key string, data []byte, contentType string) error
 	// Get downloads an object by key and returns its full contents.
 	Get(ctx context.Context, key string) ([]byte, error)
+	// GetStream opens an object by key and returns a streaming reader.
+	// Caller must Close the returned reader. Used to relay large export
+	// results (rendered by the external worker) without buffering in memory.
+	GetStream(ctx context.Context, key string) (io.ReadCloser, error)
 }
 
 // blobKey / bodyKey 用内容寻址前缀分桶，天然去重。
@@ -45,6 +49,10 @@ func (a backupStoreAdapter) Get(ctx context.Context, key string) ([]byte, error)
 	}
 	defer rc.Close()
 	return io.ReadAll(rc)
+}
+
+func (a backupStoreAdapter) GetStream(ctx context.Context, key string) (io.ReadCloser, error) {
+	return a.inner.Download(ctx, key)
 }
 
 // NewPayloadAuditBlobStore 用现有工厂从独立配置构建对象存储。

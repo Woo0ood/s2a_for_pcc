@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -22,6 +23,10 @@ func (f fakePutStore) Put(_ context.Context, _ string, _ []byte, _ string) error
 
 func (f fakePutStore) Get(_ context.Context, _ string) ([]byte, error) {
 	return nil, errors.New("fakePutStore: Get not implemented")
+}
+
+func (f fakePutStore) GetStream(_ context.Context, _ string) (io.ReadCloser, error) {
+	return nil, errors.New("fakePutStore: GetStream not implemented")
 }
 
 func offloadCollectorWithPending(t *testing.T) *service.PayloadAuditCollector {

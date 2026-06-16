@@ -42,6 +42,11 @@ type PayloadAuditConfig struct {
 	BlobStorePrefix            string          `json:"blob_store_prefix"`             // 默认 "payload-audit/"
 	OffloadRetentionMarginDays int             `json:"offload_retention_margin_days"` // 对象保留 = RetentionDays + margin
 	BlobStore                  *BackupS3Config `json:"blob_store,omitempty"`          // 独立 S3 配置；secret 经 SecretEncryptor
+
+	// 外部 export-worker（离网关渲染会话导出，避免网关 OOM）。
+	// 两者皆空 = 回退到网关本地渲染。token 为共享基础设施凭据，明文存储、不做掩码/加密。
+	ExportWorkerURL   string `json:"export_worker_url"`   // 例 https://export-worker.example.com（无尾斜杠）
+	ExportWorkerToken string `json:"export_worker_token"` // Bearer token
 }
 
 // ConfigSnapshot is an immutable point-in-time snapshot of payload audit configuration.
@@ -67,6 +72,8 @@ type ConfigSnapshot struct {
 	BlobStorePrefix            string
 	OffloadRetentionMarginDays int
 	BlobStore                  *BackupS3Config
+	ExportWorkerURL            string
+	ExportWorkerToken          string
 }
 
 // GroupInScope reports whether the given group ID falls within the audit scope.
@@ -149,6 +156,8 @@ func buildSnapshot(enabled bool, cfg *PayloadAuditConfig, gen uint64) *ConfigSna
 		BlobOffloadMinBytes:        cfg.BlobOffloadMinBytes,
 		BlobStorePrefix:            cfg.BlobStorePrefix,
 		OffloadRetentionMarginDays: cfg.OffloadRetentionMarginDays,
+		ExportWorkerURL:            cfg.ExportWorkerURL,
+		ExportWorkerToken:          cfg.ExportWorkerToken,
 	}
 	if cfg.BlobStore != nil {
 		bs := *cfg.BlobStore

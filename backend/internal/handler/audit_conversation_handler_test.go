@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -471,4 +474,173 @@ func TestGetBlob_InvalidSha_400(t *testing.T) {
 		r.ServeHTTP(w, req)
 		assert.Equalf(t, http.StatusBadRequest, w.Code, "sha %q must be 400", bad)
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests — async export via external worker (ExportWorkerURL configured)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// fakeStreamStore is a service.PayloadAuditBlobStore whose GetStream returns
+// canned content keyed by object key — used to assert the result is streamed
+// from S3 verbatim by the worker's result_key.
+type fakeStreamStore struct {
+	objects map[string][]byte
+}
+
+func (s *fakeStreamStore) Put(_ context.Context, _ string, _ []byte, _ string) error { return nil }
+func (s *fakeStreamStore) Get(_ context.Context, key string) ([]byte, error) {
+	v, ok := s.objects[key]
+	if !ok {
+		return nil, fmt.Errorf("not found: %s", key)
+	}
+	return v, nil
+}
+func (s *fakeStreamStore) GetStream(_ context.Context, key string) (io.ReadCloser, error) {
+	v, ok := s.objects[key]
+	if !ok {
+		return nil, fmt.Errorf("not found: %s", key)
+	}
+	return io.NopCloser(bytes.NewReader(v)), nil
+}
+
+// setupWorkerConvRouter registers the three async-export endpoints for worker tests.
+func setupWorkerConvRouter(h *AuditConversationHandler) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	g := r.Group("/admin/payload-audit", func(c *gin.Context) {
+		c.Set(middleware.AuditExportKeyIDCtxKey, "test-key-id")
+		c.Next()
+	})
+	g.POST("/payloads/:id/conversation/export", h.StartConversationExport)
+	g.GET("/conversation-exports/:job_id", h.GetConversationExportStatus)
+	g.GET("/conversation-exports/:job_id/result", h.GetConversationExportResult)
+	return r
+}
+
+func TestConversationExport_ViaWorker_RelaysAndStreams(t *testing.T) {
+	const resultKey = "payload-audit/exports/42.html"
+	const html = "<!doctype html><html><body>worker-rendered transcript</body></html>"
+
+	// Mock export-worker: POST /v1/export → {job_id}; GET /v1/export/{id} → done+result_key.
+	var gotAuth, gotStartBody string
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		gotAuth = req.Header.Get("Authorization")
+		switch {
+		case req.Method == http.MethodPost && req.URL.Path == "/v1/export":
+			b, _ := io.ReadAll(req.Body)
+			gotStartBody = string(b)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"job_id":"job-xyz"}`))
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/export/job-xyz":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"done","error":"","result_key":"` + resultKey + `"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer worker.Close()
+
+	svc := newMinimalSvc(t)
+	// Install a snapshot pointing at the mock worker + a resolver over a fake store.
+	svc.InstallSnapshotForTest(&service.ConfigSnapshot{
+		Enabled:           true,
+		ExportWorkerURL:   worker.URL,
+		ExportWorkerToken: "secret-tok",
+	})
+	store := &fakeStreamStore{objects: map[string][]byte{resultKey: []byte(html)}}
+	svc.InstallResolverForTest(service.NewBlobResolver(store, "payload-audit/"))
+
+	h := NewAuditConversationHandler(&mockConvRepo{}, svc)
+	r := setupWorkerConvRouter(h)
+
+	// 1) Start → relays job_id, forwards id + created_at + bearer token.
+	{
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost,
+			"/admin/payload-audit/payloads/42/conversation/export?created_at=1700000000000", nil)
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+		var env struct {
+			Data struct {
+				JobID string `json:"job_id"`
+			} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &env))
+		assert.Equal(t, "job-xyz", env.Data.JobID)
+		assert.Equal(t, "Bearer secret-tok", gotAuth)
+		assert.Contains(t, gotStartBody, `"id":"42"`)
+		assert.Contains(t, gotStartBody, `"created_at":"1700000000000"`)
+	}
+
+	// 2) Status → relays {status,error} from the worker.
+	{
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/admin/payload-audit/conversation-exports/job-xyz", nil)
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+		var env struct {
+			Data struct {
+				Status string `json:"status"`
+				Error  string `json:"error"`
+			} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &env))
+		assert.Equal(t, "done", env.Data.Status)
+		assert.Empty(t, env.Data.Error)
+	}
+
+	// 3) Result → streams the S3 object (by result_key) with the conversation CSP.
+	{
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/admin/payload-audit/conversation-exports/job-xyz/result", nil)
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, html, w.Body.String())
+		assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
+		assert.Equal(t, "no-referrer", w.Header().Get("Referrer-Policy"))
+		csp := w.Header().Get("Content-Security-Policy")
+		assert.Contains(t, csp, "default-src 'none'")
+		assert.Contains(t, csp, "data:")
+	}
+}
+
+// When the worker reports the job is not yet done, the result endpoint returns 409
+// (mirrors the local not-ready behaviour) — never streams a partial/missing object.
+func TestConversationExport_ViaWorker_ResultNotReady_409(t *testing.T) {
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"running","error":"","result_key":""}`))
+	}))
+	defer worker.Close()
+
+	svc := newMinimalSvc(t)
+	svc.InstallSnapshotForTest(&service.ConfigSnapshot{Enabled: true, ExportWorkerURL: worker.URL})
+	svc.InstallResolverForTest(service.NewBlobResolver(&fakeStreamStore{objects: map[string][]byte{}}, "payload-audit/"))
+
+	h := NewAuditConversationHandler(&mockConvRepo{}, svc)
+	r := setupWorkerConvRouter(h)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/admin/payload-audit/conversation-exports/job-1/result", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+// When the worker is unreachable, start returns 502 (never hangs).
+func TestConversationExport_ViaWorker_Unreachable_502(t *testing.T) {
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	workerURL := worker.URL
+	worker.Close() // close immediately → connection refused
+
+	svc := newMinimalSvc(t)
+	svc.InstallSnapshotForTest(&service.ConfigSnapshot{Enabled: true, ExportWorkerURL: workerURL})
+
+	h := NewAuditConversationHandler(&mockConvRepo{}, svc)
+	r := setupWorkerConvRouter(h)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost,
+		"/admin/payload-audit/payloads/42/conversation/export?created_at=1700000000000", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadGateway, w.Code)
 }

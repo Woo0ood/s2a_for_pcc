@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -29,6 +30,9 @@ func (f *fakeBlobStore) Put(_ context.Context, key string, _ []byte, _ string) e
 }
 
 func (f *fakeBlobStore) Get(_ context.Context, _ string) ([]byte, error) { return nil, nil }
+func (f *fakeBlobStore) GetStream(_ context.Context, _ string) (io.ReadCloser, error) {
+	return nil, nil
+}
 
 func TestUploader_DedupSameSHA(t *testing.T) {
 	fs := &fakeBlobStore{}
@@ -63,6 +67,9 @@ type panicBlobStore struct{}
 
 func (panicBlobStore) Put(_ context.Context, _ string, _ []byte, _ string) error { panic("boom") }
 func (panicBlobStore) Get(_ context.Context, _ string) ([]byte, error)           { return nil, nil }
+func (panicBlobStore) GetStream(_ context.Context, _ string) (io.ReadCloser, error) {
+	return nil, nil
+}
 
 func TestUploader_PanicSurfacesAsError(t *testing.T) {
 	up := NewPayloadAuditUploader(panicBlobStore{}, "payload-audit/", 2)

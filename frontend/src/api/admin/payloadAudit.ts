@@ -40,6 +40,9 @@ export interface PayloadAuditConfig {
   blob_store_prefix: string
   offload_retention_margin_days: number
   blob_store?: BlobStoreConfig
+  // External export-worker (renders conversation exports off-gateway).
+  export_worker_url: string
+  export_worker_token: string
 }
 
 export interface PayloadAuditConfigEnvelope {

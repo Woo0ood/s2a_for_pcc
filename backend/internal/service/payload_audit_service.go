@@ -89,6 +89,15 @@ func (s *PayloadAuditService) Uploader() *PayloadAuditUploader { return s.upload
 // Resolver returns the current BlobResolver, or nil when offload is disabled/unconfigured.
 func (s *PayloadAuditService) Resolver() *BlobResolver { return s.resolver.Load() }
 
+// InstallSnapshotForTest swaps in a caller-built ConfigSnapshot. Test-only:
+// lets handler tests exercise config-dependent branches (e.g. export-worker URL)
+// without standing up the full settings/Redis load path.
+func (s *PayloadAuditService) InstallSnapshotForTest(snap *ConfigSnapshot) { s.snap.Store(snap) }
+
+// InstallResolverForTest swaps in a caller-built BlobResolver. Test-only:
+// lets handler tests stream a fake S3 result via Resolver().StreamObject.
+func (s *PayloadAuditService) InstallResolverForTest(r *BlobResolver) { s.resolver.Store(r) }
+
 // rebuildUploader (re)builds the offload uploader and blob resolver from the given config,
 // or clears them. Both share the same store instance built once here.
 // Called after each snapshot swap so they track hot-reloaded config.

@@ -356,6 +356,32 @@
                 <input v-model.number="configForm.config.batch_flush_ms" type="number" min="100" class="input" />
               </div>
             </div>
+
+            <!-- External export worker -->
+            <div class="rounded-lg border border-gray-100 p-4 dark:border-dark-700">
+              <h4 class="mb-1 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.payloadAudit.exportWorker') }}</h4>
+              <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.payloadAudit.exportWorkerHint') }}</p>
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('admin.payloadAudit.exportWorkerUrl') }}</label>
+                  <input
+                    v-model.trim="configForm.config.export_worker_url"
+                    type="text"
+                    class="input"
+                    placeholder="https://export-worker.example.com"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.payloadAudit.exportWorkerToken') }}</label>
+                  <input
+                    v-model.trim="configForm.config.export_worker_token"
+                    type="text"
+                    class="input"
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Offload Tab -->
@@ -634,6 +660,8 @@ const configForm = reactive<PayloadAuditConfigEnvelope>({
     blob_store_prefix: 'payload-audit/',
     offload_retention_margin_days: 0,
     blob_store: undefined,
+    export_worker_url: '',
+    export_worker_token: '',
   },
 })
 

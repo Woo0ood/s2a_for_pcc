@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -134,6 +135,18 @@ func (r *BlobResolver) FetchBlob(ctx context.Context, sha string) (data []byte, 
 	}
 	// The object store does not persist MIME on retrieval; default to octet-stream.
 	return data, "application/octet-stream", nil
+}
+
+// StreamObject opens an object at the given FULL object key and returns a
+// streaming reader (no buffering). The key is used verbatim — no blobKey/bodyKey
+// prefixing — because the export-worker writes its result to an absolute key
+// (e.g. "payload-audit/exports/<id>.html") which sub2api relays as-is.
+// Caller must Close the returned reader.
+func (r *BlobResolver) StreamObject(ctx context.Context, key string) (io.ReadCloser, error) {
+	if r == nil || r.store == nil {
+		return nil, fmt.Errorf("blob resolver not configured")
+	}
+	return r.store.GetStream(ctx, key)
 }
 
 // tokenEnd returns the index of the first character after the pointer token.

@@ -2950,6 +2950,12 @@ export default {
       configBatchSize: '批次大小',
       configBatchFlushMs: '批次刷新间隔 (ms)',
 
+      // External export worker
+      exportWorker: '导出 Worker',
+      exportWorkerUrl: 'Worker URL',
+      exportWorkerToken: 'Worker Token',
+      exportWorkerHint: '外部 worker 渲染导出，避免网关内存压力；留空则本地渲染。',
+
       // Config Tabs
       tabs: {
         basic: '基础',

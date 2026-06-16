@@ -86,6 +86,20 @@ func (s *S3BackupStore) Download(ctx context.Context, key string) (io.ReadCloser
 	return result.Body, nil
 }
 
+// GetStream opens an object by key and returns its body as a streaming reader
+// (no ReadAll). The key is used verbatim — it is a full object key. Caller must
+// Close the returned reader. Used to relay export-worker results from S3.
+func (s *S3BackupStore) GetStream(ctx context.Context, key string) (io.ReadCloser, error) {
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &s.bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("S3 GetObject: %w", err)
+	}
+	return out.Body, nil
+}
+
 func (s *S3BackupStore) Delete(ctx context.Context, key string) error {
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: &s.bucket,

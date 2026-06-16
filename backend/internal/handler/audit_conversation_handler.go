@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,11 +39,18 @@ type AuditConversationRepo interface {
 type AuditConversationHandler struct {
 	repo AuditConversationRepo
 	svc  *service.PayloadAuditService
+	// httpClient talks to the external export-worker (start/status calls are quick;
+	// the worker render is async). The result body is streamed from S3, not the worker.
+	httpClient *http.Client
 }
 
 // NewAuditConversationHandler constructs an AuditConversationHandler.
 func NewAuditConversationHandler(repo AuditConversationRepo, svc *service.PayloadAuditService) *AuditConversationHandler {
-	return &AuditConversationHandler{repo: repo, svc: svc}
+	return &AuditConversationHandler{
+		repo:       repo,
+		svc:        svc,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+	}
 }
 
 // ProvideAuditConversationRepo adapts the CH repo to AuditConversationRepo.
@@ -281,11 +292,114 @@ func (h *AuditConversationHandler) parseConvExportParams(c *gin.Context) (id int
 	return id, createdAt, true
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// External export-worker proxy
+//
+// When ExportWorkerURL is configured, the three async-export endpoints delegate
+// rendering to the external worker (off-gateway, so the gateway never renders /
+// OOMs). Start/status are relayed as JSON; the result is streamed from S3 by key.
+// When the URL is empty, the existing local-render path is used unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// workerConfig returns the configured export-worker base URL (no trailing slash)
+// and bearer token from the current config snapshot. url == "" means the worker
+// is not configured and the local fallback path should be used.
+func (h *AuditConversationHandler) workerConfig() (url, token string) {
+	snap := h.svc.Snapshot()
+	if snap == nil {
+		return "", ""
+	}
+	return strings.TrimRight(snap.ExportWorkerURL, "/"), snap.ExportWorkerToken
+}
+
+// workerStatusResponse mirrors the export-worker's GET /v1/export/{job_id} body.
+type workerStatusResponse struct {
+	Status    string `json:"status"` // "running" | "done" | "failed"
+	Error     string `json:"error"`
+	ResultKey string `json:"result_key"`
+}
+
+// fetchWorkerStatus calls GET {base}/v1/export/{job_id} on the worker and decodes
+// the status record. Returns a transport/decoding error on failure.
+func (h *AuditConversationHandler) fetchWorkerStatus(ctx context.Context, base, token, jobID string) (*workerStatusResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/v1/export/"+jobID, nil)
+	if err != nil {
+		return nil, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("worker job not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("worker status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	var out workerStatusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode worker status: %w", err)
+	}
+	return &out, nil
+}
+
+// startConversationExportViaWorker relays POST {base}/v1/export to the worker and
+// forwards its {job_id} (and status code) to the client.
+func (h *AuditConversationHandler) startConversationExportViaWorker(c *gin.Context, base, token string, id int64, createdAtRaw string) {
+	payload, _ := json.Marshal(map[string]string{
+		"id":         strconv.FormatInt(id, 10),
+		"created_at": createdAtRaw,
+	})
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, base+"/v1/export", bytes.NewReader(payload))
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, "export worker request: "+err.Error())
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, "export worker unreachable: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		response.Error(c, http.StatusBadGateway, fmt.Sprintf("export worker start failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(body))))
+		return
+	}
+	var out struct {
+		JobID string `json:"job_id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		response.Error(c, http.StatusBadGateway, "decode export worker response: "+err.Error())
+		return
+	}
+	response.Success(c, gin.H{"job_id": out.JobID})
+}
+
 // StartConversationExport kicks off an async export job and returns a job_id.
 // POST /admin/payload-audit/payloads/:id/conversation/export
 func (h *AuditConversationHandler) StartConversationExport(c *gin.Context) {
 	id, createdAt, ok := h.parseConvExportParams(c)
 	if !ok {
+		return
+	}
+
+	// External worker configured → delegate rendering off-gateway.
+	if base, token := h.workerConfig(); base != "" {
+		// Forward the raw created_at param verbatim — the worker accepts unix-ms
+		// or RFC3339. createdAt (parsed) is unused on this path but params validated.
+		_ = createdAt
+		h.startConversationExportViaWorker(c, base, token, id, strings.TrimSpace(c.Query("created_at")))
 		return
 	}
 
@@ -323,6 +437,18 @@ func (h *AuditConversationHandler) StartConversationExport(c *gin.Context) {
 // GET /admin/payload-audit/conversation-exports/:job_id
 func (h *AuditConversationHandler) GetConversationExportStatus(c *gin.Context) {
 	jobID := c.Param("job_id")
+
+	// External worker configured → relay its status.
+	if base, token := h.workerConfig(); base != "" {
+		st, err := h.fetchWorkerStatus(c.Request.Context(), base, token, jobID)
+		if err != nil {
+			response.Error(c, http.StatusBadGateway, "export worker status: "+err.Error())
+			return
+		}
+		response.Success(c, gin.H{"status": st.Status, "error": st.Error})
+		return
+	}
+
 	job, err := h.svc.GetConvExportJob(c.Request.Context(), jobID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
@@ -339,6 +465,13 @@ func (h *AuditConversationHandler) GetConversationExportStatus(c *gin.Context) {
 // GET /admin/payload-audit/conversation-exports/:job_id/result
 func (h *AuditConversationHandler) GetConversationExportResult(c *gin.Context) {
 	jobID := c.Param("job_id")
+
+	// External worker configured → check status, then stream the result from S3.
+	if base, token := h.workerConfig(); base != "" {
+		h.getConversationExportResultViaWorker(c, base, token, jobID)
+		return
+	}
+
 	job, err := h.svc.GetConvExportJob(c.Request.Context(), jobID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
@@ -364,6 +497,51 @@ func (h *AuditConversationHandler) GetConversationExportResult(c *gin.Context) {
 	c.Header("Content-Security-Policy", conversationCSP)
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", html)
+}
+
+// getConversationExportResultViaWorker checks the worker job status and, when
+// done, streams the rendered HTML straight from S3 (result_key) to the client
+// with the same security headers as the local path — memory-flat (io.Copy).
+func (h *AuditConversationHandler) getConversationExportResultViaWorker(c *gin.Context, base, token, jobID string) {
+	st, err := h.fetchWorkerStatus(c.Request.Context(), base, token, jobID)
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, "export worker status: "+err.Error())
+		return
+	}
+	if st.Status != "done" {
+		// Mirror the local path: not-ready → 409 (surface worker error if failed).
+		msg := "not ready"
+		if st.Status == "failed" && st.Error != "" {
+			msg = "export failed: " + st.Error
+		}
+		response.Error(c, http.StatusConflict, msg)
+		return
+	}
+	if st.ResultKey == "" {
+		response.Error(c, http.StatusBadGateway, "export worker returned no result_key")
+		return
+	}
+
+	resolver := h.svc.Resolver()
+	if resolver == nil {
+		response.Error(c, http.StatusBadGateway, "blob store not configured for result streaming")
+		return
+	}
+	rc, err := resolver.StreamObject(c.Request.Context(), st.ResultKey)
+	if err != nil {
+		response.Error(c, http.StatusBadGateway, "fetch export result: "+err.Error())
+		return
+	}
+	defer rc.Close()
+
+	c.Header("Content-Security-Policy", conversationCSP)
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Status(http.StatusOK)
+	if _, err := io.Copy(c.Writer, rc); err != nil {
+		// Headers/body already (partly) sent — log via slog, can't change status.
+		slog.Warn("payload_audit.export_result_stream_copy", "job_id", jobID, "key", st.ResultKey, "err", err)
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

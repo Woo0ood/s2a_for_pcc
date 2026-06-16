@@ -66,6 +66,10 @@ type payloadAuditConfigResponseCfg struct {
 	BlobStorePrefix            string              `json:"blob_store_prefix"`
 	OffloadRetentionMarginDays int                 `json:"offload_retention_margin_days"`
 	BlobStore                  *service.BackupS3Config `json:"blob_store,omitempty"`
+	// External export-worker (renders conversation exports off-gateway).
+	// Plain-text token (shared infra credential) — not masked.
+	ExportWorkerURL   string `json:"export_worker_url"`
+	ExportWorkerToken string `json:"export_worker_token"`
 }
 
 type payloadAuditExportKeyRedactedEntry struct {
@@ -127,6 +131,8 @@ func (h *PayloadAuditAdminHandler) GetConfig(c *gin.Context) {
 		BlobOffloadMinBytes:        snap.BlobOffloadMinBytes,
 		BlobStorePrefix:            snap.BlobStorePrefix,
 		OffloadRetentionMarginDays: snap.OffloadRetentionMarginDays,
+		ExportWorkerURL:            snap.ExportWorkerURL,
+		ExportWorkerToken:          snap.ExportWorkerToken,
 	}
 	// Copy the blob_store config and blank the secret before sending to browser.
 	if snap.BlobStore != nil {
