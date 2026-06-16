@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -185,6 +186,182 @@ func TestAssembleTranscript_InlineDataImage_IngestAndDedupAcrossTurns(t *testing
 func hexSHAOf(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image-aware item dedup: same message TEXT but DIFFERENT inline image
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Inline images now flow through the per-item dedup (the item key folds in a
+// cheap image fingerprint). Two cumulative turns whose user messages carry the
+// SAME text but a DIFFERENT inline image must NOT collapse to one item — both
+// images must be emitted. Conversely, same text + same image across turns is one
+// item and one attachment. This pins that the image fingerprint is part of the
+// dedup key (text-only dedup would wrongly drop the second image).
+func TestAssembleTranscript_ImageAwareItemDedup_SameTextDifferentImage(t *testing.T) {
+	const prefix = "payload-audit"
+	store := &testBlobStore{data: map[string][]byte{}}
+	resolver := NewBlobResolver(store, prefix)
+
+	imgA := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nFIRST-image-payload-aaaaaaaaaaaaaaaaaaaa"))
+	imgB := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nSECOND-image-payload-bbbbbbbbbbbbbbbbbbbb"))
+	dataURIA := "data:image/png;base64," + imgA
+	dataURIB := "data:image/png;base64," + imgB
+
+	// SAME text in every message; only the image differs.
+	const sameText = "describe this screenshot"
+	msg := func(uri string) string {
+		return `{"role":"user","content":[` +
+			`{"type":"input_text","text":"` + sameText + `"},` +
+			`{"type":"input_image","image_url":"` + uri + `","detail":"high"}` +
+			`]}`
+	}
+
+	// Turn 1: msg(A). Turn 2 (cumulative): msg(A) + msg(B) — msg(A) is a repeat,
+	// msg(B) is new and shares text with msg(A) but carries a different image.
+	rows := []*PayloadAuditEvent{
+		makeDedupRow(1, `{"input":[`+msg(dataURIA)+`]}`),
+		makeDedupRow(2, `{"input":[`+msg(dataURIA)+`,`+msg(dataURIB)+`]}`),
+	}
+
+	tr := AssembleTranscript(context.Background(), rows, resolver)
+
+	shaA := hexSHAOf(imgA)
+	shaB := hexSHAOf(imgB)
+
+	counts := countAttachmentsBySHA(tr)
+	if counts[shaA] != 1 {
+		t.Errorf("image A: expected exactly 1 attachment across turns, got %d", counts[shaA])
+	}
+	if counts[shaB] != 1 {
+		t.Errorf("image B (same text, different image): expected exactly 1 attachment, got %d", counts[shaB])
+	}
+
+	totalAtts := 0
+	for _, turn := range tr.Turns {
+		totalAtts += len(turn.Attachments)
+	}
+	if totalAtts != 2 {
+		t.Errorf("expected 2 unique attachments total (A and B), got %d", totalAtts)
+	}
+
+	// Turn 1 emits the first message (text + image A). Turn 2 emits only the NEW
+	// message (text + image B) — the repeated msg(A) is deduped away.
+	if got := len(tr.Turns[0].UserItems); got != 1 {
+		t.Errorf("turn 1: expected 1 user item, got %d", got)
+	}
+	if got := len(tr.Turns[1].UserItems); got != 1 {
+		t.Errorf("turn 2: expected 1 NEW user item (the differing-image message), got %d", got)
+	}
+	// The surviving item text is identical in both turns (image lives in the attachment).
+	if tr.Turns[0].UserItems[0].Text != sameText {
+		t.Errorf("turn 1 item text = %q, want %q", tr.Turns[0].UserItems[0].Text, sameText)
+	}
+	if len(tr.Turns[1].UserItems) == 1 && tr.Turns[1].UserItems[0].Text != sameText {
+		t.Errorf("turn 2 item text = %q, want %q", tr.Turns[1].UserItems[0].Text, sameText)
+	}
+}
+
+// Same text AND same image across turns → exactly one item and one attachment.
+func TestAssembleTranscript_ImageAwareItemDedup_SameTextSameImage(t *testing.T) {
+	const prefix = "payload-audit"
+	store := &testBlobStore{data: map[string][]byte{}}
+	resolver := NewBlobResolver(store, prefix)
+
+	img := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nidentical-image-cccccccccccccccccccccccc"))
+	dataURI := "data:image/png;base64," + img
+	const sameText = "what is in this image"
+	msg := `{"role":"user","content":[` +
+		`{"type":"input_text","text":"` + sameText + `"},` +
+		`{"type":"input_image","image_url":"` + dataURI + `"}` +
+		`]}`
+
+	rows := []*PayloadAuditEvent{
+		makeDedupRow(1, `{"input":[`+msg+`]}`),
+		makeDedupRow(2, `{"input":[`+msg+`,`+msg+`]}`), // cumulative repeat
+		makeDedupRow(3, `{"input":[`+msg+`]}`),
+	}
+
+	tr := AssembleTranscript(context.Background(), rows, resolver)
+
+	sha := hexSHAOf(img)
+	if c := countAttachmentsBySHA(tr)[sha]; c != 1 {
+		t.Errorf("identical image across turns: expected exactly 1 attachment, got %d", c)
+	}
+	totalItems := 0
+	for _, turn := range tr.Turns {
+		totalItems += len(turn.UserItems)
+	}
+	if totalItems != 1 {
+		t.Errorf("identical message across turns: expected exactly 1 user item total, got %d", totalItems)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Linearity proxy: unique-image count is independent of turn count
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Codex /v1/responses input is cumulative — turn N re-contains all prior images.
+// The expensive per-image work must happen ONLY for NEW items, so the total
+// attachment count must equal the number of UNIQUE images, regardless of how many
+// turns re-send them. This asserts that property over a long synthetic history:
+// each turn adds exactly one new image while re-sending all previous ones, so N
+// turns yield exactly N unique attachments (and each is emitted exactly once).
+func TestAssembleTranscript_InlineImage_LinearAcrossCumulativeTurns(t *testing.T) {
+	const prefix = "payload-audit"
+	store := &testBlobStore{data: map[string][]byte{}}
+	resolver := NewBlobResolver(store, prefix)
+
+	const nTurns = 40
+	// Pre-build the per-turn message blocks (cumulative). Each image's bytes differ
+	// at the LEADING edge (a per-image unique tag) so distinct images are reliably
+	// distinguished — mirroring real screenshots, which differ throughout, not just
+	// in one interior byte.
+	blocks := make([]string, 0, nTurns)
+	shas := make([]string, 0, nTurns)
+	for i := 0; i < nTurns; i++ {
+		tag := "IMG" + strconv.Itoa(i) + "x" + strings.Repeat("z", i%5)
+		raw := []byte("\x89PNG\r\n\x1a\n" + tag + "-unique-image-payload-" + strconv.Itoa(i*7919))
+		b64 := base64.StdEncoding.EncodeToString(raw)
+		uri := "data:image/png;base64," + b64
+		blocks = append(blocks, `{"role":"user","content":[{"type":"input_image","image_url":"`+uri+`"}]}`)
+		shas = append(shas, hexSHAOf(b64))
+	}
+
+	rows := make([]*PayloadAuditEvent, 0, nTurns)
+	for i := 0; i < nTurns; i++ {
+		// Turn i carries blocks[0..i] — the full cumulative history so far.
+		body := `{"input":[` + strings.Join(blocks[:i+1], ",") + `]}`
+		rows = append(rows, makeDedupRow(i+1, body))
+	}
+
+	tr := AssembleTranscript(context.Background(), rows, resolver)
+
+	// Each unique image emitted exactly once.
+	counts := countAttachmentsBySHA(tr)
+	for i, sha := range shas {
+		if counts[sha] != 1 {
+			t.Errorf("image #%d (sha=%s): expected exactly 1 attachment, got %d", i, sha, counts[sha])
+		}
+	}
+
+	// Total attachments == unique images == nTurns, independent of the (quadratic)
+	// number of image OCCURRENCES across all cumulative bodies.
+	total := 0
+	for _, turn := range tr.Turns {
+		total += len(turn.Attachments)
+	}
+	if total != nTurns {
+		t.Errorf("expected exactly %d unique attachments (one per unique image), got %d", nTurns, total)
+	}
+
+	// Each turn emits exactly its ONE new image as an attachment (prior images were
+	// already emitted on first appearance and are deduped away here).
+	for i, turn := range tr.Turns {
+		if len(turn.Attachments) != 1 {
+			t.Errorf("turn %d: expected exactly 1 new attachment, got %d", i+1, len(turn.Attachments))
+		}
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

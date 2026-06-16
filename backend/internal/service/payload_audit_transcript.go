@@ -136,19 +136,26 @@ func assembleTurn(
 		atts = append(atts, att)
 	}
 
-	// (b) Inline data:image attachments from the resolved input + output bodies.
+	// (b) Inline data:image attachments.
 	// These were previously DROPPED entirely (extractResponsesContentText only
 	// reads block.text). They render via the deduped Attachments section, kept
 	// self-contained as base64 (DataURI = the inline data: URI — no S3 link).
-	inlineInputAtts, inlineInputGaps := extractInlineImages(resolvedInput, seenAttachments, budget)
+	//
+	// INPUT inline images are extracted DURING item parsing (parseUserItems),
+	// tied to the per-item cross-turn dedup: Codex /v1/responses input is
+	// cumulative (turn N re-contains every prior image), and the item dedup
+	// already iterates that cumulative input to find NEW items — so we do the
+	// expensive per-image work ONLY for new items → each unique image once
+	// (linear), instead of re-scanning the whole body every turn (quadratic).
+	//
+	// OUTPUT is NOT cumulative and is small, so the whole-body scan there stays
+	// cheap and correct — keep extractInlineImages for the output path only.
+	userItems, userAtts, userGaps := parseUserItems(row.Endpoint, resolvedInput, seenHashes, seenAttachments, budget)
 	inlineOutputAtts, inlineOutputGaps := extractInlineImages(resolvedOutput, seenAttachments, budget)
-	atts = append(atts, inlineInputAtts...)
+	atts = append(atts, userAtts...)
 	atts = append(atts, inlineOutputAtts...)
-	gaps = append(gaps, inlineInputGaps...)
+	gaps = append(gaps, userGaps...)
 	gaps = append(gaps, inlineOutputGaps...)
-
-	// Parse user items from the resolved input.
-	userItems := parseUserItems(row.Endpoint, resolvedInput, seenHashes)
 
 	// Parse assistant items from the resolved output.
 	assistantItems := parseAssistantItems(row.OutputFormat, resolvedOutput)
@@ -341,6 +348,114 @@ func inlineKey(mime, body string, b64Start, b64End int) string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Per-item inline-image helpers (used by the input parsers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// parseDataImageURI parses a single `data:image/<mime>;base64,<payload>` URI value
+// (the unquoted contents of an input_image block's `image_url`). It returns the
+// MIME ("image/png"), the base64 payload (a SLICE of uri — no copy), and ok=true
+// when uri is a well-formed base64 image data URI. Anything else (https URL,
+// non-image data:, non-base64) returns ok=false and is ignored.
+//
+// O(1)-ish in the prefix length: it validates the fixed "data:" / ";base64," shape
+// and that the MIME matches imageMIMERe; it does NOT scan the (large) payload.
+func parseDataImageURI(uri string) (mime, b64 string, ok bool) {
+	const scheme = "data:"
+	if !strings.HasPrefix(uri, scheme) {
+		return "", "", false
+	}
+	rest := uri[len(scheme):] // "image/png;base64,XXXX"
+	semi := strings.IndexByte(rest, ';')
+	if semi < 0 {
+		return "", "", false
+	}
+	mime = rest[:semi]
+	if !imageMIMERe.MatchString(mime) {
+		return "", "", false
+	}
+	const b64marker = ";base64,"
+	if !strings.HasPrefix(rest[semi:], b64marker) {
+		return "", "", false
+	}
+	b64 = rest[semi+len(b64marker):]
+	if b64 == "" {
+		return "", "", false
+	}
+	return mime, b64, true
+}
+
+// inlineImageFingerprint builds the CHEAP dedup fingerprint for an inline image
+// from its MIME + base64-payload length + first/last 24 chars — the same scheme as
+// inlineKey, but taking the payload as a slice rather than body offsets. O(1) per
+// occurrence (only the two 24-char ends are concatenated; the payload is a slice).
+// This is folded into the per-item dedup key so messages that differ ONLY by image
+// do not wrongly dedup, while staying linear in occurrences.
+func inlineImageFingerprint(mime, b64 string) string {
+	const edge = 24
+	var head, tail string
+	if len(b64) <= 2*edge {
+		head, tail = b64, ""
+	} else {
+		head, tail = b64[:edge], b64[len(b64)-edge:]
+	}
+	return mime + ":" + fmt.Sprint(len(b64)) + ":" + head + ":" + tail
+}
+
+// emitInlineImageAttachment does the EXPENSIVE per-image work for a NEW item's
+// inline image — exactly once per unique image. It dedups against seenAttachments
+// by "inl:"+fingerprint, computes the display-caption sha256 (over the base64
+// payload, matching extractInlineImages), and builds a self-contained Attachment
+// (DataURI = the full data: URI). It respects the shared inlineBudget identically
+// to extractInlineImages: under a bounded budget an oversized image (or one that
+// would overflow the total) gets an empty DataURI + a gap note; unlimited budget
+// (caps<=0) always inlines.
+//
+// Returns (attachment, ok, gap): ok=false means the image was already seen (skip);
+// gap is "" unless a cap note was produced.
+func emitInlineImageAttachment(mime, b64, dataURI, fingerprint string, seenAttachments map[string]bool, budget *inlineBudget) (Attachment, bool, string) {
+	key := "inl:" + fingerprint
+	if seenAttachments[key] {
+		return Attachment{}, false, ""
+	}
+	seenAttachments[key] = true
+
+	decodedLen := base64.StdEncoding.DecodedLen(len(b64)) // upper bound is fine for display
+	sum := sha256.Sum256([]byte(b64))                     // display caption sha (once)
+	shaHex := hex.EncodeToString(sum[:])
+
+	att := Attachment{
+		SHA256: shaHex,
+		MIME:   mime,
+		Bytes:  decodedLen,
+		// No ProxyPath: inline images are self-contained; DataURI set below
+		// (possibly skipped under a bounded budget — see caps).
+	}
+
+	// Per-image size cap (bounded budget only).
+	if budget != nil && budget.perImageMax > 0 && decodedLen > budget.perImageMax {
+		return att, true, fmt.Sprintf(
+			"inline image not inlined (exceeds %d MiB cap): sha=%s bytes=%d",
+			budget.perImageMax>>20, shaHex, decodedLen)
+	}
+
+	// Total budget cap (bounded budget only) — emit the exhaustion note once.
+	if budget != nil && budget.totalMax > 0 && budget.used+decodedLen > budget.totalMax {
+		var gap string
+		if !budget.exhausted {
+			budget.exhausted = true
+			gap = "inline image budget exhausted; remaining images shown as links only"
+		}
+		return att, true, gap
+	}
+
+	att.DataURI = dataURI
+	if budget != nil {
+		budget.used += decodedLen
+	}
+	return att, true, ""
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AssembleTranscript
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -415,18 +530,32 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 // Input parsing
 // ─────────────────────────────────────────────────────────────────────────────
 
-// parseUserItems extracts new input items from a resolved body.
-// For /v1/responses: deduplicates by content-hash (item.id is absent on Codex inputs).
-// For chat/completions: deduplicates by content-hash.
-// Other endpoints: emit a single raw Item.
-func parseUserItems(endpoint, body string, seenHashes map[string]bool) []Item {
+// parseUserItems extracts new input items from a resolved body, AND the inline
+// data:image attachments carried by those NEW items.
+//
+// Codex /v1/responses (and chat) input is cumulative: turn N re-contains every
+// prior message and every prior inline image. Item dedup already iterates that
+// cumulative input to find which items are NEW; we piggy-back inline-image
+// extraction on that single pass so the expensive per-image work (slice the
+// data: URI, sha256 for the display caption) runs ONLY for new items — each
+// unique image once (linear), instead of a separate whole-body base64 re-scan
+// every turn (quadratic in turn count).
+//
+//   - For /v1/responses: dedup by content-hash + a cheap per-image fingerprint
+//     (item.id is absent on Codex inputs).
+//   - For chat/completions: same, over messages[].content[].
+//   - Other endpoints: a single raw Item, no inline-image extraction.
+//
+// Returns (items, attachments, gaps). gaps carries the same inline-budget notes
+// (oversized image / budget exhausted) the input path emitted before.
+func parseUserItems(endpoint, body string, seenHashes, seenAttachments map[string]bool, budget *inlineBudget) ([]Item, []Attachment, []string) {
 	switch {
 	case strings.Contains(endpoint, "/responses"):
-		return parseResponsesInputItems(body, seenHashes)
+		return parseResponsesInputItems(body, seenHashes, seenAttachments, budget)
 	case strings.Contains(endpoint, "/chat/completions"):
-		return parseChatInputItems(body, seenHashes)
+		return parseChatInputItems(body, seenHashes, seenAttachments, budget)
 	default:
-		return parseRawInputItem(body)
+		return parseRawInputItem(body), nil, nil
 	}
 }
 
@@ -436,32 +565,58 @@ func itemHash(it Item) string {
 	return it.Role + "\x00" + it.Type + "\x00" + it.Text + "\x00" + it.ToolName + "\x00" + it.ToolArgs + "\x00" + it.ToolOutput
 }
 
+// inlineImg holds one parsed inline data:image carried by a message, alongside its
+// cheap fingerprint. Kept tiny: mime/b64/dataURI are SLICES of the body (no copies).
+type inlineImg struct {
+	mime        string
+	b64         string
+	dataURI     string
+	fingerprint string
+}
+
 // parseResponsesInputItems parses the OpenAI Responses API request body.
 //
 // It handles three cases for the "input" field:
 //   - absent / unknown structure → raw fallback
 //   - string → single user message
-//   - array → iterate items via responseItemToItem
+//   - array → iterate items via responseItemToItemWithImages
 //
 // It also reads the top-level "instructions" string, which carries the
 // system/developer prompt, and emits it as a system role item.
 //
-// All items are deduplicated across turns via seenHashes (content-hash).
-func parseResponsesInputItems(body string, seenHashes map[string]bool) []Item {
+// All items are deduplicated across turns via seenHashes; the dedup key is the
+// item content-hash FOLDED with each inline image's cheap fingerprint, so two
+// messages with identical text but different images are NOT collapsed. Inline
+// images of NEW items are emitted as deduped self-contained attachments here (see
+// parseUserItems for why this is linear).
+func parseResponsesInputItems(body string, seenHashes, seenAttachments map[string]bool, budget *inlineBudget) ([]Item, []Attachment, []string) {
 	var items []Item
+	var atts []Attachment
+	var gaps []string
 
-	emit := func(it Item) {
-		h := itemHash(it)
-		if seenHashes[h] {
+	// emit applies image-aware cross-turn dedup, then (for NEW items) does the
+	// expensive per-image work exactly once. imgs is nil for non-message items.
+	emit := func(it Item, imgs []inlineImg) {
+		key := itemDedupKey(it, imgs)
+		if seenHashes[key] {
 			return
 		}
-		seenHashes[h] = true
+		seenHashes[key] = true
 		items = append(items, it)
+		for _, im := range imgs {
+			att, ok, gap := emitInlineImageAttachment(im.mime, im.b64, im.dataURI, im.fingerprint, seenAttachments, budget)
+			if ok {
+				atts = append(atts, att)
+			}
+			if gap != "" {
+				gaps = append(gaps, gap)
+			}
+		}
 	}
 
 	// 1. Top-level "instructions" → system prompt.
 	if instructions := strings.TrimSpace(gjson.Get(body, "instructions").String()); instructions != "" {
-		emit(Item{Role: "system", Type: "message", Text: instructions})
+		emit(Item{Role: "system", Type: "message", Text: instructions}, nil)
 	}
 
 	// 2. "input" field.
@@ -470,32 +625,129 @@ func parseResponsesInputItems(body string, seenHashes map[string]bool) []Item {
 	case !input.Exists():
 		// No input field at all; return what we have (may just be instructions).
 		if len(items) == 0 {
-			return parseRawInputItem(body)
+			return parseRawInputItem(body), nil, nil
 		}
 	case input.Type == gjson.String:
 		// Plain string input (e.g. simple "say hi in one word").
 		if s := input.String(); s != "" {
-			emit(Item{Role: "user", Type: "message", Text: s})
+			emit(Item{Role: "user", Type: "message", Text: s}, nil)
 		}
 	case input.IsArray():
 		input.ForEach(func(_, elem gjson.Result) bool {
-			emit(responseItemToItem(elem))
+			it, imgs := responseItemToItemWithImages(elem)
+			emit(it, imgs)
 			return true
 		})
 	default:
 		// Unexpected input shape; raw fallback for that field.
-		emit(Item{Type: "raw", Text: input.Raw})
+		emit(Item{Type: "raw", Text: input.Raw}, nil)
 	}
 
-	return items
+	return items, atts, gaps
 }
 
-// responseItemToItem maps a single JSON object from `input[]` to an Item.
-func responseItemToItem(elem gjson.Result) Item {
+// itemDedupKey is the cross-turn dedup key: the item content-hash folded with each
+// inline image's cheap fingerprint. Text-only items (imgs empty) reduce to exactly
+// itemHash(it), preserving prior behavior bit-for-bit.
+func itemDedupKey(it Item, imgs []inlineImg) string {
+	h := itemHash(it)
+	if len(imgs) == 0 {
+		return h
+	}
+	var b strings.Builder
+	b.WriteString(h)
+	for _, im := range imgs {
+		b.WriteByte(0)
+		b.WriteString(im.fingerprint)
+	}
+	return b.String()
+}
+
+// gatherInlineImages walks a Responses/chat message `content` array and returns one
+// inlineImg per input_image (or image_url) block carrying a base64 data:image URI.
+// The image_url value is read via .Raw (a SLICE of the body, no 470 KB .String()
+// copy); only well-formed base64 image data URIs are kept. Returns nil if content
+// is not an array or carries no inline images (the common text-only case).
+func gatherInlineImages(content gjson.Result) []inlineImg {
+	if !content.IsArray() {
+		return nil
+	}
+	var imgs []inlineImg
+	content.ForEach(func(_, block gjson.Result) bool {
+		uri := rawImageURL(block.Get("image_url"))
+		if uri == "" {
+			return true
+		}
+		mime, b64, ok := parseDataImageURI(uri)
+		if !ok {
+			return true
+		}
+		imgs = append(imgs, inlineImg{
+			mime:        mime,
+			b64:         b64,
+			dataURI:     uri,
+			fingerprint: inlineImageFingerprint(mime, b64),
+		})
+		return true
+	})
+	return imgs
+}
+
+// rawImageURL returns the inline `image_url` value as a SLICE of the body (no copy)
+// when it is a plain JSON string. It handles both shapes seen in the wild:
+//   - responses input_image: "image_url" is the string itself
+//   - chat image_url part:   "image_url" is {"url": "...."}
+// Non-string / absent values return "". gjson's .Raw on a string is the quoted,
+// possibly-escaped JSON literal; base64 data URIs contain none of the JSON escape
+// metacharacters, so stripping the surrounding quotes yields the exact value
+// without unescaping or allocating.
+func rawImageURL(imageURL gjson.Result) string {
+	v := imageURL
+	if v.IsObject() {
+		v = v.Get("url")
+	}
+	if v.Type != gjson.String {
+		return ""
+	}
+	raw := v.Raw // includes surrounding quotes
+	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' {
+		inner := raw[1 : len(raw)-1]
+		// Only safe to use the raw slice when there are no escapes; data: image URIs
+		// never contain '\'. If an escape is present (not an image data URI we care
+		// about), fall back to the decoded string.
+		if !strings.ContainsRune(inner, '\\') {
+			return inner
+		}
+		return v.String()
+	}
+	return v.String()
+}
+
+// responseItemToItemWithImages maps a single JSON object from `input[]` to an Item
+// and, for message items, the inline data:image attachments carried by its content
+// (images stay OUT of Item.Text — they render via the deduped Attachments section).
+// Non-message items return a nil image slice.
+func responseItemToItemWithImages(elem gjson.Result) (Item, []inlineImg) {
 	itemType := elem.Get("type").String()
 	// Codex input messages frequently OMIT "type" — they are identified by a
 	// "role" + "content" (e.g. {"role":"user","content":[{"type":"input_text",…}]}).
 	// Treat type=="message" OR (no type + has role) as a message.
+	if itemType == "message" || (itemType == "" && elem.Get("role").Exists()) {
+		role := elem.Get("role").String()
+		if role == "" {
+			role = "user"
+		}
+		content := elem.Get("content")
+		return Item{Role: role, Type: "message", Text: extractResponsesContentText(content)}, gatherInlineImages(content)
+	}
+	return responseItemToItem(elem), nil
+}
+
+// responseItemToItem maps a single non-message-or-any JSON object from `input[]`
+// to an Item. Kept as a standalone for the non-message item types; message items
+// go through responseItemToItemWithImages (which also extracts inline images).
+func responseItemToItem(elem gjson.Result) Item {
+	itemType := elem.Get("type").String()
 	if itemType == "message" || (itemType == "" && elem.Get("role").Exists()) {
 		role := elem.Get("role").String()
 		if role == "" {
@@ -588,28 +840,44 @@ func extractResponsesContentText(content gjson.Result) string {
 
 // parseChatInputItems parses `messages[]` from a chat/completions body.
 // Chat requests re-send full history each turn; to avoid repeating already-shown
-// messages, we use itemHash (same hash function as the responses path) keyed
-// against the shared seenHashes map.
-func parseChatInputItems(body string, seenHashes map[string]bool) []Item {
+// messages, we dedup on an image-aware key (itemHash folded with each inline
+// image's fingerprint) keyed against the shared seenHashes map. Inline images
+// (messages[].content[] image_url parts carrying base64 data URIs) of NEW
+// messages are emitted as deduped self-contained attachments — chat history is
+// also cumulative, so this keeps inline-image extraction linear (see parseUserItems).
+func parseChatInputItems(body string, seenHashes, seenAttachments map[string]bool, budget *inlineBudget) ([]Item, []Attachment, []string) {
 	messagesArr := gjson.Get(body, "messages")
 	if !messagesArr.Exists() || !messagesArr.IsArray() {
-		return parseRawInputItem(body)
+		return parseRawInputItem(body), nil, nil
 	}
 
 	var items []Item
+	var atts []Attachment
+	var gaps []string
 	messagesArr.ForEach(func(_, msg gjson.Result) bool {
 		role := msg.Get("role").String()
-		content := extractChatContent(msg.Get("content"))
-		it := Item{Role: role, Type: "message", Text: content}
-		h := itemHash(it)
-		if seenHashes[h] {
+		content := msg.Get("content")
+		it := Item{Role: role, Type: "message", Text: extractChatContent(content)}
+		imgs := gatherInlineImages(content)
+
+		key := itemDedupKey(it, imgs)
+		if seenHashes[key] {
 			return true // already shown in a previous turn
 		}
-		seenHashes[h] = true
+		seenHashes[key] = true
 		items = append(items, it)
+		for _, im := range imgs {
+			att, ok, gap := emitInlineImageAttachment(im.mime, im.b64, im.dataURI, im.fingerprint, seenAttachments, budget)
+			if ok {
+				atts = append(atts, att)
+			}
+			if gap != "" {
+				gaps = append(gaps, gap)
+			}
+		}
 		return true
 	})
-	return items
+	return items, atts, gaps
 }
 
 // extractChatContent handles content that is a string or array of blocks.
