@@ -150,3 +150,6 @@ output/
 /config.yaml
 /data/
 /.localdata/
+
+# export-worker binary from `go build ./cmd/export-worker`
+/backend/export-worker
