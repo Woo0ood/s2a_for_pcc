@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -18,6 +20,13 @@ const (
 )
 
 var imageMIMERe = regexp.MustCompile(`^image/[a-zA-Z0-9.+-]+$`)
+
+// inlineImageRe matches an inline `data:image/...;base64,<payload>` URI embedded
+// in a stored body (e.g. the `image_url` of an `input_image` content block).
+// Submatch 1 = MIME ("image/png"), submatch 2 = the base64 payload. We use
+// FindAllStringSubmatchIndex so callers get byte offsets (not 316 KB string
+// copies per match) and only slice out the full data URI for NEW images.
+var inlineImageRe = regexp.MustCompile(`data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/]+={0,2})`)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public models
@@ -86,6 +95,14 @@ type inlineBudget struct {
 
 // assembleTurn converts a single PayloadAuditEvent into a Turn. It also inlines
 // image attachments against the shared budget (when resolver != nil).
+//
+// Cross-turn attachment dedup: Codex /v1/responses bodies are cumulative — every
+// turn re-sends ALL prior history including images. seenAttachments is a
+// conversation-scoped set (created once, shared across turns) that ensures each
+// unique image — whether an offloaded blob pointer or an inline data:image — is
+// emitted as an Attachment exactly ONCE across the whole transcript, instead of
+// once per turn (which produced N copies → giant HTML).
+//
 // Returns the Turn and any gap strings generated for this row.
 func assembleTurn(
 	ctx context.Context,
@@ -93,6 +110,7 @@ func assembleTurn(
 	index int,
 	resolver *BlobResolver,
 	seenHashes map[string]bool,
+	seenAttachments map[string]bool,
 	responseIDSet map[string]bool,
 	budget *inlineBudget,
 ) (Turn, []string) {
@@ -101,7 +119,33 @@ func assembleTurn(
 	resolvedOutput, outputAtts, outputGaps := resolver.ResolveBody(ctx, row.OutputBody)
 
 	gaps := append(inputGaps, outputGaps...)
-	atts := append(inputAtts, outputAtts...)
+
+	// ── Build this turn's attachments as the cross-turn dedup-survivors of: ──
+	//   (a) pointer (offloaded blob) attachments — keyed by their known sha; and
+	//   (b) inline data:image attachments parsed out of the resolved bodies.
+	var atts []Attachment
+
+	// (a) Pointer attachments: dedup by the pointer's sha (FREE — already known).
+	// Each unique offloaded image is kept once across the whole transcript.
+	for _, att := range append(inputAtts, outputAtts...) {
+		key := "ptr:" + att.SHA256
+		if seenAttachments[key] {
+			continue
+		}
+		seenAttachments[key] = true
+		atts = append(atts, att)
+	}
+
+	// (b) Inline data:image attachments from the resolved input + output bodies.
+	// These were previously DROPPED entirely (extractResponsesContentText only
+	// reads block.text). They render via the deduped Attachments section, kept
+	// self-contained as base64 (DataURI = the inline data: URI — no S3 link).
+	inlineInputAtts, inlineInputGaps := extractInlineImages(resolvedInput, seenAttachments, budget)
+	inlineOutputAtts, inlineOutputGaps := extractInlineImages(resolvedOutput, seenAttachments, budget)
+	atts = append(atts, inlineInputAtts...)
+	atts = append(atts, inlineOutputAtts...)
+	gaps = append(gaps, inlineInputGaps...)
+	gaps = append(gaps, inlineOutputGaps...)
 
 	// Parse user items from the resolved input.
 	userItems := parseUserItems(row.Endpoint, resolvedInput, seenHashes)
@@ -128,11 +172,19 @@ func assembleTurn(
 		RawOutputBytes: len(row.OutputBody),
 	}
 
-	// ── Inline pass: fetch and embed image blobs as data URIs ────────────────
-	// Only runs when a resolver is configured.
+	// ── Inline pass: fetch and embed POINTER image blobs as data URIs ────────
+	// Only runs when a resolver is configured. Inline data:image attachments
+	// from extractInlineImages already carry a DataURI (self-contained base64),
+	// so they are skipped here — only pointer attachments (DataURI still empty)
+	// are downloaded from the blob store.
 	if resolver != nil {
 		for ai := range turn.Attachments {
 			att := &turn.Attachments[ai]
+
+			// Already inlined (inline data:image attachment) — leave it.
+			if att.DataURI != "" {
+				continue
+			}
 
 			// Only inline images; non-image attachments stay as proxy links.
 			if !imageMIMERe.MatchString(att.MIME) {
@@ -175,6 +227,120 @@ func assembleTurn(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// extractInlineImages — ingest inline data:image URIs, dedup cross-turn
+// ─────────────────────────────────────────────────────────────────────────────
+
+// extractInlineImages scans body for inline `data:image/...;base64,<payload>`
+// URIs (the `image_url` of Codex `input_image` content blocks, which the message
+// text extractor drops) and returns one self-contained Attachment per UNIQUE
+// image. Uniqueness is tracked in the shared, conversation-scoped `seen` map so
+// the same image is emitted once across all (cumulative) turns.
+//
+// Efficiency — this MUST stay linear in the cumulative body size even though
+// turn N re-contains every prior image:
+//   - We match with FindAllStringSubmatchIndex, so each match yields byte OFFSETS,
+//     not a copy of the (potentially 316 KB) base64 payload.
+//   - The dedup-check key is CHEAP — computed from the match's metadata only:
+//     "inl:" + mime + ":" + len(b64) + ":" + b64[:24] + ":" + b64[len-24:].
+//     We do NOT decode or sha256 the whole payload just to decide if it's new.
+//   - Full work (slicing the data: URI string, sha256 for the display caption)
+//     happens ONCE per unique image — i.e. only when the cheap key is unseen.
+// For a 1300-turn conversation that re-sends the same image every turn, this is
+// O(total bytes scanned) with O(1) heavy work per unique image, not O(N²).
+func extractInlineImages(body string, seen map[string]bool, budget *inlineBudget) ([]Attachment, []string) {
+	if body == "" || !strings.Contains(body, "data:image/") {
+		return nil, nil
+	}
+
+	matches := inlineImageRe.FindAllStringSubmatchIndex(body, -1)
+	if len(matches) == 0 {
+		return nil, nil
+	}
+
+	var atts []Attachment
+	var gaps []string
+
+	for _, m := range matches {
+		// m layout: [fullStart,fullEnd, mimeStart,mimeEnd, b64Start,b64End].
+		fullStart, fullEnd := m[0], m[1]
+		mime := body[m[2]:m[3]]
+		b64Start, b64End := m[4], m[5]
+		b64Len := b64End - b64Start
+
+		// Cheap fingerprint computed from offsets only — no full-payload copy/hash.
+		key := inlineKey(mime, body, b64Start, b64End)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		// NEW image → do the heavy work exactly once.
+		dataURI := body[fullStart:fullEnd]                          // full "data:...;base64,...."
+		b64 := body[b64Start:b64End]                                // base64 payload (slice, no copy)
+		decodedLen := base64.StdEncoding.DecodedLen(b64Len)         // upper bound is fine for display
+		sum := sha256.Sum256([]byte(b64))                           // display caption sha (once)
+		shaHex := hex.EncodeToString(sum[:])
+
+		att := Attachment{
+			SHA256: shaHex,
+			MIME:   mime,
+			Bytes:  decodedLen,
+			// No ProxyPath: inline images are self-contained; DataURI set below
+			// (possibly skipped under a bounded budget — see caps).
+		}
+
+		// Per-image size cap (bounded budget only). Mirrors the oversized-pointer
+		// path: leave DataURI empty + a gap note so the in-process fallback stays
+		// bounded. Under unlimited budget (perImageMax<=0) we always keep it.
+		if budget != nil && budget.perImageMax > 0 && decodedLen > budget.perImageMax {
+			gaps = append(gaps,
+				fmt.Sprintf("inline image not inlined (exceeds %d MiB cap): sha=%s bytes=%d",
+					budget.perImageMax>>20, shaHex, decodedLen))
+			atts = append(atts, att)
+			continue
+		}
+
+		// Total budget cap (bounded budget only) — emit the exhaustion note once.
+		if budget != nil && budget.totalMax > 0 && budget.used+decodedLen > budget.totalMax {
+			if !budget.exhausted {
+				budget.exhausted = true
+				gaps = append(gaps,
+					"inline image budget exhausted; remaining images shown as links only")
+			}
+			atts = append(atts, att)
+			continue
+		}
+
+		att.DataURI = dataURI
+		if budget != nil {
+			budget.used += decodedLen
+		}
+		atts = append(atts, att)
+	}
+
+	return atts, gaps
+}
+
+// inlineKey builds a CHEAP dedup fingerprint for an inline data:image occurrence
+// without decoding/hashing the whole base64 payload. It combines the MIME, the
+// payload length, and the first/last 24 base64 chars — enough to distinguish
+// distinct images while staying O(1) per occurrence (the body slice is shared,
+// not copied; only the two 24-char ends are concatenated into the key).
+func inlineKey(mime, body string, b64Start, b64End int) string {
+	b64Len := b64End - b64Start
+	const edge = 24
+	var head, tail string
+	if b64Len <= 2*edge {
+		head = body[b64Start:b64End]
+		tail = ""
+	} else {
+		head = body[b64Start : b64Start+edge]
+		tail = body[b64End-edge : b64End]
+	}
+	return "inl:" + mime + ":" + fmt.Sprint(b64Len) + ":" + head + ":" + tail
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AssembleTranscript
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -201,6 +367,10 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 	// dedup is the only reliable approach for both paths.
 	seenHashes := make(map[string]bool)
 
+	// seenAttachments dedups image attachments (pointer + inline data:image)
+	// across turns — see assembleTurn. Created once, shared across all turns.
+	seenAttachments := make(map[string]bool)
+
 	budget := &inlineBudget{
 		perImageMax: maxInlineImageBytes,
 		totalMax:    maxTotalInlineBytes,
@@ -211,7 +381,7 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 	outputTruncated := false
 
 	for idx, row := range rows {
-		turn, gaps := assembleTurn(ctx, row, idx+1, resolver, seenHashes, responseIDSet, budget)
+		turn, gaps := assembleTurn(ctx, row, idx+1, resolver, seenHashes, seenAttachments, responseIDSet, budget)
 		turns = append(turns, turn)
 		allGaps = append(allGaps, gaps...)
 		if row.OutputTruncated {

@@ -121,6 +121,7 @@ func (s *TranscriptStreamer) Finish() error {
 type StreamingAssembler struct {
 	resolver *BlobResolver
 	seen     map[string]bool // seenHashes for input-item dedup
+	seenAtts map[string]bool // seenAttachments for cross-turn image dedup
 	respIDs  map[string]bool // responseIDSet for chain-gap detection
 	budget   *inlineBudget
 	idx      int // 1-based turn index
@@ -149,6 +150,7 @@ func NewStreamingAssembler(resolver *BlobResolver, responseIDs map[string]bool, 
 	return &StreamingAssembler{
 		resolver: resolver,
 		seen:     make(map[string]bool),
+		seenAtts: make(map[string]bool),
 		respIDs:  responseIDs,
 		budget:   budget,
 	}
@@ -158,5 +160,5 @@ func NewStreamingAssembler(resolver *BlobResolver, responseIDs map[string]bool, 
 // internal turn index. Calls assembleTurn with the shared dedup/budget state.
 func (a *StreamingAssembler) Next(ctx context.Context, row *PayloadAuditEvent) (Turn, []string) {
 	a.idx++
-	return assembleTurn(ctx, row, a.idx, a.resolver, a.seen, a.respIDs, a.budget)
+	return assembleTurn(ctx, row, a.idx, a.resolver, a.seen, a.seenAtts, a.respIDs, a.budget)
 }
