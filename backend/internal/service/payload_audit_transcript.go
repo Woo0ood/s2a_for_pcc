@@ -68,6 +68,113 @@ type Transcript struct {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// inlineBudget — shared cross-turn image-inline accounting
+// ─────────────────────────────────────────────────────────────────────────────
+
+// inlineBudget tracks how many bytes of inline images have been embedded across
+// turns. perImageMax<=0 or totalMax<=0 means unlimited.
+type inlineBudget struct {
+	perImageMax int // max bytes per single image; <=0 = unlimited
+	totalMax    int // max bytes total across all images; <=0 = unlimited
+	used        int // bytes consumed so far
+	exhausted   bool
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// assembleTurn — per-row conversion (shared by in-memory and streaming paths)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// assembleTurn converts a single PayloadAuditEvent into a Turn. It also inlines
+// image attachments against the shared budget (when resolver != nil).
+// Returns the Turn and any gap strings generated for this row.
+func assembleTurn(
+	ctx context.Context,
+	row *PayloadAuditEvent,
+	index int,
+	resolver *BlobResolver,
+	seenHashes map[string]bool,
+	responseIDSet map[string]bool,
+	budget *inlineBudget,
+) (Turn, []string) {
+	// Resolve pointers in bodies.
+	resolvedInput, inputAtts, inputGaps := resolver.ResolveBody(ctx, row.InputBody)
+	resolvedOutput, outputAtts, outputGaps := resolver.ResolveBody(ctx, row.OutputBody)
+
+	gaps := append(inputGaps, outputGaps...)
+	atts := append(inputAtts, outputAtts...)
+
+	// Parse user items from the resolved input.
+	userItems := parseUserItems(row.Endpoint, resolvedInput, seenHashes)
+
+	// Parse assistant items from the resolved output.
+	assistantItems := parseAssistantItems(row.OutputFormat, resolvedOutput)
+
+	// Check gap conditions.
+	if row.PreviousResponseID != "" && !responseIDSet[row.PreviousResponseID] {
+		gaps = append(gaps, fmt.Sprintf(
+			"此前历史不在留存范围 (previous_response_id=%s)", row.PreviousResponseID,
+		))
+	}
+
+	turn := Turn{
+		Index:          index,
+		CreatedAt:      row.CreatedAt,
+		Model:          row.Model,
+		StatusCode:     row.StatusCode,
+		UserItems:      userItems,
+		Assistant:      assistantItems,
+		Attachments:    atts,
+		RawInputBytes:  len(row.InputBody),
+		RawOutputBytes: len(row.OutputBody),
+	}
+
+	// ── Inline pass: fetch and embed image blobs as data URIs ────────────────
+	// Only runs when a resolver is configured.
+	if resolver != nil {
+		for ai := range turn.Attachments {
+			att := &turn.Attachments[ai]
+
+			// Only inline images; non-image attachments stay as proxy links.
+			if !imageMIMERe.MatchString(att.MIME) {
+				continue
+			}
+
+			// Per-image size cap (if set).
+			if budget.perImageMax > 0 && att.Bytes > budget.perImageMax {
+				gaps = append(gaps,
+					fmt.Sprintf("image not inlined (exceeds %d MiB cap): sha=%s bytes=%d",
+						budget.perImageMax>>20, att.SHA256, att.Bytes))
+				continue
+			}
+
+			// Total budget cap (if set) — emit the exhaustion note once.
+			if budget.totalMax > 0 && budget.used+att.Bytes > budget.totalMax {
+				if !budget.exhausted {
+					budget.exhausted = true
+					gaps = append(gaps,
+						"inline image budget exhausted; remaining images shown as links only")
+				}
+				continue
+			}
+
+			// Fetch blob. FetchBlob's returned MIME is always "application/octet-stream";
+			// we use att.MIME (from the pointer) which was already validated by imageMIMERe.
+			data, _, err := resolver.FetchBlob(ctx, att.SHA256)
+			if err != nil {
+				gaps = append(gaps,
+					fmt.Sprintf("blob inline fetch failed (sha=%s): %v", att.SHA256, err))
+				continue
+			}
+
+			att.DataURI = "data:" + att.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)
+			budget.used += len(data)
+		}
+	}
+
+	return turn, gaps
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AssembleTranscript
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -94,48 +201,22 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 	// dedup is the only reliable approach for both paths.
 	seenHashes := make(map[string]bool)
 
+	budget := &inlineBudget{
+		perImageMax: maxInlineImageBytes,
+		totalMax:    maxTotalInlineBytes,
+	}
+
 	var turns []Turn
 	var allGaps []string
 	outputTruncated := false
 
 	for idx, row := range rows {
-		// Resolve pointers in bodies.
-		resolvedInput, inputAtts, inputGaps := resolver.ResolveBody(ctx, row.InputBody)
-		resolvedOutput, outputAtts, outputGaps := resolver.ResolveBody(ctx, row.OutputBody)
-
-		gaps := append(inputGaps, outputGaps...)
-
-		atts := append(inputAtts, outputAtts...)
-
-		// Parse user items from the resolved input.
-		userItems := parseUserItems(row.Endpoint, resolvedInput, seenHashes)
-
-		// Parse assistant items from the resolved output.
-		assistantItems := parseAssistantItems(row.OutputFormat, resolvedOutput)
-
-		// Check gap conditions.
-		if row.PreviousResponseID != "" && !responseIDSet[row.PreviousResponseID] {
-			gaps = append(gaps, fmt.Sprintf(
-				"此前历史不在留存范围 (previous_response_id=%s)", row.PreviousResponseID,
-			))
-		}
+		turn, gaps := assembleTurn(ctx, row, idx+1, resolver, seenHashes, responseIDSet, budget)
+		turns = append(turns, turn)
+		allGaps = append(allGaps, gaps...)
 		if row.OutputTruncated {
 			outputTruncated = true
 		}
-
-		turns = append(turns, Turn{
-			Index:          idx + 1,
-			CreatedAt:      row.CreatedAt,
-			Model:          row.Model,
-			StatusCode:     row.StatusCode,
-			UserItems:      userItems,
-			Assistant:      assistantItems,
-			Attachments:    atts,
-			RawInputBytes:  len(row.InputBody),
-			RawOutputBytes: len(row.OutputBody),
-		})
-
-		allGaps = append(allGaps, gaps...)
 	}
 
 	if outputTruncated {
@@ -148,7 +229,7 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 	first := rows[0]
 	last := rows[len(rows)-1]
 
-	transcript := Transcript{
+	return Transcript{
 		Turns: turns,
 		Manifest: Manifest{
 			ConversationKey: first.ConversationKey,
@@ -158,56 +239,6 @@ func AssembleTranscript(ctx context.Context, rows []*PayloadAuditEvent, resolver
 			Gaps:            allGaps,
 		},
 	}
-
-	// ── Inline pass: fetch and embed image blobs as data URIs ────────────────
-	// Only runs when a resolver is configured. ResolveBody is NOT changed; this
-	// pass operates on the already-populated Attachments in each Turn.
-	if resolver != nil {
-		totalInlined := 0
-		budgetExhausted := false
-		for ti := range transcript.Turns {
-			for ai := range transcript.Turns[ti].Attachments {
-				att := &transcript.Turns[ti].Attachments[ai]
-
-				// Only inline images; non-image attachments stay as proxy links.
-				if !imageMIMERe.MatchString(att.MIME) {
-					continue
-				}
-
-				// Per-image size cap.
-				if att.Bytes > maxInlineImageBytes {
-					transcript.Manifest.Gaps = append(transcript.Manifest.Gaps,
-						fmt.Sprintf("image not inlined (exceeds %d MiB cap): sha=%s bytes=%d",
-							maxInlineImageBytes>>20, att.SHA256, att.Bytes))
-					continue
-				}
-
-				// Total budget cap — emit the exhaustion note once.
-				if totalInlined+att.Bytes > maxTotalInlineBytes {
-					if !budgetExhausted {
-						budgetExhausted = true
-						transcript.Manifest.Gaps = append(transcript.Manifest.Gaps,
-							"inline image budget exhausted; remaining images shown as links only")
-					}
-					continue
-				}
-
-				// Fetch blob. FetchBlob's returned MIME is always "application/octet-stream";
-				// we use att.MIME (from the pointer) which was already validated by imageMIMERe.
-				data, _, err := resolver.FetchBlob(ctx, att.SHA256)
-				if err != nil {
-					transcript.Manifest.Gaps = append(transcript.Manifest.Gaps,
-						fmt.Sprintf("blob inline fetch failed (sha=%s): %v", att.SHA256, err))
-					continue
-				}
-
-				att.DataURI = "data:" + att.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)
-				totalInlined += len(data)
-			}
-		}
-	}
-
-	return transcript
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -714,4 +745,3 @@ func dedupStrings(ss []string) []string {
 	}
 	return out
 }
-

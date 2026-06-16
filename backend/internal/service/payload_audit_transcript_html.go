@@ -3,44 +3,17 @@ package service
 import (
 	"bytes"
 	"html/template"
+	"io"
 	"time"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RenderTranscriptHTML
+// Shared template fragments (used by both in-memory and streaming renderers)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// RenderTranscriptHTML renders a Transcript as a self-contained HTML page.
-// All user-supplied content is auto-escaped by html/template; no raw injection possible.
-// The output has no external JS, no external CSS, no presigned URLs.
-func RenderTranscriptHTML(t Transcript) ([]byte, error) {
-	tmpl, err := template.New("transcript").Funcs(template.FuncMap{
-		"formatTime": func(ts time.Time) string {
-			if ts.IsZero() {
-				return "—"
-			}
-			return ts.UTC().Format("2006-01-02 15:04:05 UTC")
-		},
-		// safeURL marks a data: URI as trusted so html/template does not rewrite it
-		// to #ZgotmplZ. Only used for validated image data URIs we generated ourselves.
-		"safeURL": func(s string) template.URL { return template.URL(s) },
-	}).Parse(transcriptHTMLTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, t); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HTML template (self-contained)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const transcriptHTMLTemplate = `<!DOCTYPE html>
+// transcriptHeadHTML is the fixed opening of every transcript HTML document.
+// It contains <!DOCTYPE html> … through the <h1> header (including all <style>).
+const transcriptHeadHTML = `<!DOCTYPE html>
 <html lang="zh-Hans">
 <head>
 <meta charset="UTF-8">
@@ -172,43 +145,46 @@ details[open] summary { border-radius: 4px 4px 0 0; }
 <body>
 
 <h1>📋 Payload Audit — Conversation Transcript</h1>
+`
 
-{{/* ── Manifest Card ── */}}
-<section class="manifest">
+// transcriptManifestTemplateStr is the manifest <section> block.
+// It executes against a Manifest value directly.
+const transcriptManifestTemplateStr = `<section class="manifest">
   <h2>📊 完整性 Manifest</h2>
   <dl class="manifest-meta">
     <div>
       <dt>Conversation Key</dt>
-      <dd>{{if .Manifest.ConversationKey}}{{.Manifest.ConversationKey}}{{else}}<em>（单轮副本）</em>{{end}}</dd>
+      <dd>{{if .ConversationKey}}{{.ConversationKey}}{{else}}<em>（单轮副本）</em>{{end}}</dd>
     </div>
     <div>
       <dt>Turn Count</dt>
-      <dd>{{.Manifest.TurnCount}}</dd>
+      <dd>{{.TurnCount}}</dd>
     </div>
     <div>
       <dt>Time From</dt>
-      <dd>{{formatTime .Manifest.TimeFrom}}</dd>
+      <dd>{{formatTime .TimeFrom}}</dd>
     </div>
     <div>
       <dt>Time To</dt>
-      <dd>{{formatTime .Manifest.TimeTo}}</dd>
+      <dd>{{formatTime .TimeTo}}</dd>
     </div>
   </dl>
-  {{if .Manifest.Gaps}}
+  {{if .Gaps}}
   <div class="gaps-list">
     <h3>⚠ 缺口声明 (Completeness Gaps)</h3>
     <ul>
-      {{range .Manifest.Gaps}}<li>{{.}}</li>{{end}}
+      {{range .Gaps}}<li>{{.}}</li>{{end}}
     </ul>
   </div>
   {{else}}
   <p style="color:#2e7d32;font-size:13px;">✅ 无已知缺口</p>
   {{end}}
 </section>
+`
 
-{{/* ── Turns ── */}}
-{{range .Turns}}
-<article class="turn">
+// transcriptTurnTemplateStr is the single <article> block for one Turn.
+// It executes against a Turn value directly.
+const transcriptTurnTemplateStr = `<article class="turn">
   <header class="turn-header">
     <strong>Turn {{.Index}}</strong>
     <span>{{formatTime .CreatedAt}}</span>
@@ -327,9 +303,78 @@ details[open] summary { border-radius: 4px 4px 0 0; }
     <span>Output: {{.RawOutputBytes}} bytes</span>
   </footer>
 </article>
-{{else}}
-<p style="color:#999;font-style:italic;">No turns in this conversation.</p>
-{{end}}
+`
 
-</body>
-</html>`
+// transcriptFooterHTML closes the HTML document.
+const transcriptFooterHTML = `</body></html>`
+
+// ─────────────────────────────────────────────────────────────────────────────
+// funcMap shared by all renderers
+// ─────────────────────────────────────────────────────────────────────────────
+
+func transcriptFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"formatTime": func(ts time.Time) string {
+			if ts.IsZero() {
+				return "—"
+			}
+			return ts.UTC().Format("2006-01-02 15:04:05 UTC")
+		},
+		// safeURL marks a data: URI as trusted so html/template does not rewrite it
+		// to #ZgotmplZ. Only used for validated image data URIs we generated ourselves.
+		"safeURL": func(s string) template.URL { return template.URL(s) },
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RenderTranscriptHTML
+// ─────────────────────────────────────────────────────────────────────────────
+
+// RenderTranscriptHTML renders a Transcript as a self-contained HTML page.
+// All user-supplied content is auto-escaped by html/template; no raw injection possible.
+// The output has no external JS, no external CSS, no presigned URLs.
+func RenderTranscriptHTML(t Transcript) ([]byte, error) {
+	funcMap := transcriptFuncMap()
+
+	manifestTmpl, err := template.New("manifest").Funcs(funcMap).Parse(transcriptManifestTemplateStr)
+	if err != nil {
+		return nil, err
+	}
+	turnTmpl, err := template.New("turn").Funcs(funcMap).Parse(transcriptTurnTemplateStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+
+	// Head (static string).
+	if _, err := io.WriteString(&buf, transcriptHeadHTML); err != nil {
+		return nil, err
+	}
+
+	// Manifest card at top.
+	if err := manifestTmpl.Execute(&buf, t.Manifest); err != nil {
+		return nil, err
+	}
+
+	// Turn articles.
+	if len(t.Turns) > 0 {
+		for _, turn := range t.Turns {
+			if err := turnTmpl.Execute(&buf, turn); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		// Preserve the {{else}} empty-case from the original template.
+		if _, err := io.WriteString(&buf, "\n<p style=\"color:#999;font-style:italic;\">No turns in this conversation.</p>\n"); err != nil {
+			return nil, err
+		}
+	}
+
+	// Footer (static string).
+	if _, err := io.WriteString(&buf, "\n"+transcriptFooterHTML); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
