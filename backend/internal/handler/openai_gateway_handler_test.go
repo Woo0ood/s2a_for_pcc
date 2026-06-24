@@ -480,6 +480,46 @@ func TestOpenAIModelMappedBodyCache(t *testing.T) {
 	require.Same(t, &first[0], &second[0])
 }
 
+// Regression guard for the user-rate-limit 模型降级 break: applyUserRateLimitFallback
+// rewrites `body` to the platform fallback model, but forwardBody used to be
+// snapshotted from the ORIGINAL body before that rewrite (commit 2c45f91d3
+// "precompute-model-body-replacement"), so the un-downgraded model leaked upstream.
+// When fallback engaged, the rewritten body MUST be forwarded verbatim and channel
+// model-mapping MUST NOT be re-applied.
+func TestOpenAIForwardBody_FallbackEngagedForwardsRewrittenBodyVerbatim(t *testing.T) {
+	rewritten := []byte(`{"model":"gpt-5.4-mini","input":"hello"}`)
+	calls := 0
+	got := openAIForwardBody(rewritten, true, true, "gpt-5.5", func(body []byte, newModel string) []byte {
+		calls++
+		return service.ReplaceModelInBody(body, newModel)
+	})
+
+	require.Equal(t, 0, calls, "channel mapping must be bypassed when fallback engaged")
+	require.Equal(t, "gpt-5.4-mini", gjson.GetBytes(got, "model").String())
+}
+
+func TestOpenAIForwardBody_NoFallbackAppliesChannelMapping(t *testing.T) {
+	body := []byte(`{"model":"alias","input":"hello"}`)
+	calls := 0
+	got := openAIForwardBody(body, false, true, "gpt-5.4", func(body []byte, newModel string) []byte {
+		calls++
+		return service.ReplaceModelInBody(body, newModel)
+	})
+
+	require.Equal(t, 1, calls)
+	require.Equal(t, "gpt-5.4", gjson.GetBytes(got, "model").String())
+}
+
+func TestOpenAIForwardBody_NoFallbackNoMappingReturnsBody(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.5","input":"hello"}`)
+	got := openAIForwardBody(body, false, false, "ignored", func(body []byte, newModel string) []byte {
+		return service.ReplaceModelInBody(body, newModel)
+	})
+
+	require.Equal(t, "gpt-5.5", gjson.GetBytes(got, "model").String())
+	require.Equal(t, body, got)
+}
+
 func TestOpenAIResponses_MissingDependencies_ReturnsServiceUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

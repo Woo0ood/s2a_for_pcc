@@ -75,6 +75,24 @@ func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFu
 	}
 }
 
+// openAIForwardBody resolves the exact request body to send upstream for the
+// OpenAI Responses / Messages paths, accounting for the user-level rate-limit
+// fallback (模型降级).
+//
+// When fallbackEngaged is true, applyUserRateLimitFallback has ALREADY rewritten
+// `body`'s model field to the platform fallback model (and disabled channel
+// mapping). That rewritten body must be forwarded verbatim — re-applying channel
+// mapping here, or forwarding a body snapshotted before the rewrite, would
+// silently send the original (un-downgraded) model upstream. This must therefore
+// be computed AFTER applyUserRateLimitFallback. Otherwise, apply the channel-level
+// model mapping as usual.
+func openAIForwardBody(body []byte, fallbackEngaged, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
+	if fallbackEngaged {
+		return body
+	}
+	return openAIModelMappedBody(body, mapped, mappedModel, replace)
+}
+
 func usageRecordContext(parent context.Context, base context.Context) context.Context {
 	if base == nil {
 		base = context.Background()
@@ -319,7 +337,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
-	forwardBody := openAIModelMappedBody(body, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)
 
 	// 提前校验 function_call_output 是否具备可关联上下文，避免上游 400。
 	if !h.validateFunctionCallOutputRequest(c, body, reqLog) {
@@ -348,23 +365,23 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	// 2. Re-check billing eligibility after wait
 	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey))
+	var fallbackEngaged bool
 	{
 		platform := ""
 		if apiKey.Group != nil {
 			platform = apiKey.Group.Platform
 		}
-		var fallbackEngaged bool
 		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
 		if fallbackEngaged {
 			channelMapping.BillingModelSource = service.BillingModelSourceRequested
 			channelMapping.Mapped = false
 			channelMapping.MappedModel = reqModel
-			// No cache invalidation needed: since v0.1.136, service.Forward's
-			// getOpenAIRequestBodyMap always re-parses the passed body bytes and
-			// ignores any legacy gin-context cache, so the rewritten fallback body
-			// is picked up automatically.
 		}
 	}
+	// Build the upstream body AFTER applyUserRateLimitFallback may have rewritten
+	// `body`, so a 模型降级 actually reaches the upstream. Precomputing it earlier
+	// (commit 2c45f91d3) silently dropped the downgrade — see openAIForwardBody.
+	forwardBody := openAIForwardBody(body, fallbackEngaged, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)
 	if billingErr != nil {
 		reqLog.Info("openai.billing_eligibility_check_failed", zap.Error(billingErr))
 		status, code, message, retryAfter := billingErrorDetails(billingErr)
@@ -803,7 +820,6 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 
 	// 解析渠道级模型映射
 	channelMappingMsg, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
-	mappedBodyForMessages := newOpenAIModelMappedBodyCache(body, h.gatewayService.ReplaceModelInBody)
 
 	// 绑定错误透传服务，允许 service 层在非 failover 错误场景复用规则。
 	if h.errorPassthroughService != nil {
@@ -824,21 +840,17 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	}
 
 	billingErr := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey))
+	var fallbackEngaged bool
 	{
 		platform := ""
 		if apiKey.Group != nil {
 			platform = apiKey.Group.Platform
 		}
-		var fallbackEngaged bool
 		body, fallbackEngaged, billingErr = applyUserRateLimitFallback(c.Request.Context(), body, reqModel, apiKey.UserID, platform, billingErr, h.settingService)
 		if fallbackEngaged {
 			channelMappingMsg.BillingModelSource = service.BillingModelSourceRequested
 			channelMappingMsg.Mapped = false
 			channelMappingMsg.MappedModel = reqModel
-			// No cache invalidation needed: since v0.1.136, service.Forward's
-			// getOpenAIRequestBodyMap always re-parses the passed body bytes and
-			// ignores any legacy gin-context cache, so the rewritten fallback body
-			// is picked up automatically.
 		}
 	}
 	if billingErr != nil {
@@ -922,8 +934,9 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		forwardStart := time.Now()
 
 		defaultMappedModel := strings.TrimSpace(effectiveMappedModel)
-		// 应用渠道模型映射到请求体
-		forwardBody := mappedBodyForMessages(channelMappingMsg.Mapped, channelMappingMsg.MappedModel)
+		// 应用渠道模型映射到请求体（须在 applyUserRateLimitFallback 之后取 body，
+		// 否则模型降级改写会被丢弃 —— 见 openAIForwardBody）。
+		forwardBody := openAIForwardBody(body, fallbackEngaged, channelMappingMsg.Mapped, channelMappingMsg.MappedModel, h.gatewayService.ReplaceModelInBody)
 		writerSizeBeforeForward := c.Writer.Size()
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer func() {
