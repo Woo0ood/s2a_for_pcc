@@ -214,7 +214,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
 			Endpoint:   c.Request.URL.Path,
 			Provider:   "gemini",
-			ClientIP:   c.ClientIP(),
 			UserID:     int64PtrIfPositive(apiKey.UserID),
 			UserEmail:  userEmail,
 			APIKeyID:   int64PtrIfPositive(apiKey.ID),

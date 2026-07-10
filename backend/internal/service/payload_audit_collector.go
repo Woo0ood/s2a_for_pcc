@@ -82,6 +82,13 @@ type PayloadAuditCollector struct {
 	prevRespID string
 	respID     string
 
+	// Captured outside meta so a later SetMetadata cannot clobber them:
+	// clientIP/requestID are stamped at handler entry; upstreamModel is
+	// extracted from the response as it streams in.
+	clientIP      string
+	requestID     string
+	upstreamModel string
+
 	outputBuf     strings.Builder
 	outputBytes   int // total bytes appended (including truncated portion)
 	outputTrunc   bool
@@ -118,6 +125,18 @@ func (c *PayloadAuditCollector) SetMetadata(m PayloadAuditMetadata) {
 
 // Metadata returns the stored metadata.
 func (c *PayloadAuditCollector) Metadata() PayloadAuditMetadata { return c.meta }
+
+// SetRequestContext records request-scoped identity captured at handler entry:
+// the client IP (resolved via the forwarded-header chain, not the direct proxy
+// peer) and the server-generated request id. Stored outside meta so the later
+// per-handler SetMetadata call cannot wipe them.
+func (c *PayloadAuditCollector) SetRequestContext(clientIP, requestID string) {
+	if !c.enabled {
+		return
+	}
+	c.clientIP = clientIP
+	c.requestID = requestID
+}
 
 // SetInput copies and optionally truncates the request body. When offload is
 // enabled, inline base64 blobs (and an oversized remainder) are replaced with
@@ -290,6 +309,11 @@ func (c *PayloadAuditCollector) AppendRawEvent(b []byte) {
 			c.respID = id
 		}
 	}
+	if c.upstreamModel == "" {
+		if m := ExtractUpstreamModel(c.meta.Endpoint, b); m != "" {
+			c.upstreamModel = m
+		}
+	}
 	cap := c.snap.OutputMaxBytes
 	if cap <= 0 {
 		c.rawOutput.Write(b)
@@ -347,19 +371,34 @@ func (c *PayloadAuditCollector) buildEvent(statusCode int, dur time.Duration, er
 		}
 	}
 
+	// Prefer the request-context / response-extracted values; fall back to
+	// whatever a handler may have placed on meta (keeps meta a valid source too).
+	clientIP := c.clientIP
+	if clientIP == "" {
+		clientIP = c.meta.ClientIP
+	}
+	requestID := c.requestID
+	if requestID == "" {
+		requestID = c.meta.RequestID
+	}
+	upstreamModel := c.upstreamModel
+	if upstreamModel == "" {
+		upstreamModel = c.meta.UpstreamModel
+	}
+
 	return &PayloadAuditEvent{
-		RequestID:       c.meta.RequestID,
+		RequestID:       requestID,
 		UserID:          c.meta.UserID,
 		UserEmail:       c.meta.UserEmail,
 		APIKeyID:        c.meta.APIKeyID,
 		APIKeyName:      c.meta.APIKeyName,
 		GroupID:         c.meta.GroupID,
 		GroupName:       c.meta.GroupName,
-		ClientIP:        c.meta.ClientIP,
+		ClientIP:        clientIP,
 		Endpoint:        c.meta.Endpoint,
 		Provider:        c.meta.Provider,
 		Model:           c.meta.Model,
-		UpstreamModel:   c.meta.UpstreamModel,
+		UpstreamModel:   upstreamModel,
 		Stream:          c.meta.Stream,
 		StatusCode:      statusCode,
 		DurationMs:      int(dur / time.Millisecond),

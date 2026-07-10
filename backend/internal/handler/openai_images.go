@@ -114,7 +114,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
 			Endpoint:  parsed.Endpoint,
 			Provider:  "openai",
-			ClientIP:  c.ClientIP(),
 			UserID:    int64PtrIfPositive(apiKey.UserID),
 			UserEmail: userEmail,
 			APIKeyID:  int64PtrIfPositive(apiKey.ID),
