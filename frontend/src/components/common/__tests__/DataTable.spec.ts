@@ -43,7 +43,9 @@ describe('DataTable', () => {
           { id: 2, name: 'Alpha', created_at: '2026-01-01T00:00:00Z' }
         ],
         defaultSortKey: 'name',
-        defaultSortOrder: 'asc'
+        defaultSortOrder: 'asc',
+        // fork: disable the column drag handle so svg counts below only see sort arrows
+        reorderable: false
       }
     })
 
