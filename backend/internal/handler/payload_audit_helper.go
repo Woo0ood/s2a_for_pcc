@@ -3,8 +3,11 @@ package handler
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -29,10 +32,16 @@ func AttachPayloadAuditCollector(c *gin.Context, svc *service.PayloadAuditServic
 		return coll
 	}
 
+	// Client IP must come from the forwarded-header chain (CF-Connecting-IP /
+	// X-Real-IP / X-Forwarded-For): behind the reverse proxy the direct peer is
+	// the docker bridge gateway, which is useless for auditing. Request id is the
+	// server-generated correlation id set by the RequestLogger middleware. Both
+	// are stamped outside meta so the per-handler SetMetadata cannot clobber them.
+	coll.SetRequestContext(ip.GetClientIP(c), payloadAuditRequestID(c))
+
 	meta := service.PayloadAuditMetadata{
 		Endpoint: endpoint,
 		Provider: provider,
-		ClientIP: c.ClientIP(),
 	}
 	// AuthSubject only carries UserID; other identity fields (APIKeyID,
 	// APIKeyName, UserEmail, GroupID, GroupName) are set by the caller
@@ -124,6 +133,18 @@ func settleOffload(coll *service.PayloadAuditCollector, up *service.PayloadAudit
 	} else {
 		coll.RevertOffload(coll.OriginalForRevert())
 	}
+}
+
+// payloadAuditRequestID reads the server-generated request id that the
+// RequestLogger middleware stores in the request context. Empty if absent.
+func payloadAuditRequestID(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	if id, ok := c.Request.Context().Value(ctxkey.RequestID).(string); ok {
+		return strings.TrimSpace(id)
+	}
+	return ""
 }
 
 // int64PtrIfPositive returns a pointer to v if v > 0, otherwise nil.

@@ -291,7 +291,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
 			Endpoint:   "/v1/responses",
 			Provider:   "openai",
-			ClientIP:   c.ClientIP(),
 			UserID:     int64PtrIfPositive(apiKey.UserID),
 			UserEmail:  userEmail,
 			APIKeyID:   int64PtrIfPositive(apiKey.ID),
@@ -826,7 +825,6 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
 			Endpoint:   "/v1/messages",
 			Provider:   "openai",
-			ClientIP:   c.ClientIP(),
 			UserID:     int64PtrIfPositive(apiKey.UserID),
 			UserEmail:  userEmail,
 			APIKeyID:   int64PtrIfPositive(apiKey.ID),

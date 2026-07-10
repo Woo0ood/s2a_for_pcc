@@ -107,7 +107,6 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
 			Endpoint:   "/v1/chat/completions",
 			Provider:   "openai",
-			ClientIP:   c.ClientIP(),
 			UserID:     int64PtrIfPositive(apiKey.UserID),
 			UserEmail:  userEmail,
 			APIKeyID:   int64PtrIfPositive(apiKey.ID),

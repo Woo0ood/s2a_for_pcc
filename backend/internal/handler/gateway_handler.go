@@ -199,7 +199,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		auditCol.SetMetadata(service.PayloadAuditMetadata{
 			Endpoint:   "/v1/messages",
 			Provider:   "anthropic",
-			ClientIP:   c.ClientIP(),
 			UserID:     int64PtrIfPositive(apiKey.UserID),
 			UserEmail:  userEmail,
 			APIKeyID:   int64PtrIfPositive(apiKey.ID),
