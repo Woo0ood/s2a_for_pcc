@@ -59,6 +59,7 @@ type Handlers struct {
 	Payment          *PaymentHandler
 	PaymentWebhook   *PaymentWebhookHandler
 	AvailableChannel *AvailableChannelHandler
+	BatchImage       *BatchImageHandler
 	AuditExport         *AuditExportHandler
 	AuditConversation   *AuditConversationHandler
 }
