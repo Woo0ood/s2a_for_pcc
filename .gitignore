@@ -119,6 +119,8 @@ backend/.installed
 # 其他
 # ===================
 tests
+!deploy/tests/
+!deploy/tests/**
 CLAUDE.md
 .claude
 scripts
@@ -139,6 +141,7 @@ docs/*
 !docs/PAYLOAD_AUDIT.md
 !docs/specs/
 !docs/plans/
+!docs/ASYNC_IMAGE_TASKS.md
 !docs/legal/
 !docs/legal/*.md
 .serena/
