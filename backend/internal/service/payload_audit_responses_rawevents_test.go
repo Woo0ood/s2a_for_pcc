@@ -6,6 +6,7 @@ package service
 // structured SSE/JSON payload rather than just flattened text.
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -157,7 +158,7 @@ func TestHandleResponsesStreamingResponse_TeesConvertedSSEEvents(t *testing.T) {
 	}
 
 	svc := &GatewayService{}
-	result, err := svc.handleResponsesStreamingResponse(resp, c, "claude-sonnet-4.5", "claude-sonnet-4.5", nil, time.Now())
+	result, err := svc.handleResponsesStreamingResponse(resp, c, "claude-sonnet-4.5", "claude-sonnet-4.5", nil, time.Now(), apicompat.ResponsesClientToolMapping{})
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -211,7 +212,7 @@ func TestHandleResponsesBufferedStreamingResponse_TeesRawJSONBody(t *testing.T) 
 	}
 
 	svc := &GatewayService{}
-	result, err := svc.handleResponsesBufferedStreamingResponse(resp, c, "claude-sonnet-4.5", "claude-sonnet-4.5", nil, time.Now())
+	result, err := svc.handleResponsesBufferedStreamingResponse(resp, c, "claude-sonnet-4.5", "claude-sonnet-4.5", nil, time.Now(), apicompat.ResponsesClientToolMapping{})
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
