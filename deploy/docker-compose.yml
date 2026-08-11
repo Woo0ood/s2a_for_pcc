@@ -19,6 +19,8 @@ services:
     image: ghcr.io/woo0ood/s2a_for_pcc:latest
     container_name: sub2api
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ulimits:
       nofile:
         soft: 100000

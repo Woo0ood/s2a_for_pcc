@@ -158,3 +158,6 @@ output/
 
 # export-worker binary from `go build ./cmd/export-worker`
 /backend/export-worker
+
+# Vitest / Vite cache at repo root
+.vite/
