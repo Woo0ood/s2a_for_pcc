@@ -443,6 +443,9 @@ func (stubObjStore) Delete(_ context.Context, _ string) error                   
 func (stubObjStore) PresignURL(_ context.Context, _ string, _ time.Duration) (string, error) {
 	return "", nil
 }
+func (stubObjStore) UploadFile(_ context.Context, _ string, _ string, _ string) (int64, error) {
+	return 0, nil
+}
 func (stubObjStore) HeadBucket(_ context.Context) error { return nil }
 
 func TestPayloadAuditService_RebuildUploader(t *testing.T) {
