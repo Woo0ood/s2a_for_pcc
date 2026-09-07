@@ -108,7 +108,7 @@ func TestHandleNonStreamingResponsePassthrough_TeesRawJSONBody(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(respJSON)),
 	}
 
-	_, err := svc.handleNonStreamingResponsePassthrough(c.Request.Context(), resp, c, "", "")
+	_, err := svc.handleNonStreamingResponsePassthrough(c.Request.Context(), resp, c, &Account{ID: 1}, "", "")
 	require.NoError(t, err)
 
 	evt := coll.Finalize(200, 0, "")

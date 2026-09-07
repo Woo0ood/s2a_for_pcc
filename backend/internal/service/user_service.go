@@ -116,6 +116,8 @@ type UserUpdateFields struct {
 	BalanceNotifyExtraEmails bool
 	// AllowedGroups 为 true 时才同步 user_allowed_groups 关联表。
 	AllowedGroups bool
+	// RestrictPublicGroups 覆盖 restrict_public_groups 列。
+	RestrictPublicGroups bool
 	// Fork: RateLimits 覆盖 rate_limit_5h / rate_limit_7d（管理员编辑限额）。
 	RateLimits bool
 	// Fork: RateLimitUsage 覆盖 usage_5h / usage_7d / window_5h_start / window_7d_start
