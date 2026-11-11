@@ -63,6 +63,9 @@ type User struct {
 	// nil = 该 API Key 对应的 (user, group) 无 override；非 nil 时 checkRPM 直接使用，
 	// 避免每请求查 DB。字段不持久化到数据库。
 	UserGroupRPMOverride *int
+	// UserGroupRPMOverrideGroupID 是 snapshot 已成功查询 override 的分组 ID（0 = 未知）。
+	// 等于当前分组且 UserGroupRPMOverride 为 nil 时表示确认无 override，checkRPM 不再查 DB。
+	UserGroupRPMOverrideGroupID int64
 
 	// 用户级 5h/7d USD 限额（跨所有 API Key 聚合；0 = 不限制）。
 	// 与 APIKey 自身的 rate_limit_5h/7d 取最严格并行检查。
